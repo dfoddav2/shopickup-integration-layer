@@ -1,0 +1,25 @@
+{
+  "name": "shopickup-dev-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "ts-node-esm src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@shopickup/core": "workspace:packages/core",
+    "@shopickup/adapters-foxpost": "workspace:packages/adapters/foxpost",
+    "axios": "^1.6.0",
+    "better-sqlite3": "^8.4.0",
+    "fastify": "^4.22.0",
+    "drizzle-orm": "^1.2.0",
+    "drizzle-orm-better-sqlite3": "^0.1.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "ts-node-esm": "^2.1.0",
+    "typescript": "^5.3.3"
+  }
+}
