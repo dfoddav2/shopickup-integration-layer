@@ -1,0 +1,49 @@
+{
+  "name": "@shopickup/adapters-foxpost",
+  "version": "1.0.0",
+  "description": "Foxpost shipping carrier adapter for Shopickup",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./types": {
+      "import": "./dist/types/index.js",
+      "types": "./dist/types/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "dev": "tsc --watch",
+    "codegen": "openapi-typescript ../../carrier-docs/hu-foxpost/hu-foxpost.openapi.yaml --output ./src/types/generated.ts"
+  },
+  "peerDependencies": {
+    "@shopickup/core": "^1.0.0"
+  },
+  "devDependencies": {
+    "@shopickup/core": "workspace:*",
+    "@stoplight/prism-http": "^5.0.0",
+    "@types/jest": "^29.5.8",
+    "axios": "^1.6.0",
+    "jest": "^29.7.0",
+    "openapi-typescript": "^6.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "keywords": [
+    "shipping",
+    "carrier",
+    "foxpost",
+    "adapter",
+    "logistics",
+    "hungary"
+  ],
+  "author": "Shopickup Contributors",
+  "license": "MIT"
+}

@@ -1,0 +1,1475 @@
+openapi: 3.0.1
+info:
+  title: "FoxWeb API"
+  description: "FoxWeb API reference for developers"
+  contact:
+    name: "Helpdesk"
+    email: "b2chelpdesk@foxpost.hu"
+  version: "1.2.14"
+  x-shopickup-metadata:
+    carrier_id: "hu-foxpost"
+    provider_name: "FoxPost Hungary"
+    display_name: "Foxpost"
+    maintained_by: ""
+    capabilities:
+      - CREATE_PARCEL
+      - TRACK
+      - CREATE_LABEL
+    requires:
+      createLabel: []
+    notes: |
+      Foxpost is a major Hungarian postal and logistics carrier.
+      - Parcels are created directly (no separate shipment concept)
+      - Labels are generated per parcel
+      - Tracking available via barcode
+servers:
+  - url: https://webapi-test.foxpost.hu
+    description: Generated server url (sandbox)
+  - url: https://webapi.foxpost.hu
+    description: Production server (added by Shopickup)
+security:
+  - basicAuth: []
+tags:
+  - name: Parcels
+    description: Operations with parcels
+  - name: Tracks
+    description: Get tracks for parcel
+  - name: External Returns
+    description: Create Return parcels for parcels that originally not delivered by FoxPost
+  - name: Upload files
+    description: Upload csv or excel files to create parcels
+  - name: Returns
+    description: Create Return parcels
+  - name: Labels
+    description: Get label infos and generate labels
+  - name: Addresses
+    description: Handle return addresses
+
+paths:
+  /api/parcel:
+    post:
+      tags:
+        - Parcels
+      summary: Create parcels in our system
+      operationId: createParcel
+      x-shopickup-capability: CREATE_PARCEL
+      x-shopickup-mapping:
+        description: "Maps canonical Parcel + Shipment to Foxpost CreateParcelRequest"
+        canonical_input: "Shipment + Parcel"
+        canonical_output: "CarrierResource with carrierId=barcode"
+        notes: |
+          - Foxpost parcels are created directly (no shipment container)
+          - recipientName, recipientPhone, recipientEmail are required
+          - size defaults to 's' if not specified
+          - For HD (home delivery): recipientCity, recipientZip, recipientAddress required
+      parameters:
+        - name: isWeb
+          in: query
+          description: Whether the package should appear on the web interface of foxpost.hu
+          required: false
+          schema:
+            type: boolean
+            default: true
+        - name: isRedirect
+          in: query
+          description: Redirect the parcel to APM or not. Default false
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateParcelRequest'
+        required: true
+      responses:
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '201':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateResponse'
+        '401':
+          description: UnAuthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/xre/unique:
+    post:
+      tags:
+        - External Returns
+      summary: Create return parcels with unique barcodes
+      operationId: setParcels
+      parameters:
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/XREParcel'
+        required: true
+      responses:
+        '201':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateResponse'
+        '401':
+          description: UnAuthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/tracking/tracks:
+    post:
+      tags:
+        - Tracks
+      summary: Get statuses for parcels
+      operationId: getBatchTracks
+      parameters:
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+        required: true
+      responses:
+        '401':
+          description: UnAuthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Statuses'
+  /api/re/exts:
+    post:
+      tags:
+        - Returns
+      summary: Create return parcels
+      operationId: createReParcelExts
+      parameters:
+        - name: returnType
+          in: query
+          description: "Type of the return. Possible values: RE, IRE"
+          required: false
+          schema:
+            type: string
+            default: "RE"
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateReParcelReq'
+        required: true
+      responses:
+        '400':
+          description: Bad request
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '200':
+          description: Successful operation
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/CreateReParcelRes'
+        '401':
+          description: UnAuthorized
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '201':
+          description: Created
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CreateReParcelRes'
+  /api/re/ext:
+    post:
+      tags:
+        - Returns
+      summary: Create return parcel
+      operationId: createReParcelExt
+      parameters:
+        - name: returnType
+          in: query
+          description: "Type of the return. Possible values: RE, IRE"
+          required: false
+          schema:
+            type: string
+            default: "RE"
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReParcelReq'
+        required: true
+      responses:
+        '400':
+          description: Bad request
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '200':
+          description: Successful operation
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/CreateResponse'
+        '401':
+          description: UnAuthorized
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '201':
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/CreateResponse'
+  /api/parcel/ext:
+    post:
+      tags:
+        - Parcels
+      summary: Create parcels in our without registration. Used by marketplace clients.
+      operationId: setParcelExt
+      parameters:
+        - name: isRedirect
+          in: query
+          description: Redirect the parcel to APM or not. Default false
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateParcelRequestExt'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateResponse'
+  /api/parcel/c2b:
+    post:
+      tags:
+        - Parcels
+      summary: Create C2B parcels in our system
+      operationId: setParcelC2B
+      parameters:
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateC2BParcelReq'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateResponse'
+  /api/label/{pageSize}:
+    post:
+      tags:
+        - Labels
+      summary: Get labels in pdf
+      operationId: generateLabel
+      x-shopickup-capability: CREATE_LABEL
+      x-shopickup-mapping:
+        description: "Maps Foxpost label IDs to PDF labels"
+        canonical_input: "List of parcel carrier IDs"
+        canonical_output: "CarrierResource with labelUrl (PDF data)"
+        notes: |
+          - Accepts list of label IDs (which are parcel barcodes)
+          - Returns binary PDF data
+          - pageSize can be A5, A6, A7, or 85x85mm
+      parameters:
+        - name: pageSize
+          in: path
+          description: Page size of the labels
+          required: true
+          schema:
+            type: string
+            enum:
+              - A5
+              - A6
+              - A7
+              - _85X85
+        - name: startPos
+          in: query
+          description: Position of the first label on A7 size
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 0
+        - name: isPortrait
+          in: query
+          description: Pdf pages are generated in portrait mode
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              description: Ids of the new labels
+              items:
+                type: string
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad request
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: UnAuthorized
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/label/deliveryNote:
+    post:
+      tags:
+        - Labels
+      summary: Get delivery note in pdf
+      operationId: generateBillOfDeliveryPdf
+      parameters:
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BillOfDeliveryData'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: UnAuthorized
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/file:
+    post:
+      tags:
+        - Upload files
+      summary: Create parcels in our system
+      operationId: saveFile
+      parameters:
+        - name: isWeb
+          in: query
+          description: Whether the package should appear on the web interface of foxpost.hu
+          required: false
+          schema:
+            type: boolean
+            default: true
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              required:
+                - file
+              type: object
+              properties:
+                file:
+                  type: string
+                  description: Excel or csv file
+                  format: binary
+      responses:
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateResponse'
+        '401':
+          description: UnAuthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/address:
+    get:
+      tags:
+        - Addresses
+      summary: List all address
+      operationId: getAddresses
+      parameters:
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      responses:
+        '401':
+          description: UnAuthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressDTO'
+    post:
+      tags:
+        - Addresses
+      summary: Create new address
+      operationId: saveAddress
+      parameters:
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressDTO'
+        required: true
+      responses:
+        '201':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressDTO'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: UnAuthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/tracking/{barcode}:
+    get:
+      tags:
+        - Tracks
+      summary: Get status and state for parcel
+      operationId: getTrackings
+      parameters:
+        - name: barcode
+          in: path
+          description: Barcode of the parcel
+          required: true
+          schema:
+            type: string
+          example: CLFOX00000000000
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tracking'
+        '401':
+          description: UnAuthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/tracking/tracks/{barcode}:
+    get:
+      tags:
+        - Tracks
+      summary: Get all status for a parcel
+      operationId: getTrackingHistory
+      x-shopickup-capability: TRACK
+      x-shopickup-mapping:
+        description: "Maps Foxpost tracking to canonical TrackingUpdate"
+        canonical_input: "Tracking number (barcode)"
+        canonical_output: "TrackingUpdate with normalized TrackingEvents"
+        notes: |
+          - barcode is the Foxpost parcel barcode (e.g., CLFOX00000000000)
+          - Returns array of TrackDTO objects (status history)
+          - Must map Foxpost status codes to canonical TrackingStatus enums
+      parameters:
+        - name: barcode
+          in: path
+          description: Barcode of the parcel
+          required: true
+          schema:
+            type: string
+          example: CLFOX00000000000
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrackDTO'
+        '401':
+          description: UnAuthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/label/info/{barcode}:
+    get:
+      tags:
+        - Labels
+      summary: Get label date to create unique label
+      operationId: getLabelInfo
+      parameters:
+        - name: barcode
+          in: path
+          description: Barcode of the parcel
+          required: true
+          schema:
+            type: string
+          example: CLFOX00000000000
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      responses:
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabelInfo'
+        '401':
+          description: UnAuthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/parcel/{barcode}:
+    delete:
+      tags:
+        - Parcels
+      summary: Delete parcels from our system
+      operationId: removeParcel
+      parameters:
+        - name: barcode
+          in: path
+          description: Barcode of the parcel
+          required: true
+          schema:
+            type: string
+          example: CLFOX0000000001
+        - name: isWeb
+          in: query
+          description: Whether the package should delete on the web interface of foxpost.hu
+          required: false
+          schema:
+            type: boolean
+            default: true
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: UnAuthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '204':
+          description: No Content
+  /api/address/{name}:
+    delete:
+      tags:
+        - Addresses
+      summary: Delete address by address name
+      operationId: deleteByAddressName
+      parameters:
+        - name: name
+          in: path
+          description: Name of the address that you want to remove
+          required: true
+          schema:
+            type: string
+        - name: api-key
+          in: header
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Successful operation
+        '401':
+          description: UnAuthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+components:
+  schemas:
+    UpdateParcelRequest:
+      required:
+        - recipientEmail
+        - recipientName
+        - recipientPhone
+      type: object
+      properties:
+        recipientName:
+          maxLength: 150
+          minLength: 0
+          type: string
+          description: Name of recipient
+          example: "Teszt János"
+        recipientPhone:
+          type: string
+          description: Phone of recipient
+          example: "+36301234567"
+        recipientEmail:
+          type: string
+          description: Email of recipient
+          example: "test@test.hu"
+        size:
+          type: string
+          description: Size of the parcel
+          example: "xs"
+          enum: [xs, s, m, l, xl]
+        recipientCountry:
+          maxLength: 3
+          minLength: 0
+          type: string
+          description: If empty or null HU is the default
+          example: "HU"
+        recipientCity:
+          maxLength: 25
+          minLength: 0
+          type: string
+          description: City of the recipient. Only required if the parcel is HD
+          example: "Budapest"
+        recipientZip:
+          type: string
+          description: Zip of the recipient. Only required if the parcel is HD
+          example: "1097"
+        recipientAddress:
+          maxLength: 150
+          minLength: 0
+          type: string
+          description: Address of the recipient. Only required if the parcel is HD
+          example: "Róbert Károly krt. 12-14"
+        cod:
+          maximum: 1000000
+          minimum: 0
+          type: integer
+          format: int64
+          description: Cash on delivery of the parcel.
+          example: 5000
+        deliveryNote:
+          maxLength: 50
+          minLength: 0
+          type: string
+          description: Delivery note for the HD courier.
+          example: "Left the parcel next to the door."
+        comment:
+          maxLength: 50
+          minLength: 0
+          type: string
+          description: Comment for the parcel.
+          example: "Contains socks"
+        label:
+          type: boolean
+          description: Foxpost will print the label. Only affected on C2C HD parcels.
+          example: true
+        fragile:
+          type: boolean
+          description: The parcel is fragile. Only affected on HD parcels.
+          example: true
+        uniqueBarcode:
+          maxLength: 20
+          minLength: 0
+          type: string
+          description: Unique barcode for the parcel.
+          example: "20210503/1320"
+        refCode:
+          maxLength: 30
+          minLength: 0
+          type: string
+          description: Refcode of the parcel
+          example: "REF000001"
+        barcode:
+          type: string
+          description: Barcode of the parcel
+          example: "CLFOX1234567891234"
+        destination:
+          type: string
+          description: Id or operator id of the APM. Only required if the parcel goes to APM
+          example: "hu35"
+    ApiError:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        error:
+          type: string
+          example: WRONG_USERNAME_OR_PASSWORD
+        status:
+          type: integer
+          format: int32
+          example: 401
+    CreateResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: Any parcel has error or not. If has no parcel created
+          example: false
+        parcels:
+          type: array
+          description: List of parcels
+          items:
+            $ref: '#/components/schemas/Package'
+    Package:
+      type: object
+      description: List of parcels
+    FieldError:
+      type: object
+      properties:
+        field:
+          type: string
+          description: Which field has validation error.
+          example: destination
+        message:
+          type: string
+          description: Validation error
+          example: INVALID_APM_ID
+    XREParcel:
+      type: object
+      properties:
+        size:
+          type: string
+          description: Size of the parcel. If not set the default value is S
+          example: L
+        refCode:
+          maxLength: 30
+          minLength: 0
+          type: string
+          description: Refcode of the return parcel
+          example: REF000001
+        uniqueBarcode:
+          maxLength: 30
+          minLength: 0
+          type: string
+          description: Unique barcode for the return parcel.
+          example: 20210503/1320
+        senderName:
+          maxLength: 150
+          minLength: 0
+          type: string
+          description: Name of the client who sent back the parcel.
+          example: Nagy Lajos
+        senderPhone:
+          maxLength: 20
+          minLength: 0
+          type: string
+          description: Phone of the client who sent back the parcel.
+          example: +36300000000
+        senderEmail:
+          maxLength: 150
+          minLength: 0
+          type: string
+          description: Email of the client who sent back the parcel.
+          example: test@test.hu
+        senderZip:
+          maxLength: 10
+          minLength: 0
+          type: string
+          description: Zip of the client who sent back the parcel.
+          example: 1000
+        senderCity:
+          type: string
+          description: City of the client who sent back the parcel.
+          example: Budapest
+        senderAddress:
+          type: string
+          description: Address of the client who sent back the parcel.
+          example: Test utca 1.
+        returnAddressName:
+          maxLength: 20
+          minLength: 0
+          type: string
+          description: Name of the return address where the parcel go back.
+          example: address1
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+    Statuses:
+      type: object
+      properties:
+        barcode:
+          type: string
+          description: Barcode of the parcel
+          example: CLFOX00000000001
+        createdAt:
+          type: string
+          description: Created date of the parcel
+          format: date-time
+        statuses:
+          type: array
+          description: Statuses
+          items:
+            $ref: '#/components/schemas/TrackDTO'
+    TrackDTO:
+      type: object
+      properties:
+        trackId:
+          type: integer
+          description: Status id
+          format: int32
+          example: 4
+        status:
+          type: string
+          description: Status with text
+          example: RECEIVE
+        statusDate:
+          type: string
+          description: Date of the status
+          format: date-time
+          example: 2021-07-22T09:33:28.182Z
+    CreateReParcelReq:
+      required:
+        - barcode
+      type: object
+      properties:
+        barcode:
+          type: string
+          description: Original barcode of the the parcel you wish to return
+          example: 20210503/1320
+        uniqueBarcode:
+          maxLength: 20
+          minLength: 0
+          type: string
+          description: Unique barcode for the parcel.
+          example: 20210503/1320
+        refCode:
+          maxLength: 30
+          minLength: 0
+          type: string
+          description: Refcode of the parcel
+          example: REF000001
+    CreateReParcelRes:
+      required:
+        - barcode
+      type: object
+      properties:
+        barcode:
+          type: string
+          description: Original barcode of the the parcel you wish to return
+          example: 20210503/1320
+        uniqueBarcode:
+          maxLength: 20
+          minLength: 0
+          type: string
+          description: Unique barcode for the parcel.
+          example: 20210503/1320
+        refCode:
+          maxLength: 30
+          minLength: 0
+          type: string
+          description: Refcode of the parcel
+          example: REF000001
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+        newBarcode:
+          type: string
+        created:
+          type: boolean
+    CreateParcelRequest:
+      required:
+        - recipientEmail
+        - recipientName
+        - recipientPhone
+      type: object
+      properties:
+        recipientName:
+          maxLength: 150
+          minLength: 0
+          type: string
+          description: Name of recipient
+          example: "Teszt János"
+        recipientPhone:
+          type: string
+          description: Phone of recipient
+          example: "+36301234567"
+        recipientEmail:
+          type: string
+          description: Email of recipient
+          example: "test@test.hu"
+        size:
+          type: string
+          description: Size of the parcel
+          example: "xs"
+          enum: [xs, s, m, l, xl]
+        recipientCountry:
+          maxLength: 3
+          minLength: 0
+          type: string
+          description: If empty or null HU is the default
+          example: "HU"
+        recipientCity:
+          maxLength: 25
+          minLength: 0
+          type: string
+          description: City of the recipient. Only required if the parcel is HD
+          example: "Budapest"
+        recipientZip:
+          type: string
+          description: Zip of the recipient. Only required if the parcel is HD
+          example: "1097"
+        recipientAddress:
+          maxLength: 150
+          minLength: 0
+          type: string
+          description: Address of the recipient. Only required if the parcel is HD
+          example: "Róbert Károly krt. 12-14"
+        cod:
+          maximum: 1000000
+          minimum: 0
+          type: integer
+          format: int64
+          description: Cash on delivery of the parcel.
+          example: 5000
+        deliveryNote:
+          maxLength: 50
+          minLength: 0
+          type: string
+          description: Delivery note for the HD courier.
+          example: "Left the parcel next to the door."
+        comment:
+          maxLength: 50
+          minLength: 0
+          type: string
+          description: Comment for the parcel.
+          example: "Contains socks"
+        label:
+          type: boolean
+          description: Foxpost will print the label. Only affected on C2C HD parcels.
+          example: true
+        fragile:
+          type: boolean
+          description: The parcel is fragile. Only affected on HD parcels.
+          example: true
+        uniqueBarcode:
+          maxLength: 20
+          minLength: 0
+          type: string
+          description: Unique barcode for the parcel.
+          example: "20210503/1320"
+        refCode:
+          maxLength: 30
+          minLength: 0
+          type: string
+          description: Refcode of the parcel
+          example: "REF000001"
+        destination:
+          type: string
+          description: Id or operator id of the APM. Only required if the parcel goes to APM
+          example: "hu35"
+    CreateParcelRequestExt:
+      required:
+        - recipientEmail
+        - recipientName
+        - recipientPhone
+      type: object
+      properties:
+        recipientName:
+          maxLength: 150
+          minLength: 0
+          type: string
+          description: Name of recipient
+          example: "Teszt János"
+        recipientPhone:
+          type: string
+          description: Phone of recipient
+          example: "+36301234567"
+        recipientEmail:
+          type: string
+          description: Email of recipient
+          example: "test@test.hu"
+        size:
+          type: string
+          description: Size of the parcel
+          example: "xs"
+          enum: [xs, s, m, l, xl]
+        recipientCountry:
+          maxLength: 3
+          minLength: 0
+          type: string
+          description: If empty or null HU is the default
+          example: "HU"
+        recipientCity:
+          maxLength: 25
+          minLength: 0
+          type: string
+          description: City of the recipient. Only required if the parcel is HD
+          example: "Budapest"
+        recipientZip:
+          type: string
+          description: Zip of the recipient. Only required if the parcel is HD
+          example: "1097"
+        recipientAddress:
+          maxLength: 150
+          minLength: 0
+          type: string
+          description: Address of the recipient. Only required if the parcel is HD
+          example: "Róbert Károly krt. 12-14"
+        cod:
+          maximum: 1000000
+          minimum: 0
+          type: integer
+          format: int64
+          description: Cash on delivery of the parcel.
+          example: 5000
+        deliveryNote:
+          maxLength: 50
+          minLength: 0
+          type: string
+          description: Delivery note for the HD courier.
+          example: "Left the parcel next to the door."
+        comment:
+          maxLength: 50
+          minLength: 0
+          type: string
+          description: Comment for the parcel.
+          example: "Contains socks"
+        label:
+          type: boolean
+          description: Foxpost will print the label. Only affected on C2C HD parcels.
+          example: true
+        fragile:
+          type: boolean
+          description: The parcel is fragile. Only affected on HD parcels.
+          example: true
+        uniqueBarcode:
+          maxLength: 20
+          minLength: 0
+          type: string
+          description: Unique barcode for the parcel.
+          example: "20210503/1320"
+        refCode:
+          maxLength: 30
+          minLength: 0
+          type: string
+          description: Refcode of the parcel
+          example: "REF000001"
+        sender:
+          $ref: '#/components/schemas/Sender'
+        destination:
+          type: string
+          description: Id or operator id of the APM. Only required if the parcel goes to APM
+          example: "hu35"
+    Sender:
+      required:
+        - email
+        - name
+        - phone
+      type: object
+      properties:
+        name:
+          maxLength: 150
+          minLength: 0
+          type: string
+          description: Name of the sender.
+          example: "Teszt Valaki"
+        email:
+          maxLength: 150
+          minLength: 0
+          type: string
+          description: Email of the sender.
+          example: "teszt@foxpost.hu"
+        phone:
+          type: string
+          description: Phone of the sender
+          example: "+36301234567"
+        zip:
+          type: string
+          description: Zip of the sender. Only need on HD parcel
+          example: "1000"
+        city:
+          maxLength: 50
+          minLength: 0
+          type: string
+          description: City of the sender. Only need on HD parcel.
+          example: "Budapest"
+        address:
+          maxLength: 100
+          minLength: 0
+          type: string
+          description: Address of the sender. Only need on HD parcel.
+          example: "Teszt utca 1."
+        bankNumber:
+          type: string
+          description: Bank account of the sender. Only need on parcel with C.O.D.
+          example: "00000000-00000000-00000000"
+    CreateC2BParcelReq:
+      type: object
+      properties:
+        sender:
+          $ref: '#/components/schemas/Sender'
+        uniqueBarcode:
+          maxLength: 20
+          minLength: 0
+          type: string
+          description: Unique barcode for the parcel.
+          example: "20210503/1320"
+        refCode:
+          maxLength: 30
+          minLength: 0
+          type: string
+          description: Refcode of the parcel
+          example: "REF000001"
+    BillOfDeliveryData:
+      type: object
+      properties:
+        sender:
+          type: string
+        clFoxCodes:
+          type: array
+          items:
+            type: string
+    AddressDTO:
+      type: object
+      properties:
+        name:
+          maxLength: 20
+          minLength: 0
+          type: string
+          description: Name of the address.
+          example: Address1
+        zip:
+          maxLength: 10
+          minLength: 4
+          type: string
+          description: Zip of the address.
+          example: "1032"
+        city:
+          maxLength: 30
+          minLength: 0
+          type: string
+          description: City of the address.
+          example: "Budapest"
+        address:
+          maxLength: 100
+          minLength: 0
+          type: string
+          description: Street, house number etc. of the address.
+          example: "Róbert Károly krt. 12-14."
+        country:
+          maxLength: 3
+          minLength: 0
+          type: string
+          description: Country of the address.
+          example: HU
+        type:
+          type: string
+          description: Type of the address.
+          example: RETURN
+          enum:
+            - HQ
+            - SITE
+            - INVOICING
+            - MAILING
+            - RETURN
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+    Trace:
+      type: object
+      properties:
+        statusDate:
+          type: string
+          format: date-time
+          example: 2021-07-29T06:54:31.472Z
+        statusStationId:
+          type: string
+          format: byte
+          example: MA==
+        shortName:
+          type: string
+          example: Csomagod elkészült
+        longName:
+          type: string
+          example: Csomagod létrejött a rendszerünkben.
+        status:
+          type: string
+          example: CREATE
+          enum:
+            - CREATE
+            - OPERIN
+            - OPEROUT
+            - RECEIVE
+            - RETURN
+            - REDIRECT
+            - OVERTIMEOUT
+            - SORTIN
+            - SORTOUT
+            - SLOTCHANGE
+            - OVERTIMED
+            - MPSIN
+            - C2CIN
+            - HDSENT
+            - HDDEPO
+            - HDINTRANSIT
+            - HDRETURN
+            - HDRECEIVE
+            - WBXREDIRECT
+            - BACKTOSENDER
+            - HDHUBIN
+            - HDHUBOUT
+            - HDCOURIER
+            - HDUNDELIVERABLE
+            - PREPAREDFORPD
+            - INWAREHOUSE
+            - COLLECTSENT
+            - C2BIN
+            - RETURNED
+            - COLLECTED
+            - BACKLOGINFULL
+            - BACKLOGINFAIL
+            - MISSORT
+            - EMPTYSLOT
+            - RESENT
+            - PREREDIRECT
+    Tracking:
+      type: object
+      properties:
+        clFox:
+          type: string
+          example: CLFOX0000000000
+        parcelType:
+          type: string
+          example: NORMAL
+          enum:
+            - NORMAL
+            - RE
+            - XRE
+            - IRE
+            - C2B
+        sendType:
+          type: string
+          example: APM
+          enum:
+            - APM
+            - HD
+            - COLLECT
+        traces:
+          type: array
+          items:
+            $ref: '#/components/schemas/Trace'
+        relatedParcel:
+          type: string
+          example: CLFOX0000000001
+        estimatedDelivery:
+          type: string
+          format: date
+          example: 2021-07-29
+    LabelInfo:
+      type: object
+      properties:
+        senderName:
+          type: string
+          example: Teszt János
+        senderZip:
+          type: string
+          example: "1034"
+        senderCity:
+          type: string
+          example: Budapest
+        senderAddress:
+          type: string
+          example: Robert Károy+ly krt. 12-14.
+        recipientName:
+          type: string
+          example: Teszt Aladár
+        recipientEmail:
+          type: string
+          example: teszt.aladar@teszt.hu
+        recipientPhone:
+          type: string
+          example: +36300000000
+        recipientZip:
+          type: string
+          example: "1034"
+        recipientCity:
+          type: string
+          example: Budapest
+        recipientAddress:
+          type: string
+          example: Robert Károy+ly krt. 12-14.
+        apm:
+          type: string
+          example: "35"
+        cod:
+          type: integer
+          format: int32
+          example: 5000
+        isFragile:
+          type: boolean
+          example: true
+        barcode:
+          type: string
+          example: CLFOX0000000000
+        refCode:
+          type: string
+          example: 111111-111111
+        depoCode:
+          type: string
+          example: "22"
+        courierCode:
+          type: string
+          example: B29
+        sendType:
+          type: string
+          example: HD
+          enum:
+            - APM
+            - HD
+            - COLLECT
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+x-shopickup-notes: |
+  - This document is the upstream FoxWeb OpenAPI spec (inlined) with
+    `info.x-shopickup-metadata` added for Shopickup needs.
+  - Add `x-shopickup-mapping` on operations to document mapping to core types.

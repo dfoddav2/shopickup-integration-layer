@@ -1,0 +1,30 @@
+{
+  "name": "shopickup-integration-layer",
+  "version": "1.0.0",
+  "description": "Universal Multi-Carrier Shipping Integration Layer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "eslint . --ext .ts",
+    "dev": "pnpm -r --parallel dev"
+  },
+  "workspaces": [
+    "packages/core",
+    "packages/adapters/template",
+    "packages/adapters/foxpost",
+    "packages/tools/create-adapter-cli",
+    "examples/dev-server"
+  ],
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

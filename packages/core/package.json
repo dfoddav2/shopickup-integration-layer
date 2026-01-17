@@ -1,0 +1,43 @@
+{
+  "name": "@shopickup/core",
+  "version": "1.0.0",
+  "description": "Shopickup core library - canonical types, adapter interface, and orchestration helpers",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./stores": {
+      "import": "./dist/stores/index.js",
+      "types": "./dist/stores/index.d.ts"
+    },
+    "./flows": {
+      "import": "./dist/flows/index.js",
+      "types": "./dist/flows/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "shipping",
+    "carrier",
+    "adapter",
+    "logistics"
+  ],
+  "author": "Shopickup Contributors",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^29.5.8",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  }
+}

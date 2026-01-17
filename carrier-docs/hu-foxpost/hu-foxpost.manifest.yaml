@@ -1,0 +1,31 @@
+openapi: 3.0.1
+x-shopickup-metadata:
+  carrier_id: hu-foxpost
+  provider_name: FoxPost Hungary
+required_paths:
+  - POST /api/parcel        # create label
+  - GET  /api/tracking/{barcode}
+  - POST /api/label/{pageSize}
+auth:
+  - type: basic
+  - type: apiKey
+    header: API-Key
+mappings:
+  POST /api/parcel:
+    x-shopickup-mapping:
+      core.CreateLabelRequest:
+        carrier: CreateParcelRequest
+        field_map:
+          shipment.address.recipient -> recipientName
+          shipment.parcels[0].weight -> weightGrams
+      notes: "Truncate company name to 40 chars; P.O. Boxes not supported"
+  GET /api/tracking/{barcode}:
+    x-shopickup-mapping:
+      core.TrackResponse:
+        carrier: TrackDTO
+        transform: "map_status_codes"
+examples:
+  - from: hu-foxpost.openapi.yaml#/paths/~1api~1parcel/post/examples/minimal
+notes:
+  label_formats: [PDF]
+  max_name_length: 40
