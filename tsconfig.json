@@ -1,4 +1,5 @@
 {
+  "files": [],
   "compilerOptions": {
     "target": "ES2020",
     "module": "ESNext",
@@ -9,7 +10,6 @@
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -23,5 +23,10 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true
   },
-  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/adapters/foxpost" }
+  ],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"],
+  "include": []
 }
