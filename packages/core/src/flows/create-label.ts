@@ -4,9 +4,9 @@ import type {
   CarrierResource,
   Store,
   DomainEvent,
-} from "../interfaces";
-import type { Shipment, Parcel } from "../types";
-import { Capabilities } from "../interfaces/capabilities";
+} from "../interfaces.js";
+import type { Shipment, Parcel } from "../types.js";
+import { Capabilities } from "../interfaces/capabilities.js";
 
 /**
  * Result of executeCreateLabelFlow

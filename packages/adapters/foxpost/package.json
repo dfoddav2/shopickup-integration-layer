@@ -2,6 +2,7 @@
   "name": "@shopickup/adapters-foxpost",
   "version": "1.0.0",
   "description": "Foxpost shipping carrier adapter for Shopickup",
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

@@ -10,7 +10,7 @@ import type {
   TrackDTO,
   Tracking,
   LabelInfo,
-} from "./types/generated";
+} from "./types";
 
 /**
  * FoxpostClient

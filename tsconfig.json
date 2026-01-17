@@ -1,10 +1,9 @@
 {
-  "files": [],
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "ESNext",
-    "lib": ["ES2020"],
-    "moduleResolution": "node",
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "lib": ["ES2022"],
     "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,
@@ -12,21 +11,21 @@
     "outDir": "./dist",
     "strict": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "isolatedModules": true,
-    "allowSyntheticDefaultImports": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true
+    "isolatedModules": false,
+    "noEmitOnError": true,
+    "baseUrl": ".",
+    "paths": {
+      "@shopickup/core": ["packages/core/dist/index.js"],
+      "@shopickup/adapters-foxpost": ["packages/adapters/foxpost/dist/index.js"]
+    }
   },
   "references": [
     { "path": "packages/core" },
     { "path": "packages/adapters/foxpost" }
   ],
-  "exclude": ["node_modules", "dist", "**/*.spec.ts"],
-  "include": []
+  "include": ["packages/**/src", "examples/**/src"],
+  "exclude": ["node_modules", "dist"]
 }

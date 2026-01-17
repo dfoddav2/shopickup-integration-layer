@@ -11,15 +11,17 @@ import type {
   CreateShipmentRequest,
   CreateParcelRequest,
   RatesRequest,
+  TrackingUpdate,
+  // other types
 } from "@shopickup/core";
-import { Capabilities, CarrierError, NotImplementedError } from "@shopickup/core";
+import { Capabilities, CarrierError, NotImplementedError, translateCarrierError } from "@shopickup/core";
 import { FoxpostClient } from "./client";
 import { 
   mapParcelToFoxpost,
   mapFoxpostTrackToCanonical,
 } from "./mappers";
 import { translateFoxpostError } from "./errors";
-import type { TrackingUpdate } from "@shopickup/core";
+import type { TrackingUpdate } from "../../../core/src/index";
 
 /**
  * FoxpostAdapter

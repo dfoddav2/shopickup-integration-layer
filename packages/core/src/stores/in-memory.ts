@@ -1,11 +1,5 @@
-import type {
-  Store,
-  DomainEvent,
-  Shipment,
-  Parcel,
-  Label,
-  CarrierResource,
-} from "../interfaces";
+import type { Store, DomainEvent, CarrierResource } from "../interfaces.js";
+import type { Shipment, Parcel, Label } from "../types.js";
 
 /**
  * InMemoryStore

@@ -3,12 +3,14 @@
 This example application demonstrates how to wire together the Shopickup core library, a carrier adapter (Foxpost), and a simple SQLite-backed Store. It's intended as a developer convenience for testing adapter flows locally.
 
 Features:
+
 - Fastify server exposing endpoints for creating labels and fetching saved labels
 - SQLite store (via better-sqlite3 + drizzle-orm) for simple persistence
 - Uses adapter `@shopickup/adapters-foxpost` and core flow helper `executeCreateLabelFlow`
 - Simple axios-based HTTP client compatible with `AdapterContext.http`
 
 Requirements
+
 - Node 18+
 - npm
 - (Optional) Docker for running Prism mock server for contract testing
@@ -39,6 +41,7 @@ Endpoints
 - `GET /health` - health check
 - `POST /label` - create parcel(s) and generate label(s)
   - Body:
+
     ```json
     {
       "shipment": { /* Shipment object (see @shopickup/core types) */ },
@@ -46,6 +49,7 @@ Endpoints
       "credentials": { "apiKey": "FOO" }
     }
     ```
+
   - Returns a `CreateLabelFlowResult` with created parcel resources and label resources.
 
 - `GET /label/:trackingNumber` - Fetch stored label by tracking number
@@ -59,7 +63,7 @@ export FOXPOST_API_KEY=your_api_key
 npm run dev
 ```
 
-2. POST to `/label` with a sample shipment and parcel to create a parcel and generate a label.
+1. POST to `/label` with a sample shipment and parcel to create a parcel and generate a label.
 
 Contract Testing with Prism (Optional)
 
@@ -74,12 +78,13 @@ docker run --rm -p 3456:4010 -v $(pwd)/carrier-docs/hu-foxpost:/etc/swagger stop
 ```
 
 Notes & Limitations
+
 - This dev server is intentionally minimal and not production-ready.
 - Use real migrations for DB schema management in real projects.
 - The Store uses simple JSON serialization for complex fields; adapt as needed.
 
 Next Steps
+
 - Add endpoints for tracking updates and webhooks
 - Add OpenAPI for the dev server itself
 - Implement authentication and request validation with `zod`
-
