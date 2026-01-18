@@ -4,8 +4,8 @@ import type {
   CarrierResource,
   Store,
   DomainEvent,
-} from '../interfaces.js';
-import type { Shipment, Parcel } from '../types.js';
+} from '../interfaces/index.js';
+import type { Shipment, Parcel } from '../types/index.js';
 import { Capabilities } from '../interfaces/capabilities.js';
 
 /**

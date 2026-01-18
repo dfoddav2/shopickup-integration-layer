@@ -5,7 +5,7 @@ import type {
   Parcel,
   Label,
   CarrierResource,
-} from '../interfaces.js';
+} from '../interfaces/index.js';
 
 /**
  * InMemoryStore

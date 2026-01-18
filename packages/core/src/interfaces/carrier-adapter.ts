@@ -1,7 +1,7 @@
 import type { Capability } from './capabilities.js';
 import type { AdapterContext } from './adapter-context.js';
 import type { CarrierResource } from './carrier-resource.js';
-import type { Shipment, Parcel, RatesResponse, TrackingUpdate } from '../types.js';
+import type { Shipment, Parcel, RatesResponse, TrackingUpdate } from '../types/index.js';
 
 /**
  * Request types for adapter methods
