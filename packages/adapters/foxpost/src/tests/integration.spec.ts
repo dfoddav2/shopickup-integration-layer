@@ -5,8 +5,8 @@
 
 import { describe, it, expect, beforeAll } from "@jest/globals";
 import type { AdapterContext, Shipment, Parcel } from "@shopickup/core";
-import { FoxpostAdapter } from "../index";
-import type { Statuses } from "../types/generated";
+import { FoxpostAdapter } from '../index.js';
+import type { Statuses } from '../types/generated.js';
 
 /**
  * Mock HttpClient for testing

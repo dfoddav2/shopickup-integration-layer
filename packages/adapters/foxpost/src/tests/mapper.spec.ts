@@ -11,8 +11,8 @@ import {
   mapParcelToFoxpost,
   mapFoxpostStatusToCanonical,
   mapFoxpostTrackToCanonical,
-} from "../mappers";
-import type { TrackDTO } from "../types/generated";
+} from '../mappers/index.js';
+import type { TrackDTO } from '../types/generated.js';
 
 describe("Mapper: mapAddressToFoxpost", () => {
   it("maps canonical address to Foxpost format", () => {

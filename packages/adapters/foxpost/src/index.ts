@@ -13,12 +13,12 @@ import type {
   RatesRequest,
 } from "@shopickup/core";
 import { Capabilities, CarrierError, NotImplementedError } from "@shopickup/core";
-import { FoxpostClient } from "./client";
+import { FoxpostClient } from './client/index.js';
 import { 
   mapParcelToFoxpost,
   mapFoxpostTrackToCanonical,
-} from "./mappers";
-import { translateFoxpostError } from "./errors";
+} from './mappers/index.js';
+import { translateFoxpostError } from './errors.js';
 import type { TrackingUpdate } from "@shopickup/core";
 
 /**

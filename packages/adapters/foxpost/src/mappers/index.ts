@@ -7,7 +7,7 @@ import type { Shipment, Parcel, Address, TrackingEvent } from "@shopickup/core";
 import type {
   CreateParcelRequest as FoxpostParcelRequest,
   TrackDTO as FoxpostTrackDTO,
-} from "./types/generated";
+} from './types/generated.js';
 
 /**
  * Map canonical Address to Foxpost address format

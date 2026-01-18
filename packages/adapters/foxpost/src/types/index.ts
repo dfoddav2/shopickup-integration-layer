@@ -4,7 +4,7 @@
  */
 
 // Export generated types
-export * from "./generated";
+export * from './generated.js';
 
 // Re-export common request/response types
-export type { CreateParcelRequest, CreateResponse, TrackDTO, Tracking } from "./generated";
+export type { CreateParcelRequest, CreateResponse, TrackDTO, Tracking } from './generated.js';
