@@ -1,0 +1,2698 @@
+openapi: 3.0.1
+info:
+  title: MPL API
+  description: "<div style='width: 100%;margin: 0px auto;'>\r\n    <div style='float: left; width:47%'>\r\n        <h1>MPL API</h1>\r\n        <h2> - címiratok nyomtatása, riportok lekérése, fixpontok lekérdezése </h2>\r\n        <div>&nbsp;</div>\r\n        <p>A végpontok működését leíró dokumentációt lentebb találja.</p>\r\n        <p>A fejlesztéshez szükséges további információkat, így az integrációs javaslatot, technikai leírást (token kérés), példa json-öket, stb., a fenti Dokumentáció menüre kattintva érheti el.</p>\r\n        <p>A lentebbi dokumentációban a</p>\r\n        <ul>\r\n            <li>csak belföldi alapszolgáltatáshoz használható elemeket a leírás elején szereplő ►DOM◄,</li>\r\n            <li>csak nemzetközi vonatkozásban használható elemeket a leírás elején szereplő ►INT◄</li>\r\n        </ul>\r\n        <p>szöveg jelzi.</p>\r\n        <p>Ahol nem szerepel semmilyen jelölés, azok az elemek mindkét vonatkozásban használhatók.</p>\r\n    </div>\r\n    <div style='float:right; width:47%'>\r\n        <h1>MPL API</h1>\r\n        <h2> - query of fixed points, printing of address labels, request for reports </h2>\r\n        <div>&nbsp;</div>\r\n        <p>Specification describing the operation of endpoints can be found below.</p>\r\n        <p>Any further information necessary for the development, such as the integration suggestion, technical description (token request), example JSONs, etc., are available by clicking on the Documentation menu above.</p>\r\n        <p>In the specification below,</p>\r\n        <ul>\r\n            <li>the elements that may be used only for domestic basic service are indicated by the lettering ►DOM◄,</li>\r\n            <li>the elements that may be used only in international regard are indicated by the lettering ►INT◄</li>\r\n        </ul>\r\n        <p>at the beginning of the description.</p>\r\n        <p>Where no indication is provided, those elements can be used in both cases.</p>\r\n    </div>\r\n</div>\r\n<div id=\"mplapi_descriptionContainer_bottom\"></div><div style='clear: both;'>\r\n\r\n### Az API a következő URL-eken érhető el: / This API can be accessed at the following URLs: ###\r\n<div><table><tr><td><b>Környezet / Environment</b></td><td><b>API URL</b></td><td><b>OAuth2 Token URL</b></td></tr><tr><td>Sandbox</td><td>https://sandbox.api.posta.hu/v2/mplapi</td><td>https://sandbox.api.posta.hu/oauth2/token</td></tr><tr><td>Production</td><td>https://core.api.posta.hu/v2/mplapi</td><td>https://core.api.posta.hu/oauth2/token</td></tr></table>\r\nAz API ezen az oldalon a Sandbox környezetben tesztelhető. / You can test the API on this page in the Sandbox environment."
+  version: v2
+servers:
+  - url: 'https://sandbox.api.posta.hu/v2/mplapi'
+    description: Sandbox
+paths:
+  /addresses/cityToZipCode:
+    post:
+      tags:
+        - Address
+      summary: "►DOM◄ Irányítószámok lekérdezése a megadott településnévhez.\r\n / \r\nQuery postcodes for a given settlement name."
+      parameters:
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: "A kérés egyedi azonosítója (UUID formátumban)\r\n / \r\nThe unique request ID (UUID format)"
+        - name: X-Correlation-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: false
+          description: "Korrelációs azonosító (UUID formátumban)\r\n / \r\nThe request correlation ID (UUID format)"
+        - name: X-Accounting-Code
+          in: header
+          schema:
+            type: string
+          required: true
+          description: "Vevőkód\r\n / \r\nThe accounting code"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZipCodeQueryRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ZipCodeQueryRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ZipCodeQueryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZipCodeQueryResult'
+        400:
+          description: Bad request. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        401:
+          description: Unauthorized. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        403:
+          description: Forbidden. The caller client is not configured to call the APIs pubilshed on the requested host:port.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        404:
+          description: Not found. The given path is not mapped to any valid path in the API Proxy. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        429:
+          description: Too many requests. Spike Arrest Fault or Quota Limit Fault (https://docs.apigee.com/api-platform/reference/policies/spike-arrest-policy#runtime-errors, https://docs.apigee.com/api-platform/reference/policies/concurrent-rate-limit-policy#errorcodes). Check the X-Quota-Reset (when the quota counter will be reset), X-Quota-Allowed (quota limit for the time period), X-Quota-Available (number of actually available API calls) response headers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        500:
+          description: Internal server error. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        503:
+          description: Service unavailable. The backend service is unavailable for some reason. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+      security:
+        - oauth2_client_credentials: []
+        - basic_auth: []
+  /addresses/zipCodeToCity:
+    post:
+      tags:
+        - Address
+      summary: "►DOM◄ Település lekérdezése a megadott irányítószámhoz.\r\n / \r\nQuery settlement name for a given postcode."
+      parameters:
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: "A kérés egyedi azonosítója (UUID formátumban)\r\n / \r\nThe unique request ID (UUID format)"
+        - name: X-Correlation-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: false
+          description: "Korrelációs azonosító (UUID formátumban)\r\n / \r\nThe request correlation ID (UUID format)"
+        - name: X-Accounting-Code
+          in: header
+          schema:
+            type: string
+          required: true
+          description: "Vevőkód\r\n / \r\nThe accounting code"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CityCodeQueryRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/CityCodeQueryRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/CityCodeQueryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityCodeQueryResult'
+        400:
+          description: Bad request. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        401:
+          description: Unauthorized. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        403:
+          description: Forbidden. The caller client is not configured to call the APIs pubilshed on the requested host:port.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        404:
+          description: Not found. The given path is not mapped to any valid path in the API Proxy. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        429:
+          description: Too many requests. Spike Arrest Fault or Quota Limit Fault (https://docs.apigee.com/api-platform/reference/policies/spike-arrest-policy#runtime-errors, https://docs.apigee.com/api-platform/reference/policies/concurrent-rate-limit-policy#errorcodes). Check the X-Quota-Reset (when the quota counter will be reset), X-Quota-Allowed (quota limit for the time period), X-Quota-Available (number of actually available API calls) response headers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        500:
+          description: Internal server error. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        503:
+          description: Service unavailable. The backend service is unavailable for some reason. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+      security:
+        - oauth2_client_credentials: []
+        - basic_auth: []
+  /deliveryplace:
+    post:
+      tags:
+        - DeliveryPlace
+      summary: "►DOM◄ Fixponti kézbesítési helyek lekérdezése\r\n / \r\nQuery pick-up delivery locations"
+      parameters:
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: "A kérés egyedi azonosítója (UUID formátumban)\r\n / \r\nThe unique request ID (UUID format)"
+        - name: X-Correlation-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: false
+          description: "Korrelációs azonosító (UUID formátumban)\r\n / \r\nThe request correlation ID (UUID format)"
+        - name: X-Accounting-Code
+          in: header
+          schema:
+            type: string
+          required: true
+          description: "Vevőkód\r\n / \r\nThe accounting code"
+      requestBody:
+        description: ''
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryPlaceRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryPlaceRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/DeliveryPlaceRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeliveryPlaceResult'
+        400:
+          description: Bad request. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        401:
+          description: Unauthorized. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        403:
+          description: Forbidden. The caller client is not configured to call the APIs pubilshed on the requested host:port.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        404:
+          description: Not found. The given path is not mapped to any valid path in the API Proxy. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        429:
+          description: Too many requests. Spike Arrest Fault or Quota Limit Fault (https://docs.apigee.com/api-platform/reference/policies/spike-arrest-policy#runtime-errors, https://docs.apigee.com/api-platform/reference/policies/concurrent-rate-limit-policy#errorcodes). Check the X-Quota-Reset (when the quota counter will be reset), X-Quota-Allowed (quota limit for the time period), X-Quota-Available (number of actually available API calls) response headers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        500:
+          description: Internal server error. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        503:
+          description: Service unavailable. The backend service is unavailable for some reason. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+      security:
+        - oauth2_client_credentials: []
+        - basic_auth: []
+  /reports:
+    post:
+      tags:
+        - Report
+      summary: "Felvett csomagokról készült riportok lekérése.\r\n / \r\nReports on dispatched packages."
+      parameters:
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: "A kérés egyedi azonosítója (UUID formátumban)\r\n / \r\nThe unique request ID (UUID format)"
+        - name: X-Correlation-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: false
+          description: "Korrelációs azonosító (UUID formátumban)\r\n / \r\nThe request correlation ID (UUID format)"
+        - name: X-Accounting-Code
+          in: header
+          schema:
+            type: string
+          required: true
+          description: "Vevőkód\r\n / \r\nThe accounting code"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportsQueryRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ReportsQueryRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ReportsQueryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportsQueryResult'
+        400:
+          description: Bad request. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        401:
+          description: Unauthorized. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        403:
+          description: Forbidden. The caller client is not configured to call the APIs pubilshed on the requested host:port.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        404:
+          description: Not found. The given path is not mapped to any valid path in the API Proxy. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        429:
+          description: Too many requests. Spike Arrest Fault or Quota Limit Fault (https://docs.apigee.com/api-platform/reference/policies/spike-arrest-policy#runtime-errors, https://docs.apigee.com/api-platform/reference/policies/concurrent-rate-limit-policy#errorcodes). Check the X-Quota-Reset (when the quota counter will be reset), X-Quota-Allowed (quota limit for the time period), X-Quota-Available (number of actually available API calls) response headers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        500:
+          description: Internal server error. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        503:
+          description: Service unavailable. The backend service is unavailable for some reason. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+      security:
+        - oauth2_client_credentials: []
+        - basic_auth: []
+  /shipments:
+    post:
+      tags:
+        - Shipment
+      summary: "Csomagadat(ok) beküldése.\r\n / \r\nSubmission of parcel data."
+      description: "Egy hívásban legfeljebb 100 szállítmány adatai küldhetők be.\r\n            Szállítmányon belül a csomagok száma nincs korlátozva, de az egyszerre beküldött tételek számának növelésével a feldolgozási idő is növekedni fog.\r\n            A túl hosszú feldolgozási idő a hívó oldalon timeoutot eredményezhet, emiatt célszerű ezt tapasztalati úton megválasztani.\\\r\n             / \\\r\n            The data of up to 100 consignments can be submitted in one call. There is no limit to the number of parcels within a consignment, but with the increasing item submissions, the handling time will also increase. It the handling time is too long it may result in a timeout on the call page, therefore it is advisable to choose it based on experience."
+      parameters:
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: "A kérés egyedi azonosítója (UUID formátumban)\r\n / \r\nThe unique request ID (UUID format)"
+        - name: X-Correlation-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: false
+          description: "Korrelációs azonosító (UUID formátumban)\r\n / \r\nThe request correlation ID (UUID format)"
+        - name: X-Accounting-Code
+          in: header
+          schema:
+            type: string
+          required: true
+          description: "Vevőkód\r\n / \r\nThe accounting code"
+      requestBody:
+        description: Az új szállítmányok értékei JSON formátumban.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShipmentCreateRequest'
+          text/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShipmentCreateRequest'
+          application/*+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShipmentCreateRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShipmentCreateResult'
+        400:
+          description: Bad request. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        401:
+          description: Unauthorized. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        403:
+          description: Forbidden. The caller client is not configured to call the APIs pubilshed on the requested host:port.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        404:
+          description: Not found. The given path is not mapped to any valid path in the API Proxy. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        429:
+          description: Too many requests. Spike Arrest Fault or Quota Limit Fault (https://docs.apigee.com/api-platform/reference/policies/spike-arrest-policy#runtime-errors, https://docs.apigee.com/api-platform/reference/policies/concurrent-rate-limit-policy#errorcodes). Check the X-Quota-Reset (when the quota counter will be reset), X-Quota-Allowed (quota limit for the time period), X-Quota-Available (number of actually available API calls) response headers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        500:
+          description: Internal server error. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        503:
+          description: Service unavailable. The backend service is unavailable for some reason. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+      security:
+        - oauth2_client_credentials: []
+        - basic_auth: []
+    get:
+      tags:
+        - Shipment
+      summary: "Visszaadja, hogy az adott ügyfél milyen csomagjairól mit tud opcionálisan csak a megadott időpontok között és megadott darabszámig.\r\n / \r\nIndicates what is known about what parcels of the given customer, optionally, only between the specified times and up to the specified number of parcels."
+      parameters:
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: "A kérés egyedi azonosítója (UUID formátumban)\r\n / \r\nThe unique request ID (UUID format)"
+        - name: X-Correlation-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: false
+          description: "Korrelációs azonosító (UUID formátumban)\r\n / \r\nThe request correlation ID (UUID format)"
+        - name: X-Accounting-Code
+          in: header
+          schema:
+            type: string
+          required: true
+          description: "Vevőkód\r\n / \r\nThe accounting code"
+        - name: fromDate
+          in: query
+          description: "Mettől szűrjön a lekérdezés.\r\n / \r\nFilter the query from."
+          schema:
+            type: string
+            description: "Mettől szűrjön a lekérdezés.\r\n / \r\nFilter the query from."
+            format: date
+            nullable: true
+            example: '2020.01.05.'
+          example: '2020.01.05.'
+        - name: toDate
+          in: query
+          description: "Meddig szűrjön a lekérdezés.\r\n / \r\nFilter the query to."
+          schema:
+            type: string
+            description: "Meddig szűrjön a lekérdezés.\r\n / \r\nFilter the query to."
+            format: date
+            nullable: true
+            example: '2020.01.10.'
+          example: '2020.01.10.'
+        - name: trackingNumbers
+          in: query
+          description: "A kiválasztott postai azonosítók (ragszámok)\r\n / \r\nSelected postal IDs"
+          schema:
+            type: array
+            items:
+              type: string
+            description: "A kiválasztott postai azonosítók (ragszámok)\r\n / \r\nSelected postal IDs"
+            nullable: true
+        - name: tag
+          in: query
+          description: "Küldemény cimkéje\r\n / \r\nMail item label"
+          schema:
+            type: string
+            description: "Küldemény cimkéje\r\n / \r\nMail item label"
+            nullable: true
+            example: 1. telephely
+          example: 1. telephely
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShipmentQueryResult'
+        400:
+          description: Bad request. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        401:
+          description: Unauthorized. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        403:
+          description: Forbidden. The caller client is not configured to call the APIs pubilshed on the requested host:port.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        404:
+          description: Not found. The given path is not mapped to any valid path in the API Proxy. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        429:
+          description: Too many requests. Spike Arrest Fault or Quota Limit Fault (https://docs.apigee.com/api-platform/reference/policies/spike-arrest-policy#runtime-errors, https://docs.apigee.com/api-platform/reference/policies/concurrent-rate-limit-policy#errorcodes). Check the X-Quota-Reset (when the quota counter will be reset), X-Quota-Allowed (quota limit for the time period), X-Quota-Available (number of actually available API calls) response headers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        500:
+          description: Internal server error. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        503:
+          description: Service unavailable. The backend service is unavailable for some reason. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+      security:
+        - oauth2_client_credentials: []
+        - basic_auth: []
+  /shipments/{trackingNumber}/item:
+    post:
+      tags:
+        - Shipment
+      summary: "Új csomag(ok) felvétele meglevő nem együtt kézbesítendő szállítmányba.\r\n / \r\nAdding of new parcel(s) to an existing separately deliverable consignment."
+      parameters:
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: "A kérés egyedi azonosítója (UUID formátumban)\r\n / \r\nThe unique request ID (UUID format)"
+        - name: X-Correlation-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: false
+          description: "Korrelációs azonosító (UUID formátumban)\r\n / \r\nThe request correlation ID (UUID format)"
+        - name: X-Accounting-Code
+          in: header
+          schema:
+            type: string
+          required: true
+          description: "Vevőkód\r\n / \r\nThe accounting code"
+        - name: trackingNumber
+          in: path
+          description: ''
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: ''
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShipmentItemAddRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ShipmentItemAddRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ShipmentItemAddRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShipmentItemAddResult'
+        400:
+          description: Bad request. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        401:
+          description: Unauthorized. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        403:
+          description: Forbidden. The caller client is not configured to call the APIs pubilshed on the requested host:port.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        404:
+          description: Not found. The given path is not mapped to any valid path in the API Proxy. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        429:
+          description: Too many requests. Spike Arrest Fault or Quota Limit Fault (https://docs.apigee.com/api-platform/reference/policies/spike-arrest-policy#runtime-errors, https://docs.apigee.com/api-platform/reference/policies/concurrent-rate-limit-policy#errorcodes). Check the X-Quota-Reset (when the quota counter will be reset), X-Quota-Allowed (quota limit for the time period), X-Quota-Available (number of actually available API calls) response headers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        500:
+          description: Internal server error. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        503:
+          description: Service unavailable. The backend service is unavailable for some reason. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+      security:
+        - oauth2_client_credentials: []
+        - basic_auth: []
+  /shipments/label:
+    get:
+      tags:
+        - Shipment
+      summary: "Csomag(ok) címiratának lekérése. \r\n / \r\nQuery address label of parcel(s)"
+      parameters:
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: "A kérés egyedi azonosítója (UUID formátumban)\r\n / \r\nThe unique request ID (UUID format)"
+        - name: X-Correlation-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: false
+          description: "Korrelációs azonosító (UUID formátumban)\r\n / \r\nThe request correlation ID (UUID format)"
+        - name: X-Accounting-Code
+          in: header
+          schema:
+            type: string
+          required: true
+          description: "Vevőkód\r\n / \r\nThe accounting code"
+        - name: trackingNumbers
+          in: query
+          description: "A kiválasztott postai azonosítók (ragszámok)\r\n / \r\nSelected postal IDs (tracking numbers)"
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+            description: "A kiválasztott postai azonosítók (ragszámok)\r\n / \r\nSelected postal IDs (tracking numbers)"
+        - name: labelType
+          in: query
+          description: "A címirat formátuma\r\n / \r\nAddress label format"
+          schema:
+            enum:
+              - A4
+              - A5
+              - A5inA4
+              - A5E
+              - A5E_EXTRA
+              - A5E_STAND
+              - A6
+              - A6inA4
+              - A4ONE
+            type: string
+            description: "Postai címirat formátum.  A formátumokról bővebben olvashat a Dokumentáció menüben.\n             / \n            Format of postal address label.  Details on formats can be found in the Documentation menu, this text only contains a concise summary.\r\n\r\n* `A4` - A címirat mérete A4; 210 mm x 297 mm.\n             /\n            Address label size A4; 210 mm x 297 mm.\r\n* `A5` - A címirat A4-es lapon, a lap felső részében kerül elhelyezésre.\n             /\n            The address label is placed on an A4 sheet at the top of the page\r\n* `A5inA4` - Két A5-ös fekvő címirat kerülhet elhelyezésre egy A4-es lapon.\n             / \n            Two A5 landscape address labels can be placed on one A4 sheet.\r\n* `A5E` - A5 méretű fekvő pozíciójú címirat, ami a két kiegészítő fülrész nélkül kerül előállításra.\n             / \n            A5 landscape address label printed without the two additional tabs.\r\n* `A5E_EXTRA` - A5 méretű fekvő pozíciójú címirat, a két kiegészítő fülrésszel kerül előállításra.\n             / \n            A5 size landscape address label with two additional tabs.\r\n* `A5E_STAND` - A5 méretű, álló pozíciójú címirat, a két kiegészítő fülrész nélkül.\n             / \n            A5 size portrait address label without the two additional tabs.\r\n* `A6` - A címirat A6-os méretben készül el, valós mérete 148,5x105 mm.\n             / \n            The address label is printed in A6 size. The actual size of the address label is 148.5x105 mm.\r\n* `A6inA4` - Egy A4-es lapon négy darab A6-os címirat kerülhet elhelyezésre. \n             / \n            Four A6 address labels can be placed on one A4 sheet.\r\n* `A4ONE` - Ez a címirattípus 1 db csomag feladásához szükséges címiratot és feladójegyzéket tartalmaz egy A4-es lapon.\n            / \n            This address label type contains address label and posting list required to dispatch 1 parcel on an A4 sheet.\r\n"
+            example: A5
+          example: A5
+        - name: labelFormat
+          in: query
+          description: A generált címirat formátuma
+          schema:
+            enum:
+              - PDF
+              - ZPL
+            type: string
+            description: A generált címirat formátuma
+            default: PDF
+            nullable: true
+        - name: orderBy
+          in: query
+          description: "A címiratok sorrendje a PDF fájlon belül.\r\n / \r\nOrder of the address labels in the PDF file."
+          schema:
+            enum:
+              - SENDING
+              - IDENTIFIER
+            type: string
+            description: "A címiratok sorrendje a PDF fájlon belül.\r\n / \r\nOrder of the address labels in the PDF file."
+            nullable: true
+        - name: singleFile
+          in: query
+          description: "Az eredmény címiratok egyetlen PDF fájlban vagy külön PDF fájlokban készüljenek\r\n / \r\nCreate address label results in a single PDF or in separate PDFs"
+          schema:
+            type: boolean
+            description: "Az eredmény címiratok egyetlen PDF fájlban vagy külön PDF fájlokban készüljenek\r\n / \r\nCreate address label results in a single PDF or in separate PDFs"
+            nullable: true
+            example: true
+          example: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LabelQueryResult'
+        400:
+          description: Bad request. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        401:
+          description: Unauthorized. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        403:
+          description: Forbidden. The caller client is not configured to call the APIs pubilshed on the requested host:port.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        404:
+          description: Not found. The given path is not mapped to any valid path in the API Proxy. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        429:
+          description: Too many requests. Spike Arrest Fault or Quota Limit Fault (https://docs.apigee.com/api-platform/reference/policies/spike-arrest-policy#runtime-errors, https://docs.apigee.com/api-platform/reference/policies/concurrent-rate-limit-policy#errorcodes). Check the X-Quota-Reset (when the quota counter will be reset), X-Quota-Allowed (quota limit for the time period), X-Quota-Available (number of actually available API calls) response headers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        500:
+          description: Internal server error. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        503:
+          description: Service unavailable. The backend service is unavailable for some reason. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+      security:
+        - oauth2_client_credentials: []
+        - basic_auth: []
+  /shipments/{trackingNumber}:
+    get:
+      tags:
+        - Shipment
+      summary: "Ragszám szerinti feladandó tétel lekérdezése.\r\n / \r\nQuerying of item to be sent through tracking number."
+      parameters:
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: "A kérés egyedi azonosítója (UUID formátumban)\r\n / \r\nThe unique request ID (UUID format)"
+        - name: X-Correlation-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: false
+          description: "Korrelációs azonosító (UUID formátumban)\r\n / \r\nThe request correlation ID (UUID format)"
+        - name: X-Accounting-Code
+          in: header
+          schema:
+            type: string
+          required: true
+          description: "Vevőkód\r\n / \r\nThe accounting code"
+        - name: trackingNumber
+          in: path
+          description: "Szállítmány azonosító\r\n / \r\nPostal ID"
+          required: true
+          schema:
+            minLength: 1
+            type: string
+            description: "Szállítmány azonosító\r\n / \r\nPostal ID"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentQueryResult'
+        400:
+          description: Bad request. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        401:
+          description: Unauthorized. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        403:
+          description: Forbidden. The caller client is not configured to call the APIs pubilshed on the requested host:port.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        404:
+          description: Not found. The given path is not mapped to any valid path in the API Proxy. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        429:
+          description: Too many requests. Spike Arrest Fault or Quota Limit Fault (https://docs.apigee.com/api-platform/reference/policies/spike-arrest-policy#runtime-errors, https://docs.apigee.com/api-platform/reference/policies/concurrent-rate-limit-policy#errorcodes). Check the X-Quota-Reset (when the quota counter will be reset), X-Quota-Allowed (quota limit for the time period), X-Quota-Available (number of actually available API calls) response headers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        500:
+          description: Internal server error. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        503:
+          description: Service unavailable. The backend service is unavailable for some reason. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+      security:
+        - oauth2_client_credentials: []
+        - basic_auth: []
+    delete:
+      tags:
+        - Shipment
+      summary: "Ragszám szerinti tétel törlése.\r\n / \r\nDeletion of item by tracking number."
+      parameters:
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: "A kérés egyedi azonosítója (UUID formátumban)\r\n / \r\nThe unique request ID (UUID format)"
+        - name: X-Correlation-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: false
+          description: "Korrelációs azonosító (UUID formátumban)\r\n / \r\nThe request correlation ID (UUID format)"
+        - name: X-Accounting-Code
+          in: header
+          schema:
+            type: string
+          required: true
+          description: "Vevőkód\r\n / \r\nThe accounting code"
+        - name: trackingNumber
+          in: path
+          description: "Szállítmány azonosító\r\n / \r\nPostal ID"
+          required: true
+          schema:
+            minLength: 1
+            type: string
+            description: "Szállítmány azonosító\r\n / \r\nPostal ID"
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/ShipmentDeleteResult'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentDeleteResult'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentDeleteResult'
+        400:
+          description: Bad request. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        401:
+          description: Unauthorized. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        403:
+          description: Forbidden. The caller client is not configured to call the APIs pubilshed on the requested host:port.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        404:
+          description: Not found. The given path is not mapped to any valid path in the API Proxy. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        429:
+          description: Too many requests. Spike Arrest Fault or Quota Limit Fault (https://docs.apigee.com/api-platform/reference/policies/spike-arrest-policy#runtime-errors, https://docs.apigee.com/api-platform/reference/policies/concurrent-rate-limit-policy#errorcodes). Check the X-Quota-Reset (when the quota counter will be reset), X-Quota-Allowed (quota limit for the time period), X-Quota-Available (number of actually available API calls) response headers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        500:
+          description: Internal server error. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        503:
+          description: Service unavailable. The backend service is unavailable for some reason. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+      security:
+        - oauth2_client_credentials: []
+        - basic_auth: []
+  /shipments/close:
+    post:
+      tags:
+        - Shipment
+      summary: "Jegyzékzárási kérés. Egyazon beszállítással feladni kívánt csomagok halmazának zárása, továbbá a zárásról egy szállítólevél igénylése. A lezárandó szállítmányokban alkalmazott feladói adatok (megállapodás, feladói név, feladói cím, bankszámla), illetve az irány (inverz?) függvényében a válaszunk akár több objektumot is tartalmazhat.\r\n / \r\nRequest for closing the list. Closing a set of mail items to be dispatched with the same transport, and requesting a delivery note on the closing of the list. Depending on the data (agreement, sender’s name, sender’s address, bank account) and direction (inverse?) used in the shipments to be closed, our response may contain several objects."
+      parameters:
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: "A kérés egyedi azonosítója (UUID formátumban)\r\n / \r\nThe unique request ID (UUID format)"
+        - name: X-Correlation-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+          required: false
+          description: "Korrelációs azonosító (UUID formátumban)\r\n / \r\nThe request correlation ID (UUID format)"
+        - name: X-Accounting-Code
+          in: header
+          schema:
+            type: string
+          required: true
+          description: "Vevőkód\r\n / \r\nThe accounting code"
+      requestBody:
+        description: ''
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShipmentCloseRequest'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/ShipmentCloseRequest'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/ShipmentCloseRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShipmentCloseResult'
+        400:
+          description: Bad request. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        401:
+          description: Unauthorized. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        403:
+          description: Forbidden. The caller client is not configured to call the APIs pubilshed on the requested host:port.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        404:
+          description: Not found. The given path is not mapped to any valid path in the API Proxy. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        429:
+          description: Too many requests. Spike Arrest Fault or Quota Limit Fault (https://docs.apigee.com/api-platform/reference/policies/spike-arrest-policy#runtime-errors, https://docs.apigee.com/api-platform/reference/policies/concurrent-rate-limit-policy#errorcodes). Check the X-Quota-Reset (when the quota counter will be reset), X-Quota-Allowed (quota limit for the time period), X-Quota-Available (number of actually available API calls) response headers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        500:
+          description: Internal server error. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+        503:
+          description: Service unavailable. The backend service is unavailable for some reason. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiGatewayErrorResponse'
+      security:
+        - oauth2_client_credentials: []
+        - basic_auth: []
+components:
+  schemas:
+    Address:
+      required:
+        - address
+        - city
+        - postCode
+      type: object
+      properties:
+        postCode:
+          maxLength: 4
+          minLength: 1
+          type: string
+          description: "Irányítószám\r\n / \r\nPostcode"
+          example: '1234'
+        city:
+          maxLength: 35
+          minLength: 2
+          type: string
+          description: "Helység\r\n / \r\nSettlement"
+          example: Budapest
+        address:
+          maxLength: 60
+          minLength: 3
+          type: string
+          description: "►INT◄ MaxLength: 64 \\\r\nCímadatok (utca, házszám).\r\n / \r\nAddress data (street, house number)."
+          example: Petőfi Sándor utca 1.
+        remark:
+          maxLength: 50
+          type: string
+          description: "Opcionális megjegyzés.\r\n / \r\nOptional remark."
+          nullable: true
+          example: 'kapucsengő: Kovács'
+      additionalProperties: false
+      description: "Cím\r\n / \r\nAddress"
+    CityCodeQueryRequest:
+      type: object
+      properties:
+        postCode:
+          type: string
+          description: "Irányítószám\r\n / \r\nPostcode"
+          nullable: true
+          example: '5000'
+      additionalProperties: false
+      description: Helység lekérdezés kérés
+    CityCodeQueryResult:
+      type: object
+      properties:
+        cities:
+          type: array
+          items:
+            type: string
+          description: "Helységnevek listája\r\n / \r\nList of settlements"
+          nullable: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDescriptor'
+          description: "A kérés végrehajtása során észlelt hibák. Amennyiben van hibalista, úgy az adott kérés sikertelenül zárult.\r\n / \r\nErrors detected during request execution. If there is an error list, the request was unsuccessful."
+          nullable: true
+      additionalProperties: false
+      description: "Helység lekérdezés eredmény\r\n / \r\nSettlement query result"
+    Contact:
+      required:
+        - name
+      type: object
+      properties:
+        name:
+          maxLength: 150
+          minLength: 2
+          type: string
+          description: "►INT◄ MaxLength: 120 \\\r\nNév.\r\n / \r\nName."
+          example: Kovács János
+        email:
+          maxLength: 60
+          minLength: 6
+          type: string
+          description: "Érvényes email cím. \r\n / \r\nValid e-mail address."
+          nullable: true
+          example: kovacs@janos.hu
+        phone:
+          maxLength: 14
+          type: string
+          description: "A telefonszámnak magyarnak kell lennie E.164 formátumban: +36(1|20|30|70|...)1234567\r\n / \r\nThe phone number must be in Hungarian, in E.164 format: +36(1|20|30|70|...)1234567"
+          nullable: true
+          example: '+3612345678'
+        organization:
+          maxLength: 120
+          minLength: 1
+          type: string
+          description: "Szervezet\r\n / \r\nOrganization"
+          nullable: true
+          example: Példa Kft.
+      additionalProperties: false
+      description: "Kapcsolattartó adatai.\r\n / \r\nContact person’s data."
+    Custom:
+      type: object
+      properties:
+        produceCount:
+          maximum: 10000
+          exclusiveMaximum: true
+          type: integer
+          description: Darabszám / Number of pieces
+          format: int64
+          nullable: true
+          example: 5
+        produceName:
+          maxLength: 100
+          type: string
+          description: Név / Name
+          nullable: true
+          example: Labda
+        produceValue:
+          type: number
+          description: Érték / Value
+          format: double
+          nullable: true
+          example: 3000
+        tariffCode:
+          maxLength: 10
+          type: string
+          description: Tarifakód / Tariff code
+          nullable: true
+          example: '91021200'
+        country:
+          maxLength: 2
+          type: string
+          description: Ország / Country
+          nullable: true
+          example: DE
+        weightValue:
+          maximum: 9223372036854775807
+          exclusiveMaximum: true
+          type: integer
+          description: Súly / Weight
+          format: int64
+          nullable: true
+          example: 500
+      additionalProperties: false
+      description: Árutartalom / Produce content
+    DeliveryAddress:
+      required:
+        - address
+        - city
+        - postCode
+      type: object
+      properties:
+        postCode:
+          maxLength: 4
+          minLength: 1
+          type: string
+          description: "►INT◄ MaxLength: 10 \\\r\nIrányítószám\r\n / \r\nPostcode"
+          example: '1234'
+        city:
+          minLength: 2
+          type: string
+          description: "Helység\r\n / \r\nSettlement"
+          example: Budapest
+        address:
+          maxLength: 60
+          minLength: 3
+          type: string
+          description: "►INT◄ MaxLength: 64 \\\r\nAz utca és házszám.\r\n / \r\nStreet and house number."
+          example: Fecske utca 1
+        parcelPickupSite:
+          maxLength: 60
+          minLength: 3
+          type: string
+          description: "►DOM◄ Postapont/csomagautomata/postahely neve, amennyiben oda kérik a szállítást. Ebben az esetben is meg kell adni a címzett címét.\r\n / \r\nName of PostaPoint/parcel terminal/postal outlet, if delivery is requested there. In this case, the recipient's address must also be provided."
+          nullable: true
+          example: 43078 sz. MOL töltőállomás
+        remark:
+          maxLength: 50
+          type: string
+          description: "Opcionális megjegyzés.\r\n / \r\nOptional remark."
+          nullable: true
+          example: 'Nem jó a csengő, dudáljon a futár'
+        countryCode:
+          type: string
+          description: Országkód
+          nullable: true
+          example: DE
+      additionalProperties: false
+      description: "Címzetti cím\r\n / \r\nRecipient's address"
+    DeliveryPlaceRequest:
+      required:
+        - deliveryplacesQuery
+      type: object
+      properties:
+        deliveryplacesQuery:
+          $ref: '#/components/schemas/DeliveryPlacesQuery'
+        servicePointType:
+          type: array
+          items:
+            enum:
+              - PM
+              - CS
+              - PP
+            type: string
+            description: "Szolgáltatási pont típusa.\n             / \n            Type of service points.\r\n\r\n* `PM` - postán maradó\n             / \n            Poste restante\r\n* `CS` - csomagautomata\n             / \n            parcel terminal\r\n* `PP` - Posta pont\n             / \n            PostaPoint\r\n"
+          description: "Szolgáltatási pont típusa.\r\n / \r\nType of service point."
+          nullable: true
+      additionalProperties: false
+      description: "Fixponti kézbesítési helyek lekérdezés kérés. Üres tömb beküldése esetén az összes fixpontunkat megkaphatja egyetlen lekérdezéssel.\\\r\nHáznál kézbesítésen (HA) kívül háromféle másik, úgynevezett fixponti kézbesítési mód támogatott: PostaPont(PP), Postán maradó(PM), Csomagautomata(CS).\\\r\nFixponti kézbesítés választása esetén a folyamatban később, a csomag adatainak beküldésekor két adatra lesz szükség: a fixponti hely pontos neve (string), illetve a kézbesítési mód kódja (PP, PM, CS).\\\r\n / \\\r\nRequest for the query of places of fixed point delivery. In case of sending in an empty array, you may receive all of our fixed point by one query.\\\r\nBesides home delivery(HD), three other so-called fixed point delivery methods are supported: Postal Point(PP), Poste Restante(PR), Parcel Terminal(PT).\\\r\nIn case of choosing fixed point delivery, two pieces of information shall be provided later in the process, when sending in the data of the mail item: the correct name of the place of fixed point (string) and the code of the delivery method (PP, PR, PT)."
+    DeliveryPlaceResult:
+      type: object
+      properties:
+        deliveryplacesQueryResult:
+          $ref: '#/components/schemas/DeliveryplacesQueryResult'
+        servicePointType:
+          type: array
+          items:
+            enum:
+              - PM
+              - CS
+              - PP
+            type: string
+            description: "Szolgáltatási pont típusa.\n             / \n            Type of service points.\r\n\r\n* `PM` - postán maradó\n             / \n            Poste restante\r\n* `CS` - csomagautomata\n             / \n            parcel terminal\r\n* `PP` - Posta pont\n             / \n            PostaPoint\r\n"
+          description: "Szolgáltatási pont típusa.\r\n / \r\nType of service point."
+          nullable: true
+      additionalProperties: false
+      description: "Alternatív kézbesítési helyek lekérdezésének eredménye\r\n / \r\nAlternative delivery locations query results"
+    DeliveryPlacesQuery:
+      type: object
+      properties:
+        postCode:
+          type: string
+          description: "Irányítószám\r\n / \r\nPostcode"
+          nullable: true
+          example: '2661'
+        city:
+          type: string
+          description: "Helység\r\n / \r\nSettlement"
+          nullable: true
+          example: Balassagyarmat
+      additionalProperties: false
+      description: "Lekérdezés paraméterek\r\n / \r\nQuery parameters"
+    DeliveryplacesQueryResult:
+      type: object
+      properties:
+        deliveryplace:
+          type: string
+          description: "Kézbesítési hely neve\r\n / \r\nName of place of delivery"
+          nullable: true
+        postCode:
+          type: string
+          description: "Irányítószám\r\n / \r\nPostcode"
+          nullable: true
+        city:
+          type: string
+          description: "Helység\r\n / \r\nSettlement"
+          nullable: true
+        address:
+          type: string
+          description: "Utca és házszám\r\n / \r\nStreet and house number"
+          nullable: true
+        geocodeLat:
+          type: number
+          description: "Földrajzi szélesség koordináta.\r\n/ \r\nGeographic latitude coordinate."
+          format: double
+          nullable: true
+        geocodeLong:
+          type: number
+          description: "Földrajzi hosszúság koordináta.\r\n/ \r\nGeographic longitude coordinate."
+          format: double
+          nullable: true
+        id:
+          type: string
+          description: "Postai egyedi azonosító. Csomagadat beküldése során a parcelPickupSite mező ezzel az értékkel is tölthető, a neve helyett.\r\n/ \r\nPostal unique ID. When posting a shipment, the field of parcelPickupSite can also be filled with it, instead of filling with name."
+          nullable: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDescriptor'
+          description: "A kérés végrehajtása során észlelt hibák. Amennyiben van hibalista, úgy az adott kérés sikertelenül zárult.\r\n / \r\nErrors detected during request execution. If there is an error list, the request was unsuccessful."
+          nullable: true
+      additionalProperties: false
+      description: "a lekérdezésnek megfelelő pkézbesítésihelyek adatai\r\n / \r\ndata of the delivery points corresponding to the query"
+    Document:
+      type: object
+      properties:
+        authorisationNr:
+          maxLength: 64
+          type: string
+          description: Engedélyszám / Authorisation number
+          nullable: true
+          example: EU 2021-000012
+        name:
+          maxLength: 64
+          type: string
+          description: Dokumentum neve / Document name
+          nullable: true
+          example: 380 Kereskedelmi számla
+      additionalProperties: false
+      description: Dokumentum / Document
+    ErrorDescriptor:
+      type: object
+      properties:
+        code:
+          type: string
+          description: "Hibakód\r\n / \r\nError Code"
+          nullable: true
+          example: '103'
+        parameter:
+          type: string
+          description: "További információ (például a hibás JSON mező neve)\r\n / \r\nAdditional information (such as the name of the invalid JSON field)"
+          nullable: true
+          example: sender.agreement
+        text:
+          type: string
+          description: "Szöveges hibaüzenet\r\n / \r\nText error message"
+          nullable: true
+          example: A(z) "sender.agreement" mező hossza nem megfelelő.
+        text_eng:
+          type: string
+          description: "Szöveges hibaüzenet angol nyelven\r\n / \r\nText error message"
+          nullable: true
+          example: A(z) "sender.agreement" mező hossza nem megfelelő.
+      additionalProperties: false
+      description: "Hiba adatai\r\n / \r\nError details"
+    Invoice:
+      required:
+        - address
+        - city
+        - name
+        - postCode
+        - vatIdentificationNumber
+      type: object
+      properties:
+        name:
+          maxLength: 150
+          minLength: 1
+          type: string
+          description: "A számla címzettje\r\n / \r\nThe recipient of the invoice"
+          example: Számla Szilárd
+        postCode:
+          maxLength: 4
+          minLength: 4
+          type: string
+          description: "Irányítószám\r\n / \r\nPostcode"
+          example: '2323'
+        city:
+          maxLength: 35
+          minLength: 2
+          type: string
+          description: "Helység\r\n / \r\nSettlement"
+          example: Eger
+        address:
+          maxLength: 60
+          minLength: 3
+          type: string
+          description: "Címadatok (utca, házszám).\r\n / \r\nAddress data (street, house number)."
+          example: Egér út 1
+        vatIdentificationNumber:
+          maxLength: 15
+          minLength: 1
+          type: string
+          description: "Adószám (kötőjelek és szóköz nélkül).\r\n / \r\nTax number (without hyphens and spaces)."
+          example: '11111111233'
+      additionalProperties: false
+      description: "Számlázási adatok. Csak akkor kell kitölteni, ha nem a feladó nevére kérik a számlát. Ebben az esetben minden adatot meg kell adni.\r\n / \r\nInvoicing data. To be completed only if the invoice is not requested in the name of the sender. In this case, all data must be provided."
+    Item:
+      required:
+        - services
+      type: object
+      properties:
+        customData1:
+          maxLength: 40
+          type: string
+          description: "►DOM◄ Tetszőleges adat (pl. ügyfél oldali azonosító), mely jegyzékzárás után is elkíséri a csomagot az életútja során (pl. nyomkövetésnél).\r\n / \r\nAny optional data (e.g. customer-side ID) which accompanies the mail item in its life path after the closing of the list (e.g. at tracking)."
+          nullable: true
+          example: 'Megrendelésazonosító: 26B22GR'
+        customData2:
+          maxLength: 40
+          type: string
+          description: "►DOM◄ Tetszőleges adat (pl. ügyfél oldali azonosító), mely jegyzékzárás után is elkíséri a csomagot az életútja során (pl. nyomkövetésnél).\r\n / \r\nAny optional data (e.g. customer-side ID) which accompanies the mail item in its life path after the closing of the list (e.g. at tracking)."
+          nullable: true
+          example: 'Vevőkód: 14433344'
+        weight:
+          $ref: '#/components/schemas/UnitValue'
+        size:
+          enum:
+            - S
+            - M
+            - L
+            - PRINT
+            - PACK
+          type: string
+          description: "A csomag mérete. Csak két esetben kötelező. \\\r\nA) ►DOM◄ Csomagautomatára való címzéskor (deliveryMode:CS) az S, M, L értékek valamelyikével. \\\r\nB) ►INT◄ Nemzetközi gyorsposta alapszolgáltatás (service.basic: A_13_EMS) esetén a PRINT,PACK értékek valamelyikével. / \\\r\nStandard size of the item. To be specified only in two cases. \\\r\nA) ►DOM◄ When sending to a parcel terminal (deliveryMode:CS), using one of the S or M or L values. \\\r\nB) ►INT◄ When sending an international express mail (service.basic: A_13_EMS), using one of the PRINT or PACK values."
+          nullable: true
+        services:
+          $ref: '#/components/schemas/Service'
+        ewcCode:
+          maxLength: 10
+          type: string
+          description: "A mező nem használható.\r\n/ \r\nThe field is not available."
+          nullable: true
+          example: ''
+        qrCode:
+          maxLength: 150
+          type: string
+          description: "A címiraton megjelenő ügyféladatokat tartalmazó QR kód tartalma. A mezőben a szabad szövegezésen túl használhatók az alábbi jelölők is <> között (További részletek a Dokumentáció menüben):\\\r\ntrackingnumber  -  13-hosszú küldeményazonosító \\\r\nbarcode  -  26-hosszú vonalkód \\\r\ncustomdata1  -  ügyféladat1 \\\r\ncustomdata2  -  ügyféladat2 \\\r\n / \\\r\nContent of the QR code containing the customer details appearing on the address label."
+          nullable: true
+        replacementPackage:
+          $ref: '#/components/schemas/ReplacementPackage'
+        customs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Custom'
+          description: ►INT◄ Árutartalom listája
+          nullable: true
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+          description: ►INT◄ Dokumentumok listája
+          nullable: true
+        senderParcelPickupSite:
+          maxLength: 100
+          type: string
+          description: "►DOM◄ Csomagautomata neve, ahol feladják a csomagot.\r\n / \r\nName of Parcel terminal, if sending there."
+          nullable: true
+          example: 568 sz. automata - Savoya Park
+      additionalProperties: false
+      description: "Az egyes csomagok adatai.\r\n / \r\nDetails of each parcel."
+    LabelQueryFilters:
+      required:
+        - trackingNumbers
+      type: object
+      properties:
+        trackingNumbers:
+          minItems: 1
+          type: array
+          items:
+            type: string
+          description: "A kiválasztott postai azonosítók (ragszámok)\r\n / \r\nSelected postal IDs (tracking numbers)"
+        labelType:
+          enum:
+            - A4
+            - A5
+            - A5inA4
+            - A5E
+            - A5E_EXTRA
+            - A5E_STAND
+            - A6
+            - A6inA4
+            - A4ONE
+          type: string
+          description: "Postai címirat formátum.  A formátumokról bővebben olvashat a Dokumentáció menüben.\n             / \n            Format of postal address label.  Details on formats can be found in the Documentation menu, this text only contains a concise summary.\r\n\r\n* `A4` - A címirat mérete A4; 210 mm x 297 mm.\n             /\n            Address label size A4; 210 mm x 297 mm.\r\n* `A5` - A címirat A4-es lapon, a lap felső részében kerül elhelyezésre.\n             /\n            The address label is placed on an A4 sheet at the top of the page\r\n* `A5inA4` - Két A5-ös fekvő címirat kerülhet elhelyezésre egy A4-es lapon.\n             / \n            Two A5 landscape address labels can be placed on one A4 sheet.\r\n* `A5E` - A5 méretű fekvő pozíciójú címirat, ami a két kiegészítő fülrész nélkül kerül előállításra.\n             / \n            A5 landscape address label printed without the two additional tabs.\r\n* `A5E_EXTRA` - A5 méretű fekvő pozíciójú címirat, a két kiegészítő fülrésszel kerül előállításra.\n             / \n            A5 size landscape address label with two additional tabs.\r\n* `A5E_STAND` - A5 méretű, álló pozíciójú címirat, a két kiegészítő fülrész nélkül.\n             / \n            A5 size portrait address label without the two additional tabs.\r\n* `A6` - A címirat A6-os méretben készül el, valós mérete 148,5x105 mm.\n             / \n            The address label is printed in A6 size. The actual size of the address label is 148.5x105 mm.\r\n* `A6inA4` - Egy A4-es lapon négy darab A6-os címirat kerülhet elhelyezésre. \n             / \n            Four A6 address labels can be placed on one A4 sheet.\r\n* `A4ONE` - Ez a címirattípus 1 db csomag feladásához szükséges címiratot és feladójegyzéket tartalmaz egy A4-es lapon.\n            / \n            This address label type contains address label and posting list required to dispatch 1 parcel on an A4 sheet.\r\n"
+          example: A5
+        labelFormat:
+          enum:
+            - PDF
+            - ZPL
+          type: string
+          description: A generált címirat formátuma
+          default: PDF
+          nullable: true
+        orderBy:
+          enum:
+            - SENDING
+            - IDENTIFIER
+          type: string
+          description: "A címiratok sorrendje a PDF fájlon belül.\r\n / \r\nOrder of the address labels in the PDF file."
+          nullable: true
+        singleFile:
+          type: boolean
+          description: "Az eredmény címiratok egyetlen PDF fájlban vagy külön PDF fájlokban készüljenek\r\n / \r\nCreate address label results in a single PDF or in separate PDFs"
+          nullable: true
+          example: true
+      additionalProperties: false
+      description: "Csomag(ok) címiratának lekérésének paraméterei\r\n / \r\nParameters for retrieving the address label of a parcel(s)"
+    LabelQueryResult:
+      type: object
+      properties:
+        trackingNumber:
+          type: string
+          description: A postai azonosító (ragszám).
+          nullable: true
+        label:
+          type: string
+          description: A base64 kódolt PDF formátumú címirat.
+          format: byte
+          nullable: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDescriptor'
+          description: 'A kérés végrehajtása során észlelt hibák. Amennyiben van hibalista, úgy az adott kérés sikertelenül zárult.'
+          nullable: true
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/WarningDescriptor'
+          description: 'A kérés végrehajtása során észlelt hiányosságok. Amennyiben a lista tartalmaz elemet, úgy az adott kérés sikeresen zárult.'
+          nullable: true
+      additionalProperties: false
+      description: Csomag(ok) címiratának lekérésének eredménye
+    NonUTF8Address:
+      type: object
+      properties:
+        postCode:
+          maxLength: 20
+          type: string
+          description: "Irányítószám\r\n / \r\nPostcode"
+          nullable: true
+          example: '1234'
+        city:
+          maxLength: 64
+          type: string
+          description: "Helység\r\n / \r\nSettlement"
+          nullable: true
+          example: Budapest
+        address:
+          maxLength: 105
+          type: string
+          description: "Címadatok (utca, házszám).\r\n / \r\nAddress data (street, house number)."
+          nullable: true
+          example: Petőfi Sándor utca 1.
+        countryCode:
+          maxLength: 3
+          type: string
+          description: "Országkód\r\n / \r\nCountry code."
+          nullable: true
+          example: HU
+      additionalProperties: false
+      description: "Alternatív címadatok (a nem csak latin betűket tartalmazó adatok itt adhatók meg, pl. kínai/cirill karakterek).\\\r\n / \r\nAlternative address data (data containing not only Latin characters can be entered here, e.g. Chinese/Cyrillic characters)."
+    NonUTF8Contact:
+      type: object
+      properties:
+        name:
+          maxLength: 120
+          type: string
+          description: "Név.\r\n / \r\nName."
+          nullable: true
+          example: Kovács János
+        organization:
+          maxLength: 120
+          type: string
+          description: "Szervezet\r\n / \r\nOrganization"
+          nullable: true
+          example: Példa Kft.
+      additionalProperties: false
+      description: "Alternatív kapcsolattartó adatok (a nem csak latin betűket tartalmazó adatok itt adhatók meg, pl. kínai/cirill karakterek).\\\r\n / \r\nAlternative contact person data (data containing not only Latin characters can be entered here, e.g. Chinese/Cyrillic characters)."
+    NonUTF8Recipient:
+      type: object
+      properties:
+        contact:
+          $ref: '#/components/schemas/NonUTF8Contact'
+        address:
+          $ref: '#/components/schemas/NonUTF8Address'
+      additionalProperties: false
+      description: "►INT◄ Alternatív címzetti adatok (a nem csak latin betűket tartalmazó adatok itt adhatók meg, pl. kínai/cirill karakterek).\\\r\n / \r\nAlternative recipient data (data containing not only Latin characters can be entered here, e.g. Chinese/Cyrillic characters)."
+    NonUTF8Sender:
+      type: object
+      properties:
+        contact:
+          $ref: '#/components/schemas/NonUTF8Contact'
+        address:
+          $ref: '#/components/schemas/NonUTF8Address'
+      additionalProperties: false
+      description: "►INT◄ Alternatív feladói adatok (a nem csak latin betűket tartalmazó adatok itt adhatók meg, pl. kínai/cirill karakterek).\\\r\n / \r\nAlternative sender data (data containing not only Latin characters can be entered here, e.g. Chinese/Cyrillic characters)."
+    Recipient:
+      required:
+        - address
+        - contact
+      type: object
+      properties:
+        contact:
+          $ref: '#/components/schemas/Contact'
+        address:
+          $ref: '#/components/schemas/DeliveryAddress'
+        luaCode:
+          maxLength: 20
+          minLength: 1
+          type: string
+          description: "A címzett (Lakossági Ügyfél Azonosítója) LÜA a postánál.\r\n / \r\nThe recipient’s Retail Customer ID (Hungarian abbreviation: ‘LÜA’) with Magyar Posta."
+          nullable: true
+        disabled:
+          type: boolean
+          description: "Fogyatékkal élők esetén kell megadni csomagautomatára való kézbesítéskor.\r\n / \r\nTo be provided for disabled people when delivering to a parcel terminal."
+          nullable: true
+      additionalProperties: false
+      description: "A címzett adatai.\r\n\r\nA címzett címe (recipient.address.postCode/city/address) mindig a valós címet kell, hogy tartalmazza, kézbesítési módtól függetlenül.\r\nHa PM, PP, CS a kézbesítési mód, akkor a \"parcelPickupSite\" mezőbe a kiválasztott átvételi pont nevét kell beírni, és meg kell adni a vásárló valós címét.\r\n / \r\nData of the recipient.\r\nThe recipient's address (recipient.address.postCode/city/address) must always contain the valid address, regardless of the delivery method. \r\nIf the delivery method is PM, PP or CS, then the name of the selected collection point must be entered in the ‘parcelPickupSite’ field and the valid address of the customer must be entered."
+    ReplacementLabel:
+      type: object
+      properties:
+        trackingNumber:
+          type: string
+          description: "A posta által kiosztott küldemény azonosító\r\n / \r\nThe ID of the mail item delivered by Magyar Posta"
+          nullable: true
+        label:
+          type: string
+          description: "Címirat PDF formátumban base64 enkódolva.\r\n / \r\nAddress label in PDF format base64 encoded. format: byte"
+          format: byte
+          nullable: true
+      additionalProperties: false
+      description: "Inverz csomag címirat adatok\r\n / \r\nInverse parcel address data"
+    ReplacementPackage:
+      type: object
+      properties:
+        customData1:
+          maxLength: 40
+          type: string
+          description: "Tetszőleges ügyféladat (pl. ügyfél oldali azonosító).\r\n / \r\nAny customer data (e.g.: identifier from the customer)."
+          nullable: true
+          example: 'Megrendelésazonosító: 26B22GR'
+        customData2:
+          maxLength: 40
+          type: string
+          description: "Tetszőleges ügyféladat (pl. ügyfél oldali azonosító).\r\n / \r\nAny customer data (e.g.: identifier from the customer)."
+          nullable: true
+          example: 'Vevőkód: 14433344'
+        extra:
+          type: array
+          items:
+            enum:
+              - K_ENY
+              - K_TER
+              - K_UVT
+              - K_TOR
+              - K_ORZ
+              - K_IDO
+              - K_RLC
+              - K_TEV
+              - K_MSZ
+              - K_SKZ
+              - K_ALA
+              - K_BER
+              - K_EKE
+              - K_AAT
+              - K_AAA
+              - K_DOK
+              - K_TEP
+              - K_PSZ
+              - K_IDA
+              - K_FNK
+              - K_EXT
+              - K_CSE
+              - K_CSA
+              - K_INV
+              - K_LEH
+              - K_TET
+              - K_GLO
+              - K_LEZ
+              - K_POT
+              - K_VNY
+              - K_CSM
+              - K_EFF
+              - K_VIK
+              - K_ZSK
+              - K_EFC
+              - K_DU
+              - K_LX
+              - K_KRC
+              - K_ESZ
+              - K_ETV
+              - K_KRF
+              - K_VAR
+              - K_UTN
+              - K_VER
+              - K_EPR
+              - K_IDG
+              - K_KNY
+              - K_KOR
+              - K_PRE
+              - K_UTK
+              - K_ANT
+              - K_CIP
+            type: string
+            description: "Többletszolgáltatások.\n             / \n            Additional services.\r\n\r\n* `K_ENY` - Értéknyilvánítás: értékes küldemény esetén használatos. A küldemény elveszése, megsemmisülése, sérülése vagy hiányossága esetén a feltüntetett összeg alapján a Posta kártérítést fizet.\\\n            Megadása esetén az item.value értékét meg kell adni.\\\n             / \\\n            Value insurance: used for valuable mail items. In case of loss, destruction, damage or incompleteness of the mail item, Magyar Posta pays compensation based on the indicated amount.\\\n            If specified, the item.value amount must be specified.\r\n* `K_TER` - Terjedelmes kezelés: a Posta vállalja nagyméretű küldemények egyedi, megkülönböztetett módon történő kezelését.\\\n            Ha a küldemény hossza 1000 mm-nél vagy összmérete 1800 mm-nél nagyobb, illetve alakja nem téglatest vagy boríték, természete miatt egyéb küldeménnyel nem rakható össze vagy eltérő kezelést kíván.\\\n             / \\\n            Bulky handling: Magyar Posta undertakes the individual and special handling of large mail items.\\\n            If the mail item is more than 1000 mm in length or more than 1800 mm in total size and is not a rectangle or envelope, it may not, by its nature, be grouped with other mail items or requires different handling.\r\n* `K_UVT` - Árufizetés: a címzett csak akkor kapja meg a számára feladott terméket, ha annak ellenértékét kifizeti. A Posta a beszedett összeget a feladó részére rövid időn belül készpénzben kézbesíti vagy a megjelölt bankszámlára utalja.\n            Megadása esetén az item.cod értékét meg kell adni.\\\n             / \\\n            Cash on delivery: the recipient only receives the product sent to them if they pay for it. Magyar Posta delivers the collected amount to the sender in cash within a short time or transfers it to the indicated bank account.\\\n            If specified, the item.cod value must be specified.\r\n* `K_TOR` - Törékeny kezelés: a Posta vállalja sérülékeny, törékeny tárgyat tartalmazó küldemények egyedi, megkülönböztetett módon történő kezelését.\\\n            Törékeny pótdíj terjedelmes, egyedi és extra kezelésű csomag esetén nem kerül felszámításra.\\\n             / \\\n            Fragile handling: Magyar Posta undertakes the individual, separate handling of mail items containing easily damaged, fragile objects.\\\n            No fragile surcharge is applied to bulky parcels or parcels requiring individual and extra handling.\r\n* `K_ORZ` - Őrzési idő: a postai szolgáltatóhelyre érkezés napját követő naptól számított hány munkanapig vehető át a küldemény.\\\n             / \\\n            Retention period: the number of business days from the day following the day of arrival at the postal service point during which the mail item can be collected.\r\n* `K_IDO` - Egy munkanapos időgarancia: a Posta vállalja, hogy a csomagot a felvétel napját követő munkanapon kézbesíti.\\\n             / \\\n            One business day time guarantee: the Magyar Posta undertakes to deliver the parcel on the business day following the day of collection.\r\n* `K_RLC` - Raklapcsere.\\\n            A Posta vállalja, hogy a feladó számára az általa a küldemény csomagolásához használt EUR szabványnak megfelelő raklap helyett azonos, szabványnak megfelelő másik csere-raklapot biztosít.\\\n             / \\\n            Pallet replacement.\\\n            Magyar Posta undertakes to provide the sender with a replacement pallet in compliance with the standard instead of the EUR-standard pallet used by them for the packaging of the mail item.\r\n* `K_TEV` - Tértivevény: a Posta a küldemény kézbesítését a címzettel az erre szolgáló okiraton elismerteti, és az okiratot a feladónak visszaküldi.\\\n             / \\\n            Advice of delivery: Magyar Posta makes the recipient acknowledge delivery of the mail item on the document used for this purpose, and returns this document to the sender.\r\n* `K_MSZ` - Szombati kézbesítés: a Posta vállalja a csomag kézbesítését a feladást követő első szombaton (vagy szombati munkarend szerinti napon) 8-12 óra között. A szolgáltatás csak bizonyos postákon vehető igénybe.\\\n             / \\\n            Saturday delivery: Magyar Posta undertakes to deliver the parcel on the first Saturday after its sending (or on a Saturday business day) between 8:00 and 12:00. The service is only available at certain post offices.\r\n* `K_SKZ` - Saját kézbe: csak a címzett kezébe történő kézbesítés. Kizárólag természetes személynek címzett küldemény esetén vehető igénybe. \\\n             / \\\n            Delivery to recipient in person: direct delivery to the recipient only. Available only for mail items addressed to natural persons.\r\n* `K_ALA` - Alkalmi átvevőnek kézbesíthető: ha a postacsomag, kézbesítése megkísérlésének időpontjában a címzett, a meghatalmazott, vagy a helyettes átvevő nem tartózkodik a címhelyen, a Posta a postai küldemény átvételére –alkalmi átvevőként –jogosultnak tekinti a címhely szerinti közvetlen szomszédot abban az esetben, ha erről a címzett kifejezetten így rendelkezett, megjelölve az alkalmi átvevőt, továbbá az alkalmi átvevő sem tiltakozik a postacsomag átvétele ellen.\\\n             / \\\n            May be delivered to an occasional recipient: if the recipient, authorised or deputy recipient is not present at the address at the time of the attempted delivery of the parcel, Magyar Posta considers the immediate neighbour at the address to be entitled to receive the mail item as an occasional recipient if this was expressly provided for by the recipient, indicating the occasional recipient, and the occasional recipient does not object to the receipt of the parcel.\r\n* `K_BER` - Címzett fizet\\\n            A címzett fizet (azaz bérmentesítés nélküli vagy portó) szolgáltatással postázott küldemények feladási díját nem a feladó, hanem a címzett fizeti. Az átvételig a postán letétbe kerül a küldemény.\\\n             / \\\n            Recipient pays\\\n            The recipient pays the postage fee for mail items mailed (without prepayment or postage fee) with the service, instead of the sender. Until receipt, the mail item is deposited at the post office.\r\n* `K_EKE` - Egyedi kezelés: előre rögzített tömeg- és mérethatárok felett szükséges igénybe venni.\\\n             / \\\n            Individual handling: it is necessary to use it above pre-set weight and size limits.\r\n* `K_AAT` - Tételes áruátadás: a Posta lehetőséget biztosít a küldemények címhelyen történő tételes, a belső tartalom számlálása alapján történő átvételére.\\\n             / \\\n            Itemised delivery of goods: Magyar Posta ensures the possibility for the itemised handover of mail items at the address based on checking and counting the internal content.\r\n* `K_AAA` - Áruházi átadás: a többletszolgáltatás keretében a megrendelt termékek a rendelési, illetve a szállítási adatok alapján mennyiségileg is ellenőrzött módon, valamint egyeztetés szerinti időintervallumban kerülnek az áruháznak átadásra.\\\n             / \\\n            Store delivery: within the framework of this additional service, ordered goods are delivered to the store, including inspection in terms of quantity based on the order data and the transport details, within the agreed period.\r\n* `K_DOK` - Dokumentum menedzsment: a Posta vállalja, hogy a feladott MPL Üzleti csomaghoz tartozó dokumentum, szerződés, tételes átadási lista megadott pontjait instrukciók alapján ellenőrzi, az átvevő személyét igazolja, a dokumentumok megjelölt pontjait kitölteti és aláíratja az átvevővel.\n            Az összegyűjtött dokumentumok fizikai, vagy fizikai és elektronikus formában kaphatók vissza.\\\n             / \\\n            Document management: Magyar Posta undertakes to check specific points of a document, contract or itemised transfer list belonging to a dispatched business parcel based on the sender’s instructions, to verify the person of the recipient, and to ensure that the required points of the documents are completed and signed by the recipient.\\\n            The collected documents can be returned in physical and electronic form.\r\n* `K_TEP` - Háznál történő felvétel: telefonon és e-mailben történő bejelentés alapján kérhető a postacsomag háznál/címhelyen történő felvétele. \\\n             / \\\n            Home collection: on the basis of notification by phone and e-mail, it is possible to request the collection of the postal parcel from home/at an address.\r\n* `K_PSZ` - Postaszolgálati: a feladónak vagy a címzettnek posta \"szervezetnek\" kell lennie. Ezeknél nincs feladási díj.\\\n             / \\\n            Postal service: the sender or recipient must be a postal ‘organization’. There is postage fee for these.\r\n* `K_IDA` - Időablak: a Posta vállalja, hogy a címhelyen elérhető érvényes időablakban kézbesíti a küldeményt.\\\n            A Posta 4 időablakot kezel: 07-09 óra, 08-12 óra, 12-16 óra vagy 17-20 óra között. \\\n             / \\\n            Time window: Magyar Posta undertakes to deliver the mail item in the valid time window available at the delivery address.\\\n            Magyar Posta has 4 time windows: between 07:00-09:00, 08:00-12:00, 12:00-16:00 or 17:00-20:00.\r\n* `K_FNK` - Fix napi kézbesítés: a Posta vállalja, hogy a csomag kézbesítését első alkalommal a feladó által megjelölt - a feladás napját követő 2. és 10. munkanap közé eső - munkanapon kísérli meg.\\\n             / \\\n            Fixed day delivery: Magyar Posta undertakes to attempt to deliver the parcel first on the business day specified by the sender (within the 2nd and the 10th business day from the date of dispatch.\r\n* `K_EXT` - Extra kezelés: azokat a küldeményeket, melyek az egyedi kezelésbe nem férnek bele, az extra kezelésben lehet feladni.\\\n             / \\\n            Extra handling: mail items that do not qualify for individual handling can be sent under extra handling.\r\n* `K_CSE` - Cserecsomag: a Posta vállalja, hogy az e többletszolgáltatással feladott postacsomagot csak akkor kézbesíti a címzettnek, ha a címzett egy inverz postacsomagot ad át a kézbesítőnek (a feladónak történő visszaküldés céljából).\\\n            Például a kézbesítő kivisz a címzettnek egy új mobiltelefont, de a címzettnek át kell adnia egy régi típusú készüléket.\\\n            Cserecsomag többletszolgáltatás használata esetén küldeni kell az item.replacementPackage részt is. Az alapcsomag részében a K_CSE szolgáltatást, míg a hozzá kapcsolódó inverz csomagnál (item.replacementPackage) a K_CSA szolgáltatást kell megadni.\\\n             / \\\n            Replacement parcel: Magyar Posta undertakes to deliver the postal parcel sent with this additional service to the recipient only if the recipient delivers an inverse postal parcel to the delivery person (for return to the sender).\\\n            For example, the delivery person delivers a new mobile phone to the recipient, but the recipient must hand over an older device.\\\n            In case of using the additional service of replacement package, the item.replacementPackage part shall be sent as well. In the basic package part the K_CSE service, while in the case of the Inverz package related to it (item.replacementPackage) the K_CSA service must be provided.\r\n* `K_CSA` - Alapcsomag: a cserecsomagnál már említett inverz csomag. Ezzel a többletszolgáltatással nem küldhető be csomag.\\\n             / \\\n            Base package: the inverse package already mentioned at the replacement parcel. No parcel (returned goods) may be submitted with this additional service.\r\n* `K_INV` - Inverz csomag: a feladónak visszakézbesítendő csomag (visszáru).\\\n             / \\\n            Inverse parcel: parcel to be returned to the sender (returned goods).\r\n* `K_LEH` - Lehívás: A feladás nem a megszokott helyen, hanem egy alkalmilag kijelölt helyen történik. A címzett tetszőleges, de lehet maga az ügyfél is. \n            Különbség az inverz (K_INV) szolgáltatáshoz képest, hogy itt nem elegendő egy fiktív súlyt küldeni, pl. 1 gramm, hanem a normál csomagokhoz hasonlóan a tényleges súlyt kérjük küldeni. \n            A címiratot az MPL API tudja biztosítani (labelType=A4), de a postai gépjármű kiszállását egy e-mail küldéssel szükséges kezdeményezni. \n            Arra is van mód, hogy a címirat nyomtatását is a Posta végezze, ilyenkor az MPL API által kiadott címiratot PDF-ként csatolni kell az emailhez. \n            A levél címzettje minden esetben a szallitasrendeles@posta.hu legyen. További részletek a Dokumentáció menüben.\\\n             / \\\n            Call-out: sending is not performed by the person who generates the address label. Magyar Posta goes out for the parcel and in some cases also prints the address label.\r\n* `K_TET` - Tételes kezelés: akkor használatos, amikor értéknyilvánítás megadása nélkül, illetve az értéknyilvánítástól függetlenül a feladó tételes kezelést akar igénybe venni a csomaghoz.\\\n            Ilyen például a mérgeket, vagy halotti hamvakat tartalmazó küldemény.\\\n            Csak MPL postacsomaghoz lehet igénybe venni.\\\n             / \\\n            Itemised handling: used when the sender wants to use itemised handling for the parcel without providing value insurance or independently of the value insurance.\\\n            For example a mail item containing poisons or ashes.\\\n            Can only be used for MPL mail items.\r\n* `K_GLO` - ►INT◄ Globális szolgáltatás - EU-n belülre szóló, harmadik országból érkező csomag esetén szükséges használni, mely esetben a vámáru adatok megadása is kötelező\\\n             / \\\n            Global service - To be used for parcels arriving to the EU from a third country, in which case the customs data must also be provided\r\n* `K_LEZ` - Postai lezárás - A Posta a feladó által megfelelően becsomagolt, de a Posta honlapján közzétett ÁSZF 3.4. pontja szerinti előírásnak nem megfelelően lezárt értéknyilvánítás \n            többletszolgáltatással ellátott levélküldemény és a külön terméklap szerinti nemzetközi viszonylatba feladásra szánt postacsomag postai lezárás jelzőcímkével történő lezárását vállalja. \n            A Posta a kiegészítő szolgáltatást – a külön terméklapokon szereplő eltérő feltétel hiányában –külön díj ellenében vállalja.\\\n             / \\\n            Postal sealing - Magyar Posta undertakes to seal by means of a postal sealing label any item of correspondence and postal parcel intended for international mailing in accordance with he separate product sheet and an insurance supplementary service, \n            which is properly packed by the sender but not sealed in accordance with the requirements of Section 3.4 of the GTC published on the website of Magyar Posta. Unless otherwise stated on a product sheet, Magyar Posta undertakes this supplementary service for a special fee.\r\n* `K_POT` - ►INT◄ Kiviteli vám pótlap megadása - A postai vámügynöki szolgáltatás az Európai Unió (EU) területén kívülre szóló és 1.000 eurónak megfelelő forint összegű \n            vagy azt meghaladó értéket tartalmazó postai küldemények, valamint külön jogszabály által meghatározott esetekben (vámköteles tartalmú küldemények esetében) \n            értéktől függetlenül az ügyfél kérésére vehető igénybe, a vonatkozó megbízás kitöltésével, és ha szükséges kiviteli engedélyek csatolásával, a küldemény postai feladásával egyidejűleg. \n            1 pótlap 3 tétel. \\\n             / \\\n            Provision of export customs supplementary sheet - The postal customs brokerage service is available at the customer's request for postal items with a HUF value equivalent to or exceeding EUR 1,000 addressed to destinations outside the European Union (EU) \n            and in cases specified by special legislation (for consignments subject to customs duty), regardless of their value, by completing the relevant order form, accompanied, if necessary, by export licences simultaneously with the posting of the consignment. 1 supplementary sheet 3 items.\r\n* `K_VNY` - ►INT◄ Kiviteli Kísérő Okmány megadása - A postai vámügynöki szolgáltatás az Európai Unió (EU) területén kívülre szóló és 1.000 eurónak megfelelő forint összegű \n            vagy azt meghaladó értéket tartalmazó postai küldemények, valamint külön jogszabály által meghatározott esetekben (vámköteles tartalmú küldemények esetében) \n            értéktől függetlenül az ügyfél kérésére vehető igénybe, a vonatkozó megbízás kitöltésével, és ha szükséges kiviteli engedélyek csatolásával, a küldemény postai feladásával egyidejűleg.\\\n             / \\\n            Provision of Accompanying Document - The postal customs brokerage service is available at the customer's request for postal items with a HUF value equivalent to or exceeding EUR 1,000 addressed to destinations outside the European Union (EU) \n            and in cases specified by special legislation (for consignments subject to customs duty), regardless of their value, by completing the relevant order form, accompanied, if necessary, by export licences simultaneously with the posting of the consignment.\r\n* `K_CSM` - Csomagmegőrzés / Packet storage\r\n* `K_EFF` - e-értesítés (nem használt) / e-notification (not used)\r\n* `K_VIK` - Visszakézbesités (nem használt) / Return delivery (not used)\r\n* `K_ZSK` - Zsilipes kézbesítés (nem használt) / Lock-gate delivery (not used)\r\n* `K_EFC` - e-előrejelzés (nem használt) / e-prealert (not used)\r\n* `K_DU` - Délutáni kézbesítés (nem használt) / Afternoon delivery (not used)\r\n* `K_LX` - Kézbesítés dísztáviraton (nem használt) / Decorative telegram delivery (not used)\r\n* `K_KRC` - Címzett kézbesítési rendelkezése (nem használt) / Recipient’s delivery provisions (not used)\r\n* `K_ESZ` - Éjszakai kézbesítés (nem használt) / Overnight delivery (not used)\r\n* `K_ETV` - eTértivevény (nem használt) / eReturn Receipt (not used)\r\n* `K_KRF` - Feladó kézbesítési rendelkezése (nem használt) / Sender’s delivery provisions (not used)\r\n* `K_VAR` - Várakozási díj (nem használt) / Waiting time charge (not used)\r\n* `K_UTN` - Utánküldés (nem használt) / Reforwarding (not used)\r\n* `K_VER` - Vámérték (nem használt) / Customs value (not used)\r\n* `K_EPR` - eCIP Premium (nem használt) / eCIP Premium (not used)\r\n* `K_IDG` - 1 munkanapos időgarancia (nem használt) / 1 working day time guarantee (not used)\r\n* `K_KNY` - Könnyített kézbesítés (nem használt) / Simplified delivery (not used)\r\n* `K_KOR` - Életkor ellenőrzése (nem használt) / Age verification (not used)\r\n* `K_PRE` - PrePaid cimke (nem használt) / PrePaid label (not used)\r\n* `K_UTK` - Utánküldés (nem használt) / Reforwarding (not used)\r\n* `K_ANT` - Aznap nem továbbítható (nem használt) / Cannot be forwarded on the same day (not used)\r\n* `K_CIP` - eCIP Standard (nem használt) / eCIP Standard (not used)\r\n"
+          description: "Többletszolgáltatások.\r\n / \r\nAdditional services."
+          nullable: true
+        weight:
+          $ref: '#/components/schemas/UnitValue'
+        value:
+          type: integer
+          description: "Az értéknyilvánítás összege Ft-ban maximum 2MFt-ig\r\n / \r\nThe amount of the value insurance in HUF up to a maximum of HUF 2 million"
+          format: int32
+          nullable: true
+      additionalProperties: false
+      description: "Cserecsomag adatai. Cserecsomag többletszolgáltatás használata esetén küldeni kell az item.replacementPackage részt is. Az alapcsomag részében a K_CSE szolgáltatást, míg a hozzá kapcsolódó inverz csomagnál (item.replacementPackage) a K_CSA szolgáltatást kell megadni. Fontos! Az alábbi listában látható további többletszolgáltatások közül a replacementPackage alatt csak ezek adhatók meg: K_TER, T_TOR\r\n / \r\nData of replacement package. In case of using the additional service of replacement package, the item.replacementPackage part shall be sent as well. In the basic package part the K_CSE service, while in the case of the Inverz package related to it(item.replacementPackage) the K_CSA service must be provided. Important! Of the additional services listed below, only the following can be provided under replacementPackage: K_TER, T_TOR"
+    ReportsQueryRequest:
+      required:
+        - format
+        - type
+      type: object
+      properties:
+        trackingNumberList:
+          type: string
+          description: "A kiválasztott postai azonosítók pontosvesszővel elválasztott listája (ragszámok)\r\n / \r\nSemicolon-separated list of selected postal IDs (tracking numbers)"
+          nullable: true
+          example: PBABC50000123;PBABC50000136;PBABC500001151
+        dateFrom:
+          type: string
+          description: "Kezdő dátum (csak dátum)\r\n / \r\nStart date (date only)"
+          format: date
+          nullable: true
+        dateTo:
+          type: string
+          description: "Záró dátum (csak dátum)\r\n / \r\nEnd date (date only)"
+          format: date
+          nullable: true
+        type:
+          minLength: 1
+          enum:
+            - FUGGO
+            - VEGALLAPOT
+            - UTALASI
+          type: string
+          description: "Riport típus\r\n / \r\nReport type"
+        format:
+          minLength: 1
+          enum:
+            - JSON
+          type: string
+          description: "Riport formátum\r\n / \r\nReport format"
+      additionalProperties: false
+      description: "Felvett csomagokról készült riportok lekérése.\r\n / \r\nRequest for reports on accepted mail items."
+    ReportsQueryResult:
+      type: object
+      properties:
+        report:
+          type: string
+          description: "Riport tartalma a kért formátumban\r\n / \r\nReport content in the requested format"
+          nullable: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDescriptor'
+          description: "A kérés végrehajtása során észlelt hibák. Amennyiben van hibalista, úgy az adott kérés sikertelenül zárult.\r\n / \r\nErrors detected during request execution. If there is an error list, the request was unsuccessful."
+          nullable: true
+      additionalProperties: false
+      description: "Riport futtatás eredménye\r\n / \r\nReport running result"
+    Sender:
+      required:
+        - address
+        - agreement
+        - contact
+      type: object
+      properties:
+        agreement:
+          maxLength: 8
+          minLength: 8
+          type: string
+          description: "Megállapodásszám. Az adathordozó használatára is vonatkozó szerződés azonosítószáma.\r\n / \r\nAgreement number. The contract ID number also applicable to the use of the data carrier."
+          example: '55454561'
+        accountNo:
+          maxLength: 24
+          minLength: 16
+          type: string
+          description: "Feladó bankszámlaszáma, 24 karakter, tagoló kötőjel illetve szóköz nélkül. Kérjük, hogy utánvét nélküli szállítmányok esetén is szerepeljen.\r\n / \r\nBank account number of the sender, 24 characters. Please also submit it in shipments without COD value."
+          nullable: true
+          example: '123456781234567800000000'
+        contact:
+          $ref: '#/components/schemas/Contact'
+        address:
+          $ref: '#/components/schemas/Address'
+        invoice:
+          $ref: '#/components/schemas/Invoice'
+        parcelTerminal:
+          type: boolean
+          description: "Logikai igaz értéke jelzi, hogy a csomagot csomagautomatában fogják feladni. Alapértelmezett értéke hamis, ami postahelyi feladást jelent. Igaz érték esetén a válasz tartalmazni fog egy dispatchID értéket is.\r\n/ \r\nIf the shipment will be dispatched via parcel locker, this value is true. The default value is false, which means dispatch via post office or postal logistic center. In case of true value, a dispatchId value will be also included in the response."
+          nullable: true
+      additionalProperties: false
+      description: "A feladó adatai.\r\n / \r\nData of the sender."
+    Service:
+      required:
+        - basic
+        - deliveryMode
+      type: object
+      properties:
+        basic:
+          enum:
+            - A_175_UZL
+            - A_177_MPC
+            - A_176_NET
+            - A_176_NKP
+            - A_122_ECS
+            - A_121_CSG
+            - A_13_EMS
+            - A_123_EUP
+            - A_123_HAR
+            - A_123_HAI
+            - A_125_HAR
+            - A_125_HAI
+          type: string
+          description: "Az alapszolgáltatás\r\n / \r\nBasic service"
+        extra:
+          type: array
+          items:
+            enum:
+              - K_ENY
+              - K_TER
+              - K_UVT
+              - K_TOR
+              - K_ORZ
+              - K_IDO
+              - K_RLC
+              - K_TEV
+              - K_MSZ
+              - K_SKZ
+              - K_ALA
+              - K_BER
+              - K_EKE
+              - K_AAT
+              - K_AAA
+              - K_DOK
+              - K_TEP
+              - K_PSZ
+              - K_IDA
+              - K_FNK
+              - K_EXT
+              - K_CSE
+              - K_CSA
+              - K_INV
+              - K_LEH
+              - K_TET
+              - K_GLO
+              - K_LEZ
+              - K_POT
+              - K_VNY
+              - K_CSM
+              - K_EFF
+              - K_VIK
+              - K_ZSK
+              - K_EFC
+              - K_DU
+              - K_LX
+              - K_KRC
+              - K_ESZ
+              - K_ETV
+              - K_KRF
+              - K_VAR
+              - K_UTN
+              - K_VER
+              - K_EPR
+              - K_IDG
+              - K_KNY
+              - K_KOR
+              - K_PRE
+              - K_UTK
+              - K_ANT
+              - K_CIP
+            type: string
+            description: "Többletszolgáltatások.\n             / \n            Additional services.\r\n\r\n* `K_ENY` - Értéknyilvánítás: értékes küldemény esetén használatos. A küldemény elveszése, megsemmisülése, sérülése vagy hiányossága esetén a feltüntetett összeg alapján a Posta kártérítést fizet.\\\n            Megadása esetén az item.value értékét meg kell adni.\\\n             / \\\n            Value insurance: used for valuable mail items. In case of loss, destruction, damage or incompleteness of the mail item, Magyar Posta pays compensation based on the indicated amount.\\\n            If specified, the item.value amount must be specified.\r\n* `K_TER` - Terjedelmes kezelés: a Posta vállalja nagyméretű küldemények egyedi, megkülönböztetett módon történő kezelését.\\\n            Ha a küldemény hossza 1000 mm-nél vagy összmérete 1800 mm-nél nagyobb, illetve alakja nem téglatest vagy boríték, természete miatt egyéb küldeménnyel nem rakható össze vagy eltérő kezelést kíván.\\\n             / \\\n            Bulky handling: Magyar Posta undertakes the individual and special handling of large mail items.\\\n            If the mail item is more than 1000 mm in length or more than 1800 mm in total size and is not a rectangle or envelope, it may not, by its nature, be grouped with other mail items or requires different handling.\r\n* `K_UVT` - Árufizetés: a címzett csak akkor kapja meg a számára feladott terméket, ha annak ellenértékét kifizeti. A Posta a beszedett összeget a feladó részére rövid időn belül készpénzben kézbesíti vagy a megjelölt bankszámlára utalja.\n            Megadása esetén az item.cod értékét meg kell adni.\\\n             / \\\n            Cash on delivery: the recipient only receives the product sent to them if they pay for it. Magyar Posta delivers the collected amount to the sender in cash within a short time or transfers it to the indicated bank account.\\\n            If specified, the item.cod value must be specified.\r\n* `K_TOR` - Törékeny kezelés: a Posta vállalja sérülékeny, törékeny tárgyat tartalmazó küldemények egyedi, megkülönböztetett módon történő kezelését.\\\n            Törékeny pótdíj terjedelmes, egyedi és extra kezelésű csomag esetén nem kerül felszámításra.\\\n             / \\\n            Fragile handling: Magyar Posta undertakes the individual, separate handling of mail items containing easily damaged, fragile objects.\\\n            No fragile surcharge is applied to bulky parcels or parcels requiring individual and extra handling.\r\n* `K_ORZ` - Őrzési idő: a postai szolgáltatóhelyre érkezés napját követő naptól számított hány munkanapig vehető át a küldemény.\\\n             / \\\n            Retention period: the number of business days from the day following the day of arrival at the postal service point during which the mail item can be collected.\r\n* `K_IDO` - Egy munkanapos időgarancia: a Posta vállalja, hogy a csomagot a felvétel napját követő munkanapon kézbesíti.\\\n             / \\\n            One business day time guarantee: the Magyar Posta undertakes to deliver the parcel on the business day following the day of collection.\r\n* `K_RLC` - Raklapcsere.\\\n            A Posta vállalja, hogy a feladó számára az általa a küldemény csomagolásához használt EUR szabványnak megfelelő raklap helyett azonos, szabványnak megfelelő másik csere-raklapot biztosít.\\\n             / \\\n            Pallet replacement.\\\n            Magyar Posta undertakes to provide the sender with a replacement pallet in compliance with the standard instead of the EUR-standard pallet used by them for the packaging of the mail item.\r\n* `K_TEV` - Tértivevény: a Posta a küldemény kézbesítését a címzettel az erre szolgáló okiraton elismerteti, és az okiratot a feladónak visszaküldi.\\\n             / \\\n            Advice of delivery: Magyar Posta makes the recipient acknowledge delivery of the mail item on the document used for this purpose, and returns this document to the sender.\r\n* `K_MSZ` - Szombati kézbesítés: a Posta vállalja a csomag kézbesítését a feladást követő első szombaton (vagy szombati munkarend szerinti napon) 8-12 óra között. A szolgáltatás csak bizonyos postákon vehető igénybe.\\\n             / \\\n            Saturday delivery: Magyar Posta undertakes to deliver the parcel on the first Saturday after its sending (or on a Saturday business day) between 8:00 and 12:00. The service is only available at certain post offices.\r\n* `K_SKZ` - Saját kézbe: csak a címzett kezébe történő kézbesítés. Kizárólag természetes személynek címzett küldemény esetén vehető igénybe. \\\n             / \\\n            Delivery to recipient in person: direct delivery to the recipient only. Available only for mail items addressed to natural persons.\r\n* `K_ALA` - Alkalmi átvevőnek kézbesíthető: ha a postacsomag, kézbesítése megkísérlésének időpontjában a címzett, a meghatalmazott, vagy a helyettes átvevő nem tartózkodik a címhelyen, a Posta a postai küldemény átvételére –alkalmi átvevőként –jogosultnak tekinti a címhely szerinti közvetlen szomszédot abban az esetben, ha erről a címzett kifejezetten így rendelkezett, megjelölve az alkalmi átvevőt, továbbá az alkalmi átvevő sem tiltakozik a postacsomag átvétele ellen.\\\n             / \\\n            May be delivered to an occasional recipient: if the recipient, authorised or deputy recipient is not present at the address at the time of the attempted delivery of the parcel, Magyar Posta considers the immediate neighbour at the address to be entitled to receive the mail item as an occasional recipient if this was expressly provided for by the recipient, indicating the occasional recipient, and the occasional recipient does not object to the receipt of the parcel.\r\n* `K_BER` - Címzett fizet\\\n            A címzett fizet (azaz bérmentesítés nélküli vagy portó) szolgáltatással postázott küldemények feladási díját nem a feladó, hanem a címzett fizeti. Az átvételig a postán letétbe kerül a küldemény.\\\n             / \\\n            Recipient pays\\\n            The recipient pays the postage fee for mail items mailed (without prepayment or postage fee) with the service, instead of the sender. Until receipt, the mail item is deposited at the post office.\r\n* `K_EKE` - Egyedi kezelés: előre rögzített tömeg- és mérethatárok felett szükséges igénybe venni.\\\n             / \\\n            Individual handling: it is necessary to use it above pre-set weight and size limits.\r\n* `K_AAT` - Tételes áruátadás: a Posta lehetőséget biztosít a küldemények címhelyen történő tételes, a belső tartalom számlálása alapján történő átvételére.\\\n             / \\\n            Itemised delivery of goods: Magyar Posta ensures the possibility for the itemised handover of mail items at the address based on checking and counting the internal content.\r\n* `K_AAA` - Áruházi átadás: a többletszolgáltatás keretében a megrendelt termékek a rendelési, illetve a szállítási adatok alapján mennyiségileg is ellenőrzött módon, valamint egyeztetés szerinti időintervallumban kerülnek az áruháznak átadásra.\\\n             / \\\n            Store delivery: within the framework of this additional service, ordered goods are delivered to the store, including inspection in terms of quantity based on the order data and the transport details, within the agreed period.\r\n* `K_DOK` - Dokumentum menedzsment: a Posta vállalja, hogy a feladott MPL Üzleti csomaghoz tartozó dokumentum, szerződés, tételes átadási lista megadott pontjait instrukciók alapján ellenőrzi, az átvevő személyét igazolja, a dokumentumok megjelölt pontjait kitölteti és aláíratja az átvevővel.\n            Az összegyűjtött dokumentumok fizikai, vagy fizikai és elektronikus formában kaphatók vissza.\\\n             / \\\n            Document management: Magyar Posta undertakes to check specific points of a document, contract or itemised transfer list belonging to a dispatched business parcel based on the sender’s instructions, to verify the person of the recipient, and to ensure that the required points of the documents are completed and signed by the recipient.\\\n            The collected documents can be returned in physical and electronic form.\r\n* `K_TEP` - Háznál történő felvétel: telefonon és e-mailben történő bejelentés alapján kérhető a postacsomag háznál/címhelyen történő felvétele. \\\n             / \\\n            Home collection: on the basis of notification by phone and e-mail, it is possible to request the collection of the postal parcel from home/at an address.\r\n* `K_PSZ` - Postaszolgálati: a feladónak vagy a címzettnek posta \"szervezetnek\" kell lennie. Ezeknél nincs feladási díj.\\\n             / \\\n            Postal service: the sender or recipient must be a postal ‘organization’. There is postage fee for these.\r\n* `K_IDA` - Időablak: a Posta vállalja, hogy a címhelyen elérhető érvényes időablakban kézbesíti a küldeményt.\\\n            A Posta 4 időablakot kezel: 07-09 óra, 08-12 óra, 12-16 óra vagy 17-20 óra között. \\\n             / \\\n            Time window: Magyar Posta undertakes to deliver the mail item in the valid time window available at the delivery address.\\\n            Magyar Posta has 4 time windows: between 07:00-09:00, 08:00-12:00, 12:00-16:00 or 17:00-20:00.\r\n* `K_FNK` - Fix napi kézbesítés: a Posta vállalja, hogy a csomag kézbesítését első alkalommal a feladó által megjelölt - a feladás napját követő 2. és 10. munkanap közé eső - munkanapon kísérli meg.\\\n             / \\\n            Fixed day delivery: Magyar Posta undertakes to attempt to deliver the parcel first on the business day specified by the sender (within the 2nd and the 10th business day from the date of dispatch.\r\n* `K_EXT` - Extra kezelés: azokat a küldeményeket, melyek az egyedi kezelésbe nem férnek bele, az extra kezelésben lehet feladni.\\\n             / \\\n            Extra handling: mail items that do not qualify for individual handling can be sent under extra handling.\r\n* `K_CSE` - Cserecsomag: a Posta vállalja, hogy az e többletszolgáltatással feladott postacsomagot csak akkor kézbesíti a címzettnek, ha a címzett egy inverz postacsomagot ad át a kézbesítőnek (a feladónak történő visszaküldés céljából).\\\n            Például a kézbesítő kivisz a címzettnek egy új mobiltelefont, de a címzettnek át kell adnia egy régi típusú készüléket.\\\n            Cserecsomag többletszolgáltatás használata esetén küldeni kell az item.replacementPackage részt is. Az alapcsomag részében a K_CSE szolgáltatást, míg a hozzá kapcsolódó inverz csomagnál (item.replacementPackage) a K_CSA szolgáltatást kell megadni.\\\n             / \\\n            Replacement parcel: Magyar Posta undertakes to deliver the postal parcel sent with this additional service to the recipient only if the recipient delivers an inverse postal parcel to the delivery person (for return to the sender).\\\n            For example, the delivery person delivers a new mobile phone to the recipient, but the recipient must hand over an older device.\\\n            In case of using the additional service of replacement package, the item.replacementPackage part shall be sent as well. In the basic package part the K_CSE service, while in the case of the Inverz package related to it (item.replacementPackage) the K_CSA service must be provided.\r\n* `K_CSA` - Alapcsomag: a cserecsomagnál már említett inverz csomag. Ezzel a többletszolgáltatással nem küldhető be csomag.\\\n             / \\\n            Base package: the inverse package already mentioned at the replacement parcel. No parcel (returned goods) may be submitted with this additional service.\r\n* `K_INV` - Inverz csomag: a feladónak visszakézbesítendő csomag (visszáru).\\\n             / \\\n            Inverse parcel: parcel to be returned to the sender (returned goods).\r\n* `K_LEH` - Lehívás: A feladás nem a megszokott helyen, hanem egy alkalmilag kijelölt helyen történik. A címzett tetszőleges, de lehet maga az ügyfél is. \n            Különbség az inverz (K_INV) szolgáltatáshoz képest, hogy itt nem elegendő egy fiktív súlyt küldeni, pl. 1 gramm, hanem a normál csomagokhoz hasonlóan a tényleges súlyt kérjük küldeni. \n            A címiratot az MPL API tudja biztosítani (labelType=A4), de a postai gépjármű kiszállását egy e-mail küldéssel szükséges kezdeményezni. \n            Arra is van mód, hogy a címirat nyomtatását is a Posta végezze, ilyenkor az MPL API által kiadott címiratot PDF-ként csatolni kell az emailhez. \n            A levél címzettje minden esetben a szallitasrendeles@posta.hu legyen. További részletek a Dokumentáció menüben.\\\n             / \\\n            Call-out: sending is not performed by the person who generates the address label. Magyar Posta goes out for the parcel and in some cases also prints the address label.\r\n* `K_TET` - Tételes kezelés: akkor használatos, amikor értéknyilvánítás megadása nélkül, illetve az értéknyilvánítástól függetlenül a feladó tételes kezelést akar igénybe venni a csomaghoz.\\\n            Ilyen például a mérgeket, vagy halotti hamvakat tartalmazó küldemény.\\\n            Csak MPL postacsomaghoz lehet igénybe venni.\\\n             / \\\n            Itemised handling: used when the sender wants to use itemised handling for the parcel without providing value insurance or independently of the value insurance.\\\n            For example a mail item containing poisons or ashes.\\\n            Can only be used for MPL mail items.\r\n* `K_GLO` - ►INT◄ Globális szolgáltatás - EU-n belülre szóló, harmadik országból érkező csomag esetén szükséges használni, mely esetben a vámáru adatok megadása is kötelező\\\n             / \\\n            Global service - To be used for parcels arriving to the EU from a third country, in which case the customs data must also be provided\r\n* `K_LEZ` - Postai lezárás - A Posta a feladó által megfelelően becsomagolt, de a Posta honlapján közzétett ÁSZF 3.4. pontja szerinti előírásnak nem megfelelően lezárt értéknyilvánítás \n            többletszolgáltatással ellátott levélküldemény és a külön terméklap szerinti nemzetközi viszonylatba feladásra szánt postacsomag postai lezárás jelzőcímkével történő lezárását vállalja. \n            A Posta a kiegészítő szolgáltatást – a külön terméklapokon szereplő eltérő feltétel hiányában –külön díj ellenében vállalja.\\\n             / \\\n            Postal sealing - Magyar Posta undertakes to seal by means of a postal sealing label any item of correspondence and postal parcel intended for international mailing in accordance with he separate product sheet and an insurance supplementary service, \n            which is properly packed by the sender but not sealed in accordance with the requirements of Section 3.4 of the GTC published on the website of Magyar Posta. Unless otherwise stated on a product sheet, Magyar Posta undertakes this supplementary service for a special fee.\r\n* `K_POT` - ►INT◄ Kiviteli vám pótlap megadása - A postai vámügynöki szolgáltatás az Európai Unió (EU) területén kívülre szóló és 1.000 eurónak megfelelő forint összegű \n            vagy azt meghaladó értéket tartalmazó postai küldemények, valamint külön jogszabály által meghatározott esetekben (vámköteles tartalmú küldemények esetében) \n            értéktől függetlenül az ügyfél kérésére vehető igénybe, a vonatkozó megbízás kitöltésével, és ha szükséges kiviteli engedélyek csatolásával, a küldemény postai feladásával egyidejűleg. \n            1 pótlap 3 tétel. \\\n             / \\\n            Provision of export customs supplementary sheet - The postal customs brokerage service is available at the customer's request for postal items with a HUF value equivalent to or exceeding EUR 1,000 addressed to destinations outside the European Union (EU) \n            and in cases specified by special legislation (for consignments subject to customs duty), regardless of their value, by completing the relevant order form, accompanied, if necessary, by export licences simultaneously with the posting of the consignment. 1 supplementary sheet 3 items.\r\n* `K_VNY` - ►INT◄ Kiviteli Kísérő Okmány megadása - A postai vámügynöki szolgáltatás az Európai Unió (EU) területén kívülre szóló és 1.000 eurónak megfelelő forint összegű \n            vagy azt meghaladó értéket tartalmazó postai küldemények, valamint külön jogszabály által meghatározott esetekben (vámköteles tartalmú küldemények esetében) \n            értéktől függetlenül az ügyfél kérésére vehető igénybe, a vonatkozó megbízás kitöltésével, és ha szükséges kiviteli engedélyek csatolásával, a küldemény postai feladásával egyidejűleg.\\\n             / \\\n            Provision of Accompanying Document - The postal customs brokerage service is available at the customer's request for postal items with a HUF value equivalent to or exceeding EUR 1,000 addressed to destinations outside the European Union (EU) \n            and in cases specified by special legislation (for consignments subject to customs duty), regardless of their value, by completing the relevant order form, accompanied, if necessary, by export licences simultaneously with the posting of the consignment.\r\n* `K_CSM` - Csomagmegőrzés / Packet storage\r\n* `K_EFF` - e-értesítés (nem használt) / e-notification (not used)\r\n* `K_VIK` - Visszakézbesités (nem használt) / Return delivery (not used)\r\n* `K_ZSK` - Zsilipes kézbesítés (nem használt) / Lock-gate delivery (not used)\r\n* `K_EFC` - e-előrejelzés (nem használt) / e-prealert (not used)\r\n* `K_DU` - Délutáni kézbesítés (nem használt) / Afternoon delivery (not used)\r\n* `K_LX` - Kézbesítés dísztáviraton (nem használt) / Decorative telegram delivery (not used)\r\n* `K_KRC` - Címzett kézbesítési rendelkezése (nem használt) / Recipient’s delivery provisions (not used)\r\n* `K_ESZ` - Éjszakai kézbesítés (nem használt) / Overnight delivery (not used)\r\n* `K_ETV` - eTértivevény (nem használt) / eReturn Receipt (not used)\r\n* `K_KRF` - Feladó kézbesítési rendelkezése (nem használt) / Sender’s delivery provisions (not used)\r\n* `K_VAR` - Várakozási díj (nem használt) / Waiting time charge (not used)\r\n* `K_UTN` - Utánküldés (nem használt) / Reforwarding (not used)\r\n* `K_VER` - Vámérték (nem használt) / Customs value (not used)\r\n* `K_EPR` - eCIP Premium (nem használt) / eCIP Premium (not used)\r\n* `K_IDG` - 1 munkanapos időgarancia (nem használt) / 1 working day time guarantee (not used)\r\n* `K_KNY` - Könnyített kézbesítés (nem használt) / Simplified delivery (not used)\r\n* `K_KOR` - Életkor ellenőrzése (nem használt) / Age verification (not used)\r\n* `K_PRE` - PrePaid cimke (nem használt) / PrePaid label (not used)\r\n* `K_UTK` - Utánküldés (nem használt) / Reforwarding (not used)\r\n* `K_ANT` - Aznap nem továbbítható (nem használt) / Cannot be forwarded on the same day (not used)\r\n* `K_CIP` - eCIP Standard (nem használt) / eCIP Standard (not used)\r\n"
+          description: "A kiválasztott többletszolgáltatások kódjai.\r\n / \r\nCodes for the selected additional services."
+          nullable: true
+        cod:
+          type: number
+          description: "Az utánvét összege Ft-ban egész számként\r\n / \r\nThe amount of insured items in HUF, as integer, is 2 million max."
+          format: double
+          nullable: true
+        value:
+          type: integer
+          description: "Az értéknyilvánítás (biztosítás) összege Ft-ban, egész számként, max 2 millió.\r\n / \r\nThe amount of the value insurance in HUF as a whole number"
+          format: int64
+          nullable: true
+        deliveryMode:
+          enum:
+            - HA
+            - RA
+            - PP
+            - CS
+            - PM
+          type: string
+          description: A kézbesítés módja / Method of delivery.
+        codCurrency:
+          maxLength: 3
+          type: string
+          description: ►INT◄ Utánvét devizaneme  / Cash on delivery currency
+          nullable: true
+          example: HUF
+        supplementarySheetNr:
+          type: integer
+          description: ►INT◄ Pótlapszám / Supplementary sheet number
+          format: int64
+          nullable: true
+          example: 1
+        customsValue:
+          type: number
+          description: ►INT◄ Vám érték / Customs value
+          format: double
+          nullable: true
+        exportAuthorisation:
+          maxLength: 35
+          type: string
+          description: ►INT◄ Export engedély / Export authorisation
+          nullable: true
+          example: '9022900'
+        otherComment:
+          maxLength: 105
+          type: string
+          description: ►INT◄ Egyéb megjegyzés / Other comment
+          nullable: true
+          example: semmi extra
+        secId:
+          type: boolean
+          description: "►INT◄ A_125_HAR alapszolgáltatás megadásakor true érték esetén az API az inverz csomag adatait is létrehozza és visszaadja a válaszban.\\\r\n / \r\nWhen the A_125_HAR basic service is provided, the API also generates and returns the inverse parcel data in the response."
+          nullable: true
+          example: false
+        customsValueCurrency:
+          maxLength: 3
+          type: string
+          description: ►INT◄ Valutanem / Currency
+          nullable: true
+          example: EUR
+        produceContent:
+          maxLength: 512
+          type: string
+          description: ►INT◄ Áru tartalom kódja. / Produce content code.
+          nullable: true
+          example: '999'
+      additionalProperties: false
+      description: "Csomaghoz tartozó postai szolgáltatások.\r\n / \r\nPostal services included with the parcel."
+    Shipment:
+      type: object
+      properties:
+        sender:
+          $ref: '#/components/schemas/Sender'
+        nonUTF8Sender:
+          $ref: '#/components/schemas/NonUTF8Sender'
+        shipmentDate:
+          type: string
+          description: "A tényleges (fizikai) postára adás tervezett ideje yyyy-MM-dd formátumban\r\n / \r\nPlanned time of actual (physical) posting in dd-MM-yyyy format format: date-time"
+          format: date
+          nullable: true
+        orderId:
+          type: string
+          description: "A webáruház által használt rendelésazonosító.\r\n / \r\nOrder ID used by the webshop."
+          nullable: true
+          example: '12345678'
+        tag:
+          type: string
+          description: "A szállítmányhoz rendelt címke.\r\n / \r\nLabel assigned to the consignment."
+          nullable: true
+          example: 1. telephely
+        trackingNumber:
+          type: string
+          description: "A posta által kiosztott azonosító.\r\n / \r\nThe identifier assigned by Magyar Posta."
+          nullable: true
+          example: PNABC50000012
+        item:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentItem'
+          description: "A szállítmányban szereplő csomagok felsorolása.\r\n / \r\nList of parcels included in the consignment."
+          nullable: true
+        recipient:
+          $ref: '#/components/schemas/Recipient'
+        nonUTF8Recipient:
+          $ref: '#/components/schemas/NonUTF8Recipient'
+        paymentMode:
+          enum:
+            - UV_AT
+            - UV_KP
+          type: string
+          description: "Azt adja meg, hogy az MPL hogyan fizesse ki az utánvételes csomagok után beszedett díjat a megrendelő számára.\r\n / \r\nSpecifies how MPL should pay the customer the fee collected for cash on delivery parcels."
+          nullable: true
+        packageRetention:
+          type: integer
+          description: "A csomag őrzési ideje munkanapban: 0, 5 vagy 10.\r\n / \r\nRetention period of the parcel in business days: 0, 5 or 10."
+          format: int32
+          nullable: true
+      additionalProperties: false
+      description: "Szállítmány.\r\n / \r\nConsignment"
+    ShipmentCloseRequest:
+      type: object
+      properties:
+        fromDate:
+          type: string
+          description: "A leválogatás kezdő dátuma.\r\n / \r\nSorting start date."
+          format: date
+          nullable: true
+        toDate:
+          type: string
+          description: "A leválogatás végdátuma.\r\n / \r\nSorting end date."
+          format: date
+          nullable: true
+        trackingNumbers:
+          type: array
+          items:
+            type: string
+          description: "Postai azonosítók (ragszámok) felsorolása.\r\n / \r\nList of postal identifiers (tracking numbers)."
+          nullable: true
+          example:
+            - PBABC50000123
+            - PBABC50000136
+            - PBABC500001151
+        checkList:
+          type: boolean
+          description: "Szállítólevelet kér PDF formátumban. Ez egy, a csomagok fizikai átvételekor használt papír alapú elismervény, amin kézzel lehet rögzíteni az átadott/átvett csomagok listáját.\r\n / \r\nRequest a delivery note in PDF format. This is a paper-based receipt used for the physical receipt of the parcels, on which the list of delivered/received parcels can be entered manually."
+          nullable: true
+        checkListWithPrice:
+          type: boolean
+          description: "Feladási díjak megjelenítése az eredményben.\r\n / \r\nShow postage fees in the profit and loss account."
+          nullable: true
+        tag:
+          type: string
+          description: "Milyen cimkével ellátott csomagokat szűrjük.\r\n / \r\nParcels with which label are sorted."
+          nullable: true
+          example: pesti telephely
+        requestId:
+          type: string
+          description: "Egy korábbi zárás-kérésre adott válaszunk megismétlése. (Olyankor hasznos, ha pl. time-out miatt nem ért oda a PDF, de azért szükség lenne rá.)\r\n / \r\nRepeating our response for a previous request for closing. (It is useful in cases when the PDF did not arrive because of time-out, but it would be necessary.)"
+          nullable: true
+          example: b9229805-a07f-4de4-aed5-8f5d2fbeb3bd
+        summaryList:
+          type: boolean
+          description: "Feladás összesítő kérése PDF formátumban\r\n / \r\nRequest for dispatch summary in PDF format"
+          nullable: true
+        singleFile:
+          type: boolean
+          description: "A jegyzékek egy pdf fájlban vagy külön pdf fájlokban készüljenek.\r\n / \r\nLists shall be prepared in one PDF file or in separate PDF files."
+          nullable: true
+          example: true
+      additionalProperties: false
+      description: "Beküldött csomagadatok zárása, EFJ (elektronikus feladójegyzék) generálása.\r\n / \r\nClosing submitted parcel data, generating EFJ (electronic posting list)."
+    ShipmentCloseResult:
+      type: object
+      properties:
+        manifest:
+          type: string
+          description: "A generált szállítólevelek (a csomagok fizikai átvételekor használt papír alapú elismervény, amin kézzel lehet rögzíteni az átadott/átvett csomagok listáját).\\\r\nElektronikus feladójegyzékenként (efj) egy-egy készül belőle.\\\r\n / \r\nGenerated delivery notes (a paper-based receipt used for the physical receipt of parcels, on which the list of parcels delivered/accepted can be recorded manually).\\\r\nOne electronic posting list(efj) is made of it."
+          format: byte
+          nullable: true
+        manifestSUM:
+          type: string
+          description: "Feladójegyzék pdf formátumban\r\n / \r\nPosting list in PDF format"
+          format: byte
+          nullable: true
+        manifestRA:
+          type: string
+          description: "Raklapos feladójegyzék pdf formátumban. Csak raklapos küldemény feladás esetén értelmezett, akkor kötelező kinyomtatni és a futárnak átadni.\r\n / \r\nPosting list for pallet in PDF format. Interpreted only when dispatching a pallet mail item, then it must be printed and handed over to the courier."
+          format: byte
+          nullable: true
+        trackingNrPrices:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackingNrPrice'
+          description: "Szállítmány feladási díjak\r\n / \r\nConsignment postage fees"
+          nullable: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDescriptor'
+          description: "A kérés végrehajtása során észlelt hibák. Amennyiben van hibalista, úgy az adott kérés sikertelenül zárult.\r\n / \r\nErrors detected during request execution. If there is an error list, the request was unsuccessful."
+          nullable: true
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/WarningDescriptor'
+          description: "A kérés végrehajtása során észlelt hiányosságok. Amennyiben a lista tartalmaz elemet, úgy az adott kérés sikeresen zárult.\r\n / \r\nDeficiencies detected during the execution of the request. If the list contains an item, the request was completed successfully."
+          nullable: true
+      additionalProperties: false
+      description: "Szállítmány zárás eredménye\r\n / \r\nResult of consignment closing"
+    ShipmentCreateRequest:
+      required:
+        - developer
+        - recipient
+        - sender
+        - webshopId
+      type: object
+      properties:
+        developer:
+          maxLength: 40
+          minLength: 1
+          type: string
+          description: "Az API-t hívó rendszer neve.\r\n / \r\nThe name of the system calling API."
+          example: XY Kft
+        sender:
+          $ref: '#/components/schemas/Sender'
+        nonUTF8Sender:
+          $ref: '#/components/schemas/NonUTF8Sender'
+        shipmentDate:
+          type: string
+          description: "A tényleges (fizikai) postára adás tervezett ideje. Értéke legfeljebb 6 hónappal lehet később az aktuális napnál.\r\n / \r\nPlanned time of actual (physical) posting. Its value can be up to 6 months later than the current day. format: date-time"
+          format: date
+          nullable: true
+        orderId:
+          maxLength: 50
+          type: string
+          description: "A webáruház által használt rendelésazonosító. A kérés/válasz ciklus után ezt az adatot az API-ban tároljuk, így a jegyzékzárás előtti lekérdezéseknél alapul szolgálhat az egyes szállítmányok beazonosításához. De jegyzékzárás után ez az adat már nem kíséri a csomagot az életútja során (pl. nyomkövetésnél).\r\n / \r\nThe order identification number used by the online store. After the request/response cycle, this data is stored in the API, thus it may serve as a basis for the queries before closing the list to identify shipments. However, after closing the list, this data does not accompany the mail item in its life path (e.g. at tracking)."
+          nullable: true
+        webshopId:
+          maxLength: 100
+          minLength: 1
+          type: string
+          description: "Az adott szállítmány azonosítója a kérés/válasz párban. A kérés/válasz ciklus után ezt az adatot már nem tároljuk, így a további API-hívásoknál már nem szolgál alapul, és jegyzékzárás után sem kíséri a csomagot az életútja során (pl. nyomkövetésnél). Mivel egy kérésben több szállítmány is beküldhető, ezért a szállítmányok mellé megadott azonosítóval lehet \"párosítani\" a kapott választ. Értékének ezért egy híváson belül kell egyedninek lennie, a legegyszerűbb egy 0-től kezdődő sorszám, de akár használható a webshop által kiosztott megrendelésazonosító is, ha megfelel a formai követelményeknek\r\n / \r\nThe ID of the given shipment in the request/response pair. After the request/response cycle, we do not store this data anymore, thus it is no longer used as a basis for further API queries, and it does not accompany the mail items in their life path after the closing of the list (e.g. at tracking). Because multiple consignments can be submitted in one request, the response can be ‘paired’ with the ID provided for the consignments. Its value must therefore be unique within a call, the simplest being a serial number starting from 0, but you can even use the order ID assigned by the webshop if it meets the formal requirements."
+          example: '1'
+        labelType:
+          enum:
+            - A4
+            - A5
+            - A5inA4
+            - A5E
+            - A5E_EXTRA
+            - A5E_STAND
+            - A6
+            - A6inA4
+            - A4ONE
+          type: string
+          description: "A címirat elrendezése (mérete, tájolása). Részletes magyarázat a Dokumentáció menüben olvasható. Amennyiben nem érkezik ilyen paraméter, úgy a válasz nem tartalmaz majd címiratot. A címirat később is lekérhető, GET hívással.\r\n / \r\nLayout of postal address label.Detailed explanations can be found in the Documentation menu.If this parameter is not specified, then no manifest will be included in the response. The label can be generated later by a GET request."
+          nullable: true
+        labelFormat:
+          enum:
+            - PDF
+            - ZPL
+          type: string
+          description: "A címirat fájl formátuma. Több címiratot tartalmazó PDF érdekében a szállítmányok beküldését követőn egy külön GET hívással kell címkét kérni.\r\n / \r\nFile format of the label. To create a PDF containing multiple labels, an additional GET request need to be sent after the shipments have been submitted."
+          default: PDF
+          nullable: true
+        tag:
+          maxLength: 50
+          type: string
+          description: "A szállítmányok opcionálisan megjelölhetők. A kérés/válasz ciklus után ezt a jelölőt az API-ban tároljuk, így a jegyzékzárás előtti lekérdezéseknél vagy a címiratok csoportos nyomtatásánál alapul szolgálhat a szállítmányok egy csoportjára szűrésére. De jegyzékzárás után ez az adat már nem kíséri a csomagot az életútja során (pl. nyomkövetésnél).\r\n / \r\nShipments can be optionally marked. After the request/response cycle, this marking is stored in the API, thus it may serve as a basis for the queries before closing the list or for the group printing of address labels to filter out a particular group of shipments. However, after closing the list, these data do not accompany the mail item in its life path (e.g. at tracking)."
+          nullable: true
+          example: 1. telephely
+        groupTogether:
+          type: boolean
+          description: "►DOM◄ A beküldött szállítmány csomagjai (item) együtt kézbesítendők-e? Díjmentes szolgáltatás.\r\n / \r\nMay the mail items of the shipment sent in be delivered together? Free of charge service."
+          nullable: true
+        deliveryTime:
+          enum:
+            - earlyMorning
+            - morning
+            - afternoon
+            - evening
+          type: string
+          description: "A kívánt kézbesítési idő. Csak az időablak (K_IDA) többletszolgáltatás esetén szükséges megadni.\r\n / \r\nThe required delivery time. It must be provided only in case of the additional service of time-window delivery (K_IDA)."
+          nullable: true
+        deliveryDate:
+          type: string
+          description: "A kívánt kézbesítési nap. Csak a fix napi kézbesítés (K_FNK) többletszolgáltatás esetén szükséges megadni.\r\n / \r\nThe required delivery date. It must be provided only in case of the additional service of fixed day delivery (K_FNK)."
+          format: date
+          nullable: true
+        item:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+          description: "A tételek (csomagok) felsorolása.\r\n / \r\nList of items (parcels)."
+          nullable: true
+        recipient:
+          $ref: '#/components/schemas/Recipient'
+        nonUTF8Recipient:
+          $ref: '#/components/schemas/NonUTF8Recipient'
+        paymentMode:
+          enum:
+            - UV_AT
+            - UV_KP
+          type: string
+          description: " Azt adja meg, hogy az MPL hogyan fizesse ki az utánvételes csomagok után beszedett díjat a megrendelő számára.\r\n / \r\nSpecifies how MPL should pay the customer the fee collected for cash on delivery parcels."
+          nullable: true
+        packageRetention:
+          type: integer
+          description: "A csomag őrzési ideje munkanapban: 0, 5 vagy 10.\r\n / \r\nRetention period of the parcel in business days: 0, 5 or 10."
+          format: int32
+          nullable: true
+          example: 5
+        printRecipientData:
+          enum:
+            - PRINTALL
+            - PRINTPHONENUMBER
+            - PRINTEMAIL
+            - PRINTNOTHING
+          type: string
+          description: A PRINTEMAIL beállítás nem értelmezett
+          nullable: true
+      additionalProperties: false
+      description: "Szállítmány létrehozásához szükséges adatok\r\n / \r\nData required to create a consignment"
+    ShipmentCreateResult:
+      type: object
+      properties:
+        webshopId:
+          type: string
+          description: "Az adott szállítmány azonosítója. A kérésben kapott azonosítókat ismételjük meg itt, ez alapján lehet párosítani a választ a kéréssel.\r\n / \r\nThe identifier of the given consignment. The IDs received in the request should be repeated here, based on which the response can be paired with the request."
+          nullable: true
+        trackingNumber:
+          type: string
+          description: "A posta által kiosztott szállítmányazonosító\r\n / \r\nConsignment ID assigned by Magyar Posta"
+          nullable: true
+        replacementTrackingNumber:
+          type: string
+          description: "Amennyiben cserecsomag szolgáltatást vett igénybe, úgy az alapcsomag azonosítója.\r\n / \r\nIf you used a replacement parcel service, the identifier of the base parcel."
+          nullable: true
+        replacementLabels:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReplacementLabel'
+          description: "Amennyiben cserecsomag szolgáltatást vett igénybe, úgy az inverz csomag(ok) címiratai.\r\n / \r\nIf you used a replacement parcel service, the address labels of the inverse parcel(s)."
+          nullable: true
+        packageTrackingNumbers:
+          type: array
+          items:
+            type: string
+          description: "Szállítmányhoz tartozó csomagok azonosítói\r\n / \r\nIdentifiers of the parcels belonging to the consignment"
+          nullable: true
+        dispatchId:
+          type: integer
+          description: "8 számjegyből álló feladásazonosító. Ezt az azonosítót a feladónak használnia kell majd az automatánál történő feladáskor.\r\n/ \r\n8-digit dispatch ID. This ID will have to be used by the sender when dispatching at a parcel machine."
+          format: int32
+          nullable: true
+        suggestedRecipientPostCode:
+          type: string
+          description: "Amennyiben a címzett címe nem található a postai adatbázisban, akkor a posta által javasolt irányítószám.\r\n / \r\nIf the recipient's address is not in the postal database, the postcode suggested by Magyar Posta."
+          nullable: true
+        suggestedRecipientCity:
+          type: string
+          description: "Amennyiben a címzett címe nem található a postai adatbázisban, akkor a posta által javasolt település.\r\n / \r\nIf the recipient’s address is not in the postal database, the settlement suggested by Magyar Posta."
+          nullable: true
+        suggestedRecipientAddress:
+          type: string
+          description: "Amennyiben a címzett címe nem található a postai adatbázisban, akkor a posta által javasolt cím.\r\n / \r\nIf the recipient's address is not in the postal database, the address suggested by Magyar Posta."
+          nullable: true
+        label:
+          type: string
+          description: "Címirat PDF formátumban base64 enkódolva.\r\n / \r\nAddress label in PDF format base64 encoded."
+          format: byte
+          nullable: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDescriptor'
+          description: "A kérés végrehajtása során észlelt hibák. Amennyiben van hibalista, úgy az adott kérés sikertelenül zárult.\r\n / \r\nErrors detected during request execution. If there is an error list, the request was unsuccessful."
+          nullable: true
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/WarningDescriptor'
+          description: "A kérés végrehajtása során észlelt hiányosságok. Amennyiben a lista tartalmaz elemet, úgy az adott kérés sikeresen zárult.\r\n / \r\nDeficiencies detected during the execution of the request. If the list contains an item, the request was completed successfully."
+          nullable: true
+      additionalProperties: false
+      description: "Szállítmány létrehozás eredménye\r\n / \r\nResult of consignment creation"
+    ShipmentDeleteRequest:
+      required:
+        - trackingNumber
+      type: object
+      properties:
+        trackingNumber:
+          minLength: 1
+          type: string
+          description: "Szállítmány azonosító\r\n / \r\nPostal ID"
+      additionalProperties: false
+      description: Szállítmány törléséhez szükséges datok
+    ShipmentDeleteResult:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDescriptor'
+          description: "A kérés végrehajtása során észlelt hibák. Amennyiben van hibalista, úgy az adott kérés sikertelenül zárult.\r\n / \r\nErrors detected during request execution. If there is an error list, the request was unsuccessful."
+          nullable: true
+      additionalProperties: false
+      description: "Szállítmány törlés eredménye\r\n / \r\nResult of consignment cancellation"
+    ShipmentItem:
+      type: object
+      properties:
+        customData1:
+          type: string
+          description: "Tetszőleges ügyféladat (pl. ügyfél oldali azonosító).\r\n / \r\nAny customer data."
+          nullable: true
+          example: 'Megrendelésazonosító: 26B22GR'
+        customData2:
+          type: string
+          description: "Tetszőleges ügyféladat (pl. ügyfél oldali azonosító).\r\n / \r\nAny customer data."
+          nullable: true
+          example: 'Vevőkód: 14433344'
+        weight:
+          $ref: '#/components/schemas/UnitValue'
+        size:
+          enum:
+            - S
+            - M
+            - L
+            - PRINT
+            - PACK
+          type: string
+          description: "A csomag mérete.Csak két esetben kötelező.A) ►DOM◄ Csomagautomatára való címzéskor(deliveryMode:CS) az S, M, L értékek valamelyikével.B) ►INT◄ Nemzetközi gyorsposta alapszolgáltatás(service.basic: A_13_EMS) esetén a PRINT,PACK értékek valamelyikével.\r\n / \r\nStandard size of the item.To be specified only in two cases.A) ►DOM◄ When sending to a parcel terminal(deliveryMode:CS), using one of the S or M or L values.B) ►INT◄ When sending an international express mail(service.basic: A_13_EMS), using one of the PRINT or PACK values."
+          nullable: true
+        services:
+          $ref: '#/components/schemas/Service'
+        ewcCode:
+          type: string
+          description: "A mező nem használható.\r\n/ \r\nThe field is not available."
+          nullable: true
+          example: ''
+        fee:
+          type: number
+          description: "Feladási díj\r\n / \r\nPostage fee format"
+          format: double
+          nullable: true
+        qrCode:
+          type: string
+          description: "A címiraton megjelenő ügyféladatokat tartalmazó QR kód tartalma\r\n / \r\nContent of the QR code containing the customer details appearing on the address label."
+          nullable: true
+        senderParcelPickupSite:
+          type: string
+          description: "►DOM◄ Csomagautomata neve, ahol feladják a csomagot.\r\n / \r\nName of Parcel terminal, if sending there."
+          nullable: true
+          example: 568 sz. automata - Savoya Park
+        customs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Custom'
+          description: Árutartalom listája
+          nullable: true
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+          description: Dokumentumok listája
+          nullable: true
+      additionalProperties: false
+      description: "Az egyes csomagok adatai.\r\n / \r\nDetails of each parcel."
+    ShipmentItemAddRequest:
+      required:
+        - items
+      type: object
+      properties:
+        labelType:
+          enum:
+            - A4
+            - A5
+            - A5inA4
+            - A5E
+            - A5E_EXTRA
+            - A5E_STAND
+            - A6
+            - A6inA4
+            - A4ONE
+          type: string
+          description: "A címirat elrendezése (mérete, tájolása). Részletes magyarázat a Dokumentáció menüben olvasható. Amennyiben nem érkezik ilyen paraméter, úgy a válasz nem tartalmaz majd címiratot. A címirat később is lekérhető, GET hívással.\r\n / \r\nLayout of postal address label.Detailed explanations can be found in the Documentation menu.If this parameter is not specified, then no manifest will be included in the response. The label can be generated later by a GET request."
+          nullable: true
+        labelFormat:
+          enum:
+            - PDF
+            - ZPL
+          type: string
+          description: "A címirat fájl formátuma. Több címiratot tartalmazó PDF érdekében a szállítmányok beküldését követőn egy külön GET hívással kell címkét kérni.\r\n / \r\nFile format of the label. To create a PDF containing multiple labels, an additional GET request need to be sent after the shipments have been submitted."
+          default: PDF
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+          description: "A tételek (csomagok) felsorolása.\r\n / \r\nList of items (parcels)."
+      additionalProperties: false
+      description: "Csomagok nem együtt kézbesítendő szállítmányba történő felvételéhez szükséges adatok\r\n / \r\nData required for the inclusion of parcels in a consignment not to be delivered at the same time"
+    ShipmentItemAddResult:
+      type: object
+      properties:
+        trackingNumber:
+          type: string
+          description: "A posta által kiosztott azonosító (ragszám).\r\n / \r\nIdentifier (tracking number) assigned by Magyar Posta."
+          nullable: true
+        replacementTrackingNumber:
+          type: string
+          description: "A szállítmányhoz készült alapcsomagok, posta által kiosztott azonosítói (ragszám).\r\n / \r\nIdentifiers (tracking number) assigned by Magyar Posta to the base parcels for the consignment."
+          nullable: true
+        packageTrackingNumbers:
+          type: array
+          items:
+            type: string
+          description: "Szállítmányhoz tartozó csomagok azonosítói\r\n / \r\nIdentifiers of the parcels belonging to the consignment"
+          nullable: true
+        label:
+          type: string
+          description: "Címirat PDF formátumban base64 enkódolva.\r\n / \r\nAddress label in PDF format base64 encoded."
+          format: byte
+          nullable: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDescriptor'
+          description: "A kérés végrehajtása során észlelt hibák. Amennyiben van hibalista, úgy az adott kérés sikertelenül zárult.\r\n / \r\nErrors detected during request execution. If there is an error list, the request was unsuccessful."
+          nullable: true
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/WarningDescriptor'
+          description: "A kérés végrehajtása során észlelt hiányosságok. Amennyiben a lista tartalmaz elemet, úgy az adott kérés sikeresen zárult.\r\n / \r\nDeficiencies detected during the execution of the request. If the list contains an item, the request was completed successfully."
+          nullable: true
+      additionalProperties: false
+      description: "Szállítmány csomag hozzáadás eredménye\r\n / \r\nResult of adding a consignment parcel"
+    ShipmentQueryFilters:
+      type: object
+      properties:
+        fromDate:
+          type: string
+          description: "Mettől szűrjön a lekérdezés.\r\n / \r\nFilter the query from."
+          format: date
+          nullable: true
+          example: '2020.01.05.'
+        toDate:
+          type: string
+          description: "Meddig szűrjön a lekérdezés.\r\n / \r\nFilter the query to."
+          format: date
+          nullable: true
+          example: '2020.01.10.'
+        trackingNumbers:
+          type: array
+          items:
+            type: string
+          description: "A kiválasztott postai azonosítók (ragszámok)\r\n / \r\nSelected postal IDs"
+          nullable: true
+        tag:
+          type: string
+          description: "Küldemény cimkéje\r\n / \r\nMail item label"
+          nullable: true
+          example: 1. telephely
+      additionalProperties: false
+      description: Szállítmányok lekérdezéséhez szükséges adatok
+    ShipmentQueryRequest:
+      required:
+        - trackingNumber
+      type: object
+      properties:
+        trackingNumber:
+          minLength: 1
+          type: string
+          description: "Szállítmány azonosító\r\n / \r\nPostal ID"
+      additionalProperties: false
+      description: 'Szállítmány lekérdezéséhez szükséges datok, URL-ből érkező paraméterek esetében'
+    ShipmentQueryResult:
+      type: object
+      properties:
+        shipment:
+          $ref: '#/components/schemas/Shipment'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDescriptor'
+          description: "A kérés végrehajtása során észlelt hibák. Amennyiben van hibalista, úgy az adott kérés sikertelenül zárult.\r\n / \r\nErrors detected during request execution. If there is an error list, the request was unsuccessful."
+          nullable: true
+      additionalProperties: false
+      description: "Szállítmány lekérdezés eredménye\r\n / \r\nConsignment query result"
+    TrackingNrPrice:
+      type: object
+      properties:
+        trackingNumber:
+          type: string
+          description: "A posta által kiosztott azonosító\r\n / \r\nIdentifier assigned by Magyar Posta"
+          nullable: true
+          example: PNAAA30256792
+        price:
+          type: number
+          description: "Feladási díj\r\n / \r\nPostage fee"
+          format: double
+          nullable: true
+          example: 1234
+      additionalProperties: false
+      description: "Szállítmány díja\r\n / \r\nConsignment fee"
+    TrackingSubscribeRequest:
+      type: object
+      properties:
+        sender:
+          type: string
+          description: "Küldő\r\n / \r\nSender"
+          nullable: true
+        trackingNumber:
+          type: string
+          description: "Küldemény azonosító\r\n / \r\nItem identifier"
+          nullable: true
+        accountCode:
+          type: string
+          description: "Ügyfél azonosító\r\n / \r\nAccounting code"
+          nullable: true
+        serviceEndpoint:
+          type: string
+          description: "Szolgáltatás végpont\r\n / \r\nService endpoint"
+          nullable: true
+        dmlFlag:
+          type: boolean
+          description: "Új adatszolgáltatás vagy adatszolgáltatás törlése\r\n / \r\nNew data provision or cancelling data provision"
+          nullable: true
+        language:
+          type: string
+          description: "Nyelv\r\n / \r\nLanguage"
+          nullable: true
+        param1:
+          type: string
+          description: ''
+          nullable: true
+        param2:
+          type: string
+          description: ''
+          nullable: true
+        param3:
+          type: string
+          description: ''
+          nullable: true
+        param4:
+          type: string
+          description: ''
+          nullable: true
+        param5:
+          type: string
+          description: ''
+          nullable: true
+      additionalProperties: false
+      description: ''
+    TrackingSubscribeResult:
+      type: object
+      properties:
+        identifier:
+          type: string
+          description: Azonosító
+          nullable: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDescriptor'
+          description: "A kérés végrehajtása során észlelt hibák. Amennyiben van hibalista, úgy az adott kérés sikertelenül zárult.\r\n / \r\nErrors detected during request execution. If there is an error list, the request was unsuccessful."
+          nullable: true
+      additionalProperties: false
+      description: ''
+    UnitValue:
+      type: object
+      properties:
+        value:
+          type: integer
+          description: "Az érték egész számként. ►DOM◄ esetén kötelező mező!\r\n / \r\nThe value as a whole number. In case of ►DOM◄ shipment it is not nullable!"
+          format: int64
+          nullable: true
+          example: 184
+        unit:
+          enum:
+            - G
+            - g
+          type: string
+          description: "A tömeg mértékegysége. Csak gramm fogadható el.\r\n / \r\nThe unit of weight which can only be grams."
+          nullable: true
+          example: g
+      additionalProperties: false
+      description: "Tömeg\r\n / \r\nWeight data"
+    WarningDescriptor:
+      type: object
+      properties:
+        code:
+          type: string
+          description: "Hibakód\r\n / \r\nError Code"
+          nullable: true
+          example: '11'
+        parameter:
+          type: string
+          description: "További info (pl. JSON mező neve eseteleg másik hibakódnál másik paraméter)\r\n / \r\nAdditional information (e.g.: JSON field name may be a different parameter with another error code)"
+          nullable: true
+          example: PKXTR500034240051138000001;K_IDA
+        text:
+          type: string
+          description: "Hibakód szöveges leírása\r\n / \r\nText description of error code"
+          nullable: true
+          example: 'Hiányzó szállítmány szintű különszolgáltatás(ok) felvéve! Küldemény azonosító: PKXTR500034240051138000001. Szolgáltatások: K_IDA'
+        text_eng:
+          type: string
+          description: "Hibakód szöveges leírása angol nyelven\r\n / \r\nText description of error code"
+          nullable: true
+          example: 'Hiányzó szállítmány szintű különszolgáltatás(ok) felvéve! Küldemény azonosító: PKXTR500034240051138000001. Szolgáltatások: K_IDA'
+      additionalProperties: false
+      description: "Figyelmeztetés adatai\r\n / \r\nAlert details"
+    ZipCodeQueryRequest:
+      type: object
+      properties:
+        city:
+          type: string
+          description: "Helységnév\r\n / \r\nSettlement name"
+          nullable: true
+          example: Szolnok
+      additionalProperties: false
+      description: "Irányítószám lekérdezés kérés\r\n / \r\nPostcode query request"
+    ZipCodeQueryResult:
+      type: object
+      properties:
+        postCodes:
+          type: array
+          items:
+            type: string
+          description: "Irányítószámok listája\r\n / \r\nList of postcodes"
+          nullable: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDescriptor'
+          description: "A kérés végrehajtása során észlelt hibák. Amennyiben van hibalista, úgy az adott kérés sikertelenül zárult.\r\n / \r\nErrors detected during request execution. If there is an error list, the request was unsuccessful."
+          nullable: true
+      additionalProperties: false
+      description: "Irányítószám lekérdezés eredmény\r\n / \r\nPostcode query result"
+    ApiGatewayErrorResponse:
+      type: object
+      properties:
+        fault:
+          type: object
+          properties:
+            faultstring:
+              type: string
+            detail:
+              type: object
+              properties:
+                errorcode:
+                  type: string
+  securitySchemes:
+    oauth2_client_credentials:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://sandbox.api.posta.hu/oauth2/token
+    basic_auth:
+      type: http
+      scheme: basic

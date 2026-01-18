@@ -5,23 +5,25 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm -r build",
-    "test": "pnpm -r test",
-    "lint": "eslint . --ext .ts",
-    "dev": "pnpm -r --parallel dev"
+    "bootstrap": "pnpm install",
+    "build": "pnpm -w -r build",
+    "build:core": "pnpm -w -r --filter @shopickup/core build",
+    "build:adapters": "pnpm -w -r --filter \"@shopickup/adapters-*\" build",
+    "build:examples": "pnpm -w -r --filter \"examples/**\" build",
+    "start:dev-server": "pnpm --filter examples/dev-server run start",
+    "dev": "pnpm -w -r --parallel dev",
+    "lint": "eslint . --ext .ts"
   },
   "workspaces": [
-    "packages/core",
-    "packages/adapters/template",
-    "packages/adapters/foxpost",
-    "packages/tools/create-adapter-cli",
-    "examples/dev-server"
+    "packages/*",
+    "examples/*"
   ],
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
     "eslint": "^8.54.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.4.0",
+    "pnpm": "^8.0.0"
   },
   "engines": {
     "node": ">=18.0.0",

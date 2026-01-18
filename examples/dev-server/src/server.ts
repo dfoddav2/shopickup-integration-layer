@@ -1,98 +1,78 @@
-import Fastify from "fastify";
-import FastifyCors from "@fastify/cors";
-import { SqliteStore } from "./store/sqlite-store";
-import { FoxpostAdapter } from "@shopickup/adapters-foxpost";
-import { executeCreateLabelFlow } from "@shopickup/core";
-import axios from "axios";
-import { randomUUID } from "crypto";
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import swagger from '@fastify/swagger';
+import fastifySwaggerUi from '@fastify/swagger-ui';
 
-const fastify = Fastify({ logger: true });
-fastify.register(FastifyCors, { origin: true });
+// Create a Fastify instance
+const fastify = Fastify({
+    logger: true
+});
 
-// Simple HTTP client wrapper compatible with AdapterContext.http
-const httpClient = {
-  async get(url: string, options?: any) {
-    const res = await axios.get(url, { ...options, responseType: options?.responseType || undefined });
-    return res.data;
-  },
-  async post(url: string, data?: any, options?: any) {
-    const res = await axios.post(url, data, options);
-    return res.data;
-  },
-};
+// Register CORS plugin
+await fastify.register(cors, {
+    origin: '*'
+});
 
-const store = new SqliteStore("./dev.db");
-const foxAdapter = new FoxpostAdapter("https://webapi-test.foxpost.hu");
-
-// Health check
-fastify.get("/health", async () => ({ status: "ok", ts: new Date().toISOString() }));
-
-// Create label endpoint - demonstrates wiring of core + adapter + store
-fastify.post("/label", async (request, reply) => {
-  const body = request.body as any;
-
-  // Basic validation
-  if (!body?.shipment || !body?.parcels || !Array.isArray(body.parcels) || body.parcels.length === 0) {
-    return reply.status(400).send({ error: "shipment and parcels are required" });
-  }
-
-  const shipment = body.shipment;
-  const parcels = body.parcels;
-  const credentials = body.credentials || { apiKey: process.env.FOXPOST_API_KEY };
-
-  const context = {
-    http: httpClient,
-    logger: fastify.log,
-  } as any;
-
-  try {
-    const result = await executeCreateLabelFlow({
-      adapter: foxAdapter,
-      shipment,
-      parcels,
-      credentials,
-      context,
-      store,
-    });
-
-    // Save label binary data if returned
-    for (const labelRes of result.labelResources) {
-      if ((labelRes as any).labelUrl) {
-        const id = randomUUID();
-        await store.saveLabel({
-          id,
-          parcelId: "",
-          trackingNumber: labelRes.carrierId || "",
-          data: (labelRes as any).labelUrl,
-          createdAt: new Date(),
-        } as any);
-      }
+// Register Swagger plugin
+await fastify.register(swagger, {
+    openapi: {
+        openapi: '3.0.0',
+        info: {
+            title: "Shopickup Example Dev Server",
+            description: "API documentation for the Shopickup Example Dev Server",
+            version: "1.0.0"
+        },
+        servers: [
+            {
+                url: "http://localhost:3000",
+                description: "Local development server"
+            }
+        ],
+        tags: [
+            { name: "server", description: "Server related endpoints" }
+        ]
     }
-
-    return reply.send(result);
-  } catch (err: any) {
-    fastify.log.error(err);
-    return reply.status(500).send({ error: err instanceof Error ? err.message : String(err) });
-  }
 });
+await fastify.register(fastifySwaggerUi, {
+    routePrefix: '/docs',
+    // uiConfig: {
+    //     docExpansion: 'full',
+    //     deepLinking: false
+    // },
+})
 
-// Basic endpoint to fetch label by tracking number
-fastify.get("/label/:trackingNumber", async (request, reply) => {
-  const trackingNumber = (request.params as any).trackingNumber;
-  const label = await store.getLabelByTrackingNumber(trackingNumber);
-  if (!label) return reply.status(404).send({ error: "Label not found" });
-  return reply.send(label);
-});
+// Declare routes
+// fastify.get('/', function (request, reply) {
+//     reply.send({ hello: 'world' })
+// })
 
-// Start server
-const start = async () => {
-  try {
-    await fastify.listen({ port: 3000, host: "0.0.0.0" });
-    console.log("Dev server listening on http://localhost:3000");
-  } catch (err) {
-    fastify.log.error(err);
-    process.exit(1);
-  }
-};
+fastify.get("/health", {
+    schema: {
+        description: 'Health check endpoint',
+        tags: ['server'],
+        summary: 'Check server health',
+        response: {
+            200: {
+                description: 'Successful response',
+                type: 'object',
+                properties: {
+                    status: { type: 'string' },
+                    ts: { type: 'string', format: 'date-time' }
+                }
+            },
+        }
+    }
+}, async () => ({ status: "ok", ts: new Date().toISOString() }));
 
-start();
+
+// Run the server!
+await fastify.ready();
+fastify.swagger();
+
+fastify.listen({ port: 3000 }, function (err, address) {
+    if (err) {
+        fastify.log.error(err)
+        process.exit(1)
+    }
+    // Server is now listening on ${address}
+})

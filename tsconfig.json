@@ -1,32 +1,26 @@
 {
-  "files": [],
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "ESNext",
-    "lib": ["ES2020"],
-    "moduleResolution": "node",
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "lib": ["ES2022"],
+    "baseUrl": ".",
+    "paths": {
+      "@shopickup/*": ["packages/*/dist/index.d.ts"]
+    },
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "./dist",
     "strict": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "isolatedModules": true,
-    "allowSyntheticDefaultImports": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true
+    "incremental": true,
+    "noEmit": true
   },
   "references": [
     { "path": "packages/core" },
     { "path": "packages/adapters/foxpost" }
   ],
-  "exclude": ["node_modules", "dist", "**/*.spec.ts"],
-  "include": []
+  "include": ["packages/**/src", "examples/**/src"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
 }

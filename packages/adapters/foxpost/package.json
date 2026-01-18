@@ -2,6 +2,7 @@
   "name": "@shopickup/adapters-foxpost",
   "version": "1.0.0",
   "description": "Foxpost shipping carrier adapter for Shopickup",
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -15,9 +16,9 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.json",
     "test": "jest",
-    "dev": "tsc --watch",
+    "dev": "tsc -w -p tsconfig.json",
     "codegen": "openapi-typescript ../../carrier-docs/hu-foxpost/hu-foxpost.openapi.yaml --output ./src/types/generated.ts"
   },
   "peerDependencies": {
@@ -31,7 +32,7 @@
     "jest": "^29.7.0",
     "openapi-typescript": "^6.7.0",
     "ts-jest": "^29.1.1",
-    "typescript": "^5.3.3"
+    "typescript": "^5.4.2"
   },
   "dependencies": {
     "axios": "^1.6.0"
