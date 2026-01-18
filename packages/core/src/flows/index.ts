@@ -1,2 +1,2 @@
-export { executeCreateLabelFlow } from "./create-label";
-export type { CreateLabelFlowResult } from "./create-label";
+export { executeCreateLabelFlow } from './create-label.js';
+export type { CreateLabelFlowResult } from './create-label.js';

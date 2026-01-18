@@ -1,5 +1,5 @@
-import type { HttpClient } from "./http-client";
-import type { Logger } from "./logger";
+import type { HttpClient } from './http-client.js';
+import type { Logger } from './logger.js';
 
 /**
  * AdapterContext

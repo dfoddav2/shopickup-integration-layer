@@ -1,5 +1,5 @@
-import type { Shipment, Parcel, Label } from "../types";
-import type { CarrierResource } from "../interfaces";
+import type { Shipment, Parcel, Label } from '../types.js';
+import type { CarrierResource } from '../interfaces.js';
 
 /**
  * DomainEvent
