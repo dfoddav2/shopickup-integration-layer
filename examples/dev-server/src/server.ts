@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
+import { registerFoxpostRoutes } from './foxpost-routes.js';
 
 // Create a Fastify instance
 const fastify = Fastify({
@@ -29,7 +30,9 @@ await fastify.register(swagger, {
             }
         ],
         tags: [
-            { name: "server", description: "Server related endpoints" }
+            { name: "server", description: "Server related endpoints" },
+            { name: "Foxpost", description: "Foxpost carrier adapter dev endpoints" },
+            { name: "Dev", description: "Development and testing endpoints" }
         ]
     }
 });
@@ -64,6 +67,8 @@ fastify.get("/health", {
     }
 }, async () => ({ status: "ok", ts: new Date().toISOString() }));
 
+// Register Foxpost dev routes
+await registerFoxpostRoutes(fastify);
 
 // Run the server!
 await fastify.ready();

@@ -12,6 +12,8 @@
         "@fastify/cors": "^11.2.0",
         "@fastify/swagger": "^9.6.1",
         "@fastify/swagger-ui": "^5.2.4",
+        "@shopickup/adapters-foxpost": "link:../../packages/adapters/foxpost",
+        "@shopickup/core": "link:../../packages/core",
         "fastify": "^5.7.1",
         "zod": "^3.25.76"
     },
