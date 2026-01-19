@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import type { AdapterContext, Shipment, Parcel } from "@shopickup/core";
+import type { AdapterContext, Shipment, Parcel, HttpClient } from "@shopickup/core";
 import { FoxpostAdapter } from '../index.js';
 import type { Statuses } from '../types/generated.js';
 
@@ -12,7 +12,7 @@ import type { Statuses } from '../types/generated.js';
  * Mock HttpClient for testing
  * In real integration tests, would use Prism mock server
  */
-class MockHttpClient {
+class MockHttpClient implements HttpClient {
   async post<T>(url: string, data?: any, options?: any): Promise<T> {
     // Mock parcel creation response
     if (url.includes("/api/parcel")) {
@@ -62,6 +62,18 @@ class MockHttpClient {
 
     throw new Error(`Unexpected GET: ${url}`);
   }
+
+  async put<T>(url: string, data?: any, options?: any): Promise<T> {
+    throw new Error(`PUT not implemented in mock: ${url}`);
+  }
+
+  async patch<T>(url: string, data?: any, options?: any): Promise<T> {
+    throw new Error(`PATCH not implemented in mock: ${url}`);
+  }
+
+  async delete<T>(url: string, options?: any): Promise<T> {
+    throw new Error(`DELETE not implemented in mock: ${url}`);
+  }
 }
 
 describe("FoxpostAdapter Integration", () => {
@@ -98,8 +110,10 @@ describe("FoxpostAdapter Integration", () => {
 
   const testParcel: Parcel = {
     id: "p1",
+    shipmentId: "s1",
     weight: 1000,
     dimensions: { length: 20, width: 20, height: 20 },
+    status: "draft",
   };
 
   beforeAll(() => {
@@ -178,7 +192,7 @@ describe("FoxpostAdapter Integration", () => {
           { shipment: testShipment, credentials: { apiKey: "test-key" } },
           context
         )
-      ).rejects.toThrow("not supported");
+      ).rejects.toThrow(/is not implemented by adapter/);
     });
   });
 
