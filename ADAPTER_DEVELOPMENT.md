@@ -405,6 +405,124 @@ mkdir -p packages/adapters/foxpost/gen
 
 ---
 
+## Step 3b: Understanding Request Options
+
+Request objects (e.g., `CreateParcelRequest`, `RatesRequest`, `PickupRequest`) can include an optional `options` property for per-call behavior modifications.
+
+### Available Options
+
+```typescript
+export interface RequestOptions {
+  /**
+   * Use test/sandbox API endpoint instead of production
+   * Some carriers have separate test APIs (e.g., Foxpost: webapi-test.foxpost.hu)
+   * Default: false
+   */
+  useTestApi?: boolean;
+
+  /**
+   * Custom options for future extensibility
+   */
+  [key: string]: unknown;
+}
+```
+
+### Using Options in Your Adapter
+
+#### 1. For methods with request objects (createParcel, createShipment, etc.)
+
+Read `req.options?.useTestApi` and use it to determine which endpoint to call:
+
+```typescript
+async createParcel(
+  shipmentCarrierId: string,
+  req: CreateParcelRequest,
+  ctx: AdapterContext
+): Promise<CarrierResource> {
+  // Check if test mode requested
+  const useTest = req.options?.useTestApi ?? false;
+  const baseUrl = useTest ? "https://api-test.example.com" : "https://api.example.com";
+  
+  // Make request to appropriate endpoint
+  const res = await ctx.http!.post(`${baseUrl}/parcels`, payload);
+  
+  ctx.logger?.debug("Creating parcel", { testMode: useTest, ... });
+  
+  return { carrierId: res.id, status: "created", raw: res };
+}
+```
+
+#### 2. For methods without request objects (track, createLabel, voidLabel)
+
+Since these methods only receive `AdapterContext`, extend the context type to read options:
+
+```typescript
+async track(
+  trackingNumber: string,
+  ctx: AdapterContext
+): Promise<TrackingUpdate> {
+  // Cast to any to access options (this is a known limitation)
+  const useTest = (ctx as any)?.options?.useTestApi ?? false;
+  const baseUrl = useTest ? "https://api-test.example.com" : "https://api.example.com";
+  
+  const res = await ctx.http!.get(`${baseUrl}/tracking/${trackingNumber}`);
+  
+  ctx.logger?.debug("Tracking parcel", { testMode: useTest, ... });
+  
+  return mapFromCarrier.tracking(res);
+}
+```
+
+### Declaring TEST_MODE_SUPPORTED
+
+If your adapter supports test mode, add `TEST_MODE_SUPPORTED` to your capabilities:
+
+```typescript
+export class YourAdapter implements CarrierAdapter {
+  readonly id = "your-carrier";
+  readonly capabilities: Capability[] = [
+    "CREATE_PARCEL",
+    "CREATE_LABEL",
+    "TRACK",
+    "TEST_MODE_SUPPORTED",  // ← Advertise test mode support
+  ];
+  
+  // ... rest of implementation
+}
+```
+
+This allows orchestrators to discover that your adapter supports `useTestApi`.
+
+### Example: Using Options in Tests
+
+```typescript
+// Test production endpoint (default)
+await adapter.createParcel(
+  "s1",
+  {
+    shipment: testShipment,
+    parcel: testParcel,
+    credentials: { apiKey: "prod-key" },
+    options: { useTestApi: false }
+  },
+  context
+);
+
+// Test sandbox endpoint
+await adapter.createParcel(
+  "s1",
+  {
+    shipment: testShipment,
+    parcel: testParcel,
+    credentials: { apiKey: "test-key" },
+    options: { useTestApi: true }  // ← Use test endpoint
+  },
+  context
+);
+```
+
+---
+
 ## Step 4: Implement the Adapter
 
 ### Create src/index.ts
@@ -856,6 +974,7 @@ pnpm run test:coverage
 ```
 
 **Key differences from Jest:**
+
 - Import `describe`, `it`, `expect` from `vitest` (globals enabled)
 - No need for `.js` extensions in imports from outside compiled packages
 - Same API as Jest, so migration is straightforward
@@ -881,16 +1000,19 @@ pnpm run test -- --watch
 ```
 
 **Build-first workflow benefits:**
+
 - Catches import path errors at compile time (via TypeScript)
 - Tests run against actual compiled output (same as production)
 - Faster iteration with watch mode
 
 **If build fails:**
+
 1. Check TypeScript errors: `pnpm run build`
 2. Verify all imports use `.js` extensions (ESM requirement)
 3. Ensure tsconfig.json extends root config properly
 
 **If tests fail:**
+
 1. Check that source code was built: `ls dist/`
 2. Verify test files import from `../index.js` (compiled code)
 3. Run a single test: `pnpm run test -- mapper.spec.ts`

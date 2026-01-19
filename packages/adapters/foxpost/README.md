@@ -172,6 +172,109 @@ const adapter = new FoxpostAdapter("https://webapi-test.foxpost.hu");
 const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
 ```
 
+## Test Mode (useTestApi Option)
+
+The Foxpost adapter supports switching between production and test API endpoints on a **per-call basis** using the `useTestApi` option. This is useful when testing your integration without affecting production data.
+
+### How It Works
+
+Foxpost has two separate API environments:
+- **Production:** `https://webapi.foxpost.hu` - real shipments
+- **Test/Sandbox:** `https://webapi-test.foxpost.hu` - test credentials required
+
+### Using Test Mode
+
+#### For `createParcel()` - Pass via request options:
+
+```typescript
+import { FoxpostAdapter } from "@shopickup/adapters-foxpost";
+
+const adapter = new FoxpostAdapter("https://webapi.foxpost.hu"); // Default prod
+
+// Use test API for this call
+const result = await adapter.createParcel!(
+  "shipment-id",
+  {
+    shipment,
+    parcel,
+    credentials: { apiKey: process.env.FOXPOST_TEST_API_KEY },
+    options: { useTestApi: true }  // ← Switch to test API
+  },
+  context
+);
+```
+
+#### For `track()` and `createLabel()` - Pass via context:
+
+```typescript
+// Extend context with options (using 'as any' for now)
+const ctx: AdapterContext = {
+  http: yourHttpClient,
+  logger: console,
+  options: { useTestApi: true }  // ← Switch to test API
+} as any;
+
+const tracking = await adapter.track!("CLFOX0000000001", ctx);
+const label = await adapter.createLabel!("parcel-123", ctx);
+```
+
+### Test Mode Example
+
+```typescript
+import { FoxpostAdapter } from "@shopickup/adapters-foxpost";
+
+// Create adapter pointing to production (or test - doesn't matter)
+const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+
+// Test credentials
+const testCredentials = {
+  apiKey: process.env.FOXPOST_TEST_API_KEY
+};
+
+// Create parcel in test API
+const parcelResult = await adapter.createParcel!(
+  "test-shipment-1",
+  {
+    shipment: testShipment,
+    parcel: testParcel,
+    credentials: testCredentials,
+    options: { useTestApi: true }  // Use test endpoint
+  },
+  context
+);
+
+console.log("Test parcel created:", parcelResult.carrierId);
+
+// Track in test API
+const trackingCtx = {
+  http: context.http,
+  logger: console,
+  options: { useTestApi: true }
+} as any;
+
+const tracking = await adapter.track!(parcelResult.carrierId, trackingCtx);
+console.log("Test tracking:", tracking.status);
+```
+
+### Important Notes
+
+- **Separate Credentials:** Test and production APIs use different credentials. Ensure you have separate API keys for each environment.
+- **No Data Sharing:** Test and production environments are completely isolated. Test shipments won't appear in production.
+- **Mixed Calls:** You can mix test and production calls in the same session:
+  ```typescript
+  // Some calls to prod
+  await adapter.createParcel!(id1, { credentials: prod, options: { useTestApi: false } }, ctx);
+  
+  // Some calls to test
+  await adapter.createParcel!(id2, { credentials: test, options: { useTestApi: true } }, ctx);
+  ```
+- **Discovery:** Check for `TEST_MODE_SUPPORTED` capability to detect if an adapter supports this feature:
+  ```typescript
+  if (adapter.capabilities.includes("TEST_MODE_SUPPORTED")) {
+    // Safe to use useTestApi option
+  }
+  ```
+
 ## Testing
 
 The adapter includes comprehensive tests run from the monorepo root using **Vitest**.
@@ -185,14 +288,15 @@ The adapter includes comprehensive tests run from the monorepo root using **Vite
   - Tracking event parsing
   - Test coverage: All mapper functions
   
-- **Integration Tests** (`src/tests/integration.spec.ts`): 8 tests
+- **Integration Tests** (`src/tests/integration.spec.ts`): 14 tests
   - Full workflows with mock HTTP client
   - Capability checking
   - Error handling
   - Store persistence (when provided)
-  - Test coverage: Adapter methods + flow orchestration
+  - Test mode (useTestApi option) behavior
+  - Test coverage: Adapter methods + flow orchestration + test mode
 
-- **Total:** 22 passing tests ✅
+- **Total:** 28 passing tests ✅
 
 ### Running Tests
 

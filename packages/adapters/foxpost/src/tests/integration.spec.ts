@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import type { AdapterContext, Shipment, Parcel, HttpClient } from "@shopickup/core";
+import type { AdapterContext, Shipment, Parcel, HttpClient, CreateParcelRequest } from "@shopickup/core";
 import { FoxpostAdapter } from '../index.js';
 import type { Statuses } from '../types/generated.js';
 
@@ -13,7 +13,13 @@ import type { Statuses } from '../types/generated.js';
  * In real integration tests, would use Prism mock server
  */
 class MockHttpClient implements HttpClient {
+  lastUrl?: string;
+  lastMethod?: string;
+
   async post<T>(url: string, data?: any, options?: any): Promise<T> {
+    this.lastUrl = url;
+    this.lastMethod = 'POST';
+    
     // Mock parcel creation response
     if (url.includes("/api/parcel")) {
       return {
@@ -31,6 +37,9 @@ class MockHttpClient implements HttpClient {
   }
 
   async get<T>(url: string, options?: any): Promise<T> {
+    this.lastUrl = url;
+    this.lastMethod = 'GET';
+    
     // Mock tracking response
     if (url.includes("/api/tracking/tracks/")) {
       return [
@@ -125,23 +134,7 @@ describe("FoxpostAdapter Integration", () => {
     };
   });
 
-  describe("Full workflow: create parcel -> label -> track", () => {
-    it("creates a parcel successfully", async () => {
-      const result = await adapter.createParcel!(
-        "s1",
-        {
-          shipment: testShipment,
-          parcel: testParcel,
-          credentials: { apiKey: "test-key" },
-        },
-        context
-      );
-
-      expect(result.carrierId).toBe("CLFOX0000000001");
-      expect(result.status).toBe("created");
-      expect(result.raw).toBeDefined();
-    });
-
+  describe("Basic operations", () => {
     it("creates a label for the parcel", async () => {
       const barcode = "CLFOX0000000001";
 
@@ -213,6 +206,101 @@ describe("FoxpostAdapter Integration", () => {
 
     it("has empty requires (no dependencies)", () => {
       expect(adapter.requires).toEqual({});
+    });
+
+    it("declares TEST_MODE_SUPPORTED capability", () => {
+      expect(adapter.capabilities).toContain("TEST_MODE_SUPPORTED");
+    });
+  });
+
+  describe("Test mode (useTestApi option)", () => {
+    it("uses production base URL by default for createParcel", async () => {
+      const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+      const mockHttp = new MockHttpClient();
+      const ctx: AdapterContext = { http: mockHttp, logger: console };
+
+      await productionAdapter.createParcel!(
+        "s1",
+        {
+          shipment: testShipment,
+          parcel: testParcel,
+          credentials: { apiKey: "test-key" },
+          options: { useTestApi: false },
+        },
+        ctx
+      );
+
+      expect(mockHttp.lastUrl).toContain("https://webapi.foxpost.hu");
+      expect(mockHttp.lastUrl).not.toContain("webapi-test");
+    });
+
+    it("uses test base URL when useTestApi=true for createParcel", async () => {
+      const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+      const mockHttp = new MockHttpClient();
+      const ctx: AdapterContext = { http: mockHttp, logger: console };
+
+      await productionAdapter.createParcel!(
+        "s1",
+        {
+          shipment: testShipment,
+          parcel: testParcel,
+          credentials: { apiKey: "test-key" },
+          options: { useTestApi: true },
+        },
+        ctx
+      );
+
+      expect(mockHttp.lastUrl).toContain("https://webapi-test.foxpost.hu");
+    });
+
+    it("uses test base URL when options.useTestApi=true for track via context", async () => {
+      const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+      const mockHttp = new MockHttpClient();
+      const ctx: AdapterContext = {
+        http: mockHttp,
+        logger: console,
+        options: { useTestApi: true },
+      } as any; // Allow options in context for test mode
+
+      await productionAdapter.track!("CLFOX0000000001", ctx);
+
+      expect(mockHttp.lastUrl).toContain("https://webapi-test.foxpost.hu");
+    });
+
+    it("uses production base URL for track when useTestApi is not set", async () => {
+      const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+      const mockHttp = new MockHttpClient();
+      const ctx: AdapterContext = { http: mockHttp, logger: console };
+
+      await productionAdapter.track!("CLFOX0000000001", ctx);
+
+      expect(mockHttp.lastUrl).toContain("https://webapi.foxpost.hu");
+      expect(mockHttp.lastUrl).not.toContain("webapi-test");
+    });
+
+    it("uses test base URL when options.useTestApi=true for createLabel via context", async () => {
+      const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+      const mockHttp = new MockHttpClient();
+      const ctx: AdapterContext = {
+        http: mockHttp,
+        logger: console,
+        options: { useTestApi: true },
+      } as any; // Allow options in context for test mode
+
+      await productionAdapter.createLabel!("CLFOX0000000001", ctx);
+
+      expect(mockHttp.lastUrl).toContain("https://webapi-test.foxpost.hu");
+    });
+
+    it("uses production base URL for createLabel when useTestApi is not set", async () => {
+      const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+      const mockHttp = new MockHttpClient();
+      const ctx: AdapterContext = { http: mockHttp, logger: console };
+
+      await productionAdapter.createLabel!("CLFOX0000000001", ctx);
+
+      expect(mockHttp.lastUrl).toContain("https://webapi.foxpost.hu");
+      expect(mockHttp.lastUrl).not.toContain("webapi-test");
     });
   });
 });

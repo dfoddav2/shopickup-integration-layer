@@ -12,6 +12,7 @@ export const Capabilities = {
   TRACK: "TRACK",
   PICKUP: "PICKUP",
   WEBHOOKS: "WEBHOOKS",
+  TEST_MODE_SUPPORTED: "TEST_MODE_SUPPORTED",
 } as const;
 
 export type Capability = (typeof Capabilities)[keyof typeof Capabilities];

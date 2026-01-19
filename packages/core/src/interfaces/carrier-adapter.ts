@@ -4,6 +4,24 @@ import type { CarrierResource } from './carrier-resource.js';
 import type { Shipment, Parcel, RatesResponse, TrackingUpdate } from '../types/index.js';
 
 /**
+ * Request options
+ * Per-call options that adapters can use to modify behavior
+ */
+export interface RequestOptions {
+  /**
+   * Use test/sandbox API endpoint instead of production
+   * Some carriers have separate test APIs (e.g., Foxpost: webapi-test.foxpost.hu)
+   * Default: false
+   */
+  useTestApi?: boolean;
+
+  /**
+   * Custom options for future extensibility
+   */
+  [key: string]: unknown;
+}
+
+/**
  * Request types for adapter methods
  */
 
@@ -11,17 +29,20 @@ export interface RatesRequest {
   shipment: Shipment;
   parcels: Parcel[];
   services?: string[];
+  options?: RequestOptions;
 }
 
 export interface CreateShipmentRequest {
   shipment: Shipment;
   credentials: Record<string, unknown>;
+  options?: RequestOptions;
 }
 
 export interface CreateParcelRequest {
   shipment: Shipment;
   parcel: Parcel;
   credentials: Record<string, unknown>;
+  options?: RequestOptions;
 }
 
 export interface PickupRequest {
@@ -29,6 +50,7 @@ export interface PickupRequest {
   preferredDate?: Date;
   instructions?: string;
   credentials: Record<string, unknown>;
+  options?: RequestOptions;
 }
 
 /**
