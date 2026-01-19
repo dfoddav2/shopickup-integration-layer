@@ -7,7 +7,10 @@ import type { Shipment, Parcel, Address, TrackingEvent } from "@shopickup/core";
 import type {
   CreateParcelRequest as FoxpostParcelRequest,
   TrackDTO as FoxpostTrackDTO,
-} from './types/generated.js';
+} from '../types/generated.js';
+
+const FOXPOST_SIZES = ["xs", "s", "m", "l", "xl"] as const;
+type FoxpostSize = typeof FOXPOST_SIZES[number]; // "xs" | "s" | "m" | "l" | "xl"
 
 /**
  * Map canonical Address to Foxpost address format
@@ -36,7 +39,7 @@ export function mapAddressToFoxpost(addr: Address): {
  * Determine parcel size based on dimensions or weight
  * Foxpost sizes: xs, s, m, l, xl
  */
-export function determineFoxpostSize(parcel: Parcel): string {
+export function determineFoxpostSize(parcel: Parcel): FoxpostSize | undefined {
   // If no dimensions, default to 's' (small)
   if (!parcel.dimensions) {
     return "s";
@@ -46,11 +49,20 @@ export function determineFoxpostSize(parcel: Parcel): string {
   const volume = length * width * height;
 
   // Very rough heuristic based on volume
-  if (volume < 5000) return "xs";
-  if (volume < 15000) return "s";
-  if (volume < 50000) return "m";
-  if (volume < 100000) return "l";
-  return "xl";
+  let candidate: FoxpostSize = "xs";
+  if (volume < 5000) {
+    candidate = "xs";
+  } else if (volume < 15000) {
+    candidate = "s";
+  } else if (volume < 50000) {
+    candidate = "m";
+  } else if (volume < 100000) {
+    candidate = "l";
+  } else {
+    candidate = "xl";
+  }
+
+  return candidate;
 }
 
 /**

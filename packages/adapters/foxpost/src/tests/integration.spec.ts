@@ -3,7 +3,7 @@
  * Tests full flow: create parcel -> create label -> track
  */
 
-import { describe, it, expect, beforeAll } from "@jest/globals";
+import { describe, it, expect, beforeAll } from 'vitest';
 import type { AdapterContext, Shipment, Parcel } from "@shopickup/core";
 import { FoxpostAdapter } from '../index.js';
 import type { Statuses } from '../types/generated.js';
