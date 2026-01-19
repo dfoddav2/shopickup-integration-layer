@@ -1,8 +1,8 @@
-# Phase 1: Core Library - Completed ✅
+# Phase 1 & 2: Core Library + Build System - Completed ✅
 
-Date: January 17, 2025
+Date: January 17-19, 2025
 
-This document summarizes the completion of Phase 1: scaffolding and implementing the `@shopickup/core` library.
+This document summarizes completion of Phase 1 (core library) and Phase 2 (ESM/Vitest migration).
 
 ---
 
@@ -12,16 +12,17 @@ This document summarizes the completion of Phase 1: scaffolding and implementing
 
 **Files Created:**
 - `/package.json` — Root manifest with npm workspaces
-- `/tsconfig.json` — Shared TypeScript configuration
+- `/tsconfig.json` — Shared TypeScript configuration (NodeNext)
 
 **Structure:**
 ```
 /shopickup-integration-layer/
 ├── package.json        (workspaces: core, adapters/*, examples, tools)
-├── tsconfig.json       (shared base config)
+├── tsconfig.json       (NodeNext, ESM, shared base config)
+├── vitest.config.ts    (Vitest with v8 coverage, globals enabled)
 ├── packages/
-│   ├── core/          (NEW - canonical library)
-│   ├── adapters/      (templates for carriers)
+│   ├── core/          (canonical library)
+│   ├── adapters/      (carrier adapters - Foxpost validated)
 │   └── tools/         (CLI generators)
 ├── examples/          (dev server)
 └── carrier-docs/      (OpenAPI specs)
@@ -35,8 +36,7 @@ This document summarizes the completion of Phase 1: scaffolding and implementing
 
 **Configuration Files:**
 - `package.json` — Defines exports, dependencies, build scripts
-- `tsconfig.json` — Project-specific TypeScript config
-- `jest.config.js` — Test runner config
+- `tsconfig.json` — Project-specific TypeScript config (ESM, noEmit: false, declaration: true)
 
 **Directory Structure:**
 
@@ -76,6 +76,36 @@ packages/core/src/
 ```
 
 **Total Lines of Code:** ~2,000+ (well-structured, documented)
+
+---
+
+### 3. @shopickup/adapters-foxpost Adapter
+
+**Location:** `packages/adapters/foxpost/`
+
+**Directory Structure:**
+
+```
+packages/adapters/foxpost/
+├── src/
+│   ├── index.ts           # FoxpostAdapter implementation
+│   ├── client.ts          # Thin HTTP wrapper
+│   ├── mapper.ts          # Bidirectional mapping (14 unit tests)
+│   ├── types.ts           # Re-exports from gen/
+│   └── tests/
+│       ├── integration.spec.ts  # Full workflows (8 tests)
+│       └── mapper.spec.ts       # Mapping functions (14 tests)
+├── gen/                   # Generated types from OpenAPI (gitignored)
+├── package.json           # ESM, peerDependency on @shopickup/core
+├── tsconfig.json          # Extends root, composite: true
+└── README.md              # Carrier-specific docs + test info
+```
+
+**Test Stats:**
+- ✅ 22 tests passing (0 failures)
+- 8 integration tests (full workflows with mock HTTP client)
+- 14 mapper tests (bidirectional mapping validation)
+- Coverage: v8 enabled
 
 ---
 
@@ -176,6 +206,28 @@ interface CreateLabelFlowResult {
 }
 ```
 
+### 7. Build System & Testing Infrastructure
+
+**ESM/NodeNext Migration:**
+- ✅ All imports use `.js` extensions
+- ✅ TypeScript configured with `module: NodeNext`, `moduleResolution: nodenext`
+- ✅ `package.json` includes `"type": "module"` in all packages
+- ✅ Path mappings in root `tsconfig.json` for `@shopickup/*` packages
+
+**Vitest Migration (from Jest):**
+- ✅ Vitest 4.0.17 configured at monorepo root
+- ✅ v8 coverage enabled (built-in, no external deps)
+- ✅ Test globs: `packages/**/src/**/*.{test,spec}.{ts,tsx,js,mjs}`
+- ✅ Globals enabled: no need to import describe/it/expect
+- ✅ All existing Jest tests migrated to Vitest syntax
+- ✅ 22 passing tests (Foxpost adapter validation)
+
+**Build-first Workflow:**
+- ✅ TypeScript compiles to `dist/` with `declaration: true`
+- ✅ Tests run against compiled code (same as production)
+- ✅ IDE resolution fixed: root tsconfig paths + Vitest alias
+- ✅ Watch mode: `pnpm run test -- --watch` rebuilds + retests
+
 ---
 
 ## Type Safety & Documentation
@@ -206,36 +258,49 @@ Core Package Statistics:
 - Helper functions: 2 (orchestration)
 - Classes: 1 (InMemoryStore)
 - Enums/Constants: 1 (Capabilities)
+
+Foxpost Adapter Statistics:
+- Source files (TypeScript): 6 (index, client, mapper, types, 2 test files)
+- Total lines of code: ~800+
+- Test files: 2 (integration.spec.ts, mapper.spec.ts)
+- Tests: 22 (passing)
+- Coverage: v8 enabled
 ```
 
 ---
 
-## How to Next Steps
-
-### Next Phase: Build First Adapter (Foxpost)
-
-The core library is ready. Next steps:
-
-1. **Create `@shopickup/adapters-foxpost`** package
-2. **Define carrier OpenAPI spec** at `carrier-docs/canonical/foxpost.yaml`
-3. **Generate types** from OpenAPI
-4. **Implement adapter** using core interfaces
-5. **Write tests** (contract, unit, integration)
-6. **Test flow** with executeCreateLabelFlow helper
+## How to Get Started
 
 ### Installation & Build
 
-When you're ready to build/test:
-
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
-# Build core
-npm run build --workspace=@shopickup/core
+# Build all packages
+pnpm run build
 
-# Test core (when tests are added)
-npm test --workspace=@shopickup/core
+# Run all tests (watch mode)
+pnpm run test
+
+# Run tests with coverage
+pnpm run test:coverage
+```
+
+### Run Foxpost Adapter Tests
+
+```bash
+# Run specific adapter tests
+pnpm run test -- --project foxpost
+
+# Run unit tests only
+pnpm run test -- src/tests/mapper.spec.ts
+
+# Run integration tests only
+pnpm run test -- src/tests/integration.spec.ts
+
+# Generate coverage report
+pnpm run test:coverage
 ```
 
 ---
@@ -284,49 +349,60 @@ import { executeCreateLabelFlow } from "@shopickup/core/flows";
 - [x] TypeScript strict mode enabled
 - [x] Monorepo configured with npm workspaces
 - [x] Base tsconfig shared across packages
-- [x] Jest configured for testing
+- [x] Vitest configured for testing
+- [x] ESM/NodeNext migration complete
+- [x] All imports use `.js` extensions
 - [x] Package exports configured for ESM
 - [x] Peerless core (no external dependencies except zod)
+- [x] Foxpost adapter fully implemented with 22 passing tests
+- [x] Build-first workflow validated
+- [x] IDE resolution working correctly
 
 ---
 
 ## Summary
 
-**Phase 1 is complete.** The `@shopickup/core` library is fully scaffolded with:
+**Phases 1 & 2 are complete.** The project now has:
 
-✅ Canonical domain model (7 types)
-✅ CarrierAdapter interface (9 capabilities)
-✅ Pluggable HTTP client, logging, telemetry
-✅ Store interface for flexible persistence
-✅ InMemoryStore for testing
-✅ Structured error types
-✅ executeCreateLabelFlow orchestration helper
-✅ Full TypeScript strict mode
-✅ Comprehensive JSDoc documentation
+✅ Canonical core library with 7 domain types  
+✅ CarrierAdapter interface with 9 capabilities  
+✅ Pluggable HTTP client, logging, telemetry  
+✅ Store interface for flexible persistence  
+✅ InMemoryStore for testing  
+✅ Structured error types with retry logic  
+✅ executeCreateLabelFlow orchestration helper  
+✅ Full TypeScript strict mode  
+✅ Comprehensive JSDoc documentation  
+✅ ESM/NodeNext build system  
+✅ Vitest testing framework (22 tests passing)  
+✅ Build-first workflow with dist/ compilation  
+✅ Production-ready Foxpost adapter  
 
-Ready to proceed to **Phase 2: Implement Foxpost Adapter**.
-
----
-
-## Files Created
-
-**Root Level:**
-- `package.json` (451 bytes)
-- `tsconfig.json` (716 bytes)
-
-**Core Package:**
-- `packages/core/package.json` (750 bytes)
-- `packages/core/tsconfig.json` (289 bytes)
-- `packages/core/jest.config.js` (425 bytes)
-- `packages/core/src/types/*.ts` (6 files, ~600 bytes each)
-- `packages/core/src/interfaces/*.ts` (7 files, ~400-800 bytes each)
-- `packages/core/src/errors/index.ts` (~200 bytes)
-- `packages/core/src/stores/in-memory.ts` (~800 bytes)
-- `packages/core/src/flows/create-label.ts` (~1,200 bytes)
-- `packages/core/src/index.ts` (~200 bytes)
-
-**Total:** ~15KB of code (well-structured, documented)
+Ready to proceed to **Phase 3: Add more carriers (DHL, UPS) or Phase 4: Dev server & webhooks**.
 
 ---
 
-Ready for Phase 2? Let me know when you want to scaffold the Foxpost adapter!
+## Files Created/Modified
+
+**Phase 1 Files:**
+- `package.json` (root)
+- `tsconfig.json` (root)
+- `packages/core/` (full directory)
+
+**Phase 2 Files:**
+- `tsconfig.json` (updated for NodeNext)
+- `vitest.config.ts` (new - root level)
+- `package.json` (updated with vitest, vite, build scripts)
+- `packages/core/tsconfig.json` (updated for ESM)
+- `packages/adapters/foxpost/` (full directory with 22 tests)
+- `packages/adapters/foxpost/src/tests/` (2 test files)
+
+**Phase 2 Migrations:**
+- All `.ts` imports updated with `.js` extensions
+- Jest config replaced with Vitest
+- Test syntax updated to Vitest idioms
+- Type resolution fixed for IDE + runtime
+
+---
+
+Ready for Phase 3? Let me know which carriers to implement next!

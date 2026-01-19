@@ -174,33 +174,103 @@ const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
 
 ## Testing
 
-Run the test suite:
+The adapter includes comprehensive tests run from the monorepo root using **Vitest**.
+
+### Test Structure
+
+- **Unit Tests** (`src/tests/mapper.spec.ts`): 14 tests
+  - Bidirectional mapping validation
+  - Size category determination
+  - Status code translation
+  - Tracking event parsing
+  - Test coverage: All mapper functions
+  
+- **Integration Tests** (`src/tests/integration.spec.ts`): 8 tests
+  - Full workflows with mock HTTP client
+  - Capability checking
+  - Error handling
+  - Store persistence (when provided)
+  - Test coverage: Adapter methods + flow orchestration
+
+- **Total:** 22 passing tests ✅
+
+### Running Tests
 
 ```bash
-npm run test --workspace=@shopickup/adapters-foxpost
+# Run all tests (monorepo)
+pnpm run test
+
+# Run Foxpost adapter tests only
+pnpm run test -- foxpost
+
+# Watch mode (auto-rebuild + retest)
+pnpm run test -- --watch
+
+# Coverage report
+pnpm run test:coverage
+
+# Run specific test file
+pnpm run test -- mapper.spec.ts
 ```
 
-### Unit Tests
-Tests mapper functions without HTTP calls:
+### Test Examples
+
+**Mapper Test:**
+```typescript
+import { describe, it, expect } from "vitest";
+import { mapToFoxpost } from "../mapper";
+
+describe("Mapper", () => {
+  it("should map address correctly", () => {
+    const result = mapToFoxpost.address({
+      name: "John Doe",
+      street: "123 Main St",
+      city: "Budapest",
+      postalCode: "1011",
+      country: "HU",
+    });
+    
+    expect(result.name).toBe("John Doe");
+    expect(result.city).toBe("Budapest");
+  });
+});
+```
+
+**Integration Test:**
+```typescript
+import { describe, it, expect } from "vitest";
+import { FoxpostAdapter } from "../index";
+import { MockHttpClient } from "@shopickup/core/testing";
+
+describe("FoxpostAdapter", () => {
+  it("should create a label", async () => {
+    const adapter = new FoxpostAdapter("https://api.example.com");
+    const mockHttp = new MockHttpClient();
+    
+    const result = await adapter.createLabel("parcel-123", {
+      http: mockHttp,
+      logger: console,
+    });
+    
+    expect(result.carrierId).toBeDefined();
+    expect(result.status).toBe("created");
+  });
+});
+```
+
+### Build-First Workflow
+
+Tests run against compiled code in `dist/`, not TypeScript sources:
+
 ```bash
-npm run test -- --testNamePattern="Mapper"
+# 1. Build all packages
+pnpm run build
+
+# 2. Tests automatically run against dist/ output
+pnpm run test
 ```
 
-### Integration Tests
-Tests full workflows with mock HTTP client:
-```bash
-npm run test -- --testNamePattern="Integration"
-```
-
-### Contract Tests
-Tests against Prism mock server (requires Docker):
-```bash
-# Start Prism mock server
-docker run --rm -p 3456:4010 -v $(pwd)/carrier-docs/hu-foxpost:/etc/swagger stoplight/prism-cli mock -h 0.0.0.0 /etc/swagger/hu-foxpost.openapi.yaml
-
-# Run tests
-npm run test -- --testNamePattern="Contract"
-```
+This ensures tests verify the same code that will be published.
 
 ## Limitations
 
@@ -282,4 +352,4 @@ MIT
 ---
 
 **Maintained by:** Shopickup Contributors  
-**Last Updated:** January 2024
+**Last Updated:** January 2025

@@ -1,13 +1,16 @@
 # ADAPTER_DEVELOPMENT.md — Step-by-Step Carrier Integration Guide
 
+> **Updated January 2025** — Reflects current ESM/NodeNext build system, Vitest testing, and production-ready Foxpost adapter.
+
 This guide walks you through adding a new shipping carrier adapter to Shopickup. By the end, you'll have a publishable npm package that integrates seamlessly with the core library.
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 18+ (v20 recommended)
+- pnpm 8+
 - TypeScript familiarity
 - Understanding of the carrier's REST API (or access to documentation)
-- Basic npm/pnpm knowledge
+- Familiarity with ESM (import/export syntax)
 
 ## Overview
 
@@ -356,11 +359,15 @@ mkdir -p packages/adapters/foxpost/gen
   "name": "@shopickup/adapters-foxpost",
   "version": "1.0.0",
   "description": "Foxpost shipping carrier adapter for Shopickup",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./stores": "./dist/stores/index.js"
+  },
   "scripts": {
     "build": "tsc",
-    "test": "jest",
     "codegen": "openapi-typescript ../../carrier-docs/canonical/foxpost.yaml --output gen/index.ts"
   },
   "peerDependencies": {
@@ -369,8 +376,6 @@ mkdir -p packages/adapters/foxpost/gen
   "devDependencies": {
     "@shopickup/core": "workspace:*",
     "@stoplight/prism-http": "^5.0.0",
-    "@types/jest": "^29.0.0",
-    "jest": "^29.0.0",
     "openapi-typescript": "^6.0.0",
     "typescript": "^5.0.0"
   },
@@ -379,6 +384,8 @@ mkdir -p packages/adapters/foxpost/gen
   }
 }
 ```
+
+**Note:** Tests are run from the monorepo root with `pnpm run test`, not from the adapter package.
 
 ### Create tsconfig.json
 
@@ -410,9 +417,9 @@ import {
   AdapterContext,
   CarrierError,
 } from "@shopickup/core";
-import { FoxpostClient } from "./client";
-import { mapToFoxpost, mapFromFoxpost } from "./mapper";
-import type { CreateShipmentRequest, CreateParcelRequest } from "./types";
+import { FoxpostClient } from "./client.js";
+import { mapToFoxpost, mapFromFoxpost } from "./mapper.js";
+import type { CreateShipmentRequest, CreateParcelRequest } from "./types.js";
 
 /**
  * Foxpost Adapter
@@ -611,7 +618,7 @@ import type {
   CreateShipmentRequest as FoxpostShipmentRequest,
   CreateParcelRequest as FoxpostParcelRequest,
   Address as FoxpostAddress,
-} from "./types";
+} from "./types.js";
 
 /**
  * Maps canonical Shopickup types to Foxpost API types.
@@ -697,7 +704,7 @@ function mapStatusCode(status: string): TrackingEvent["status"] {
 /**
  * Re-exports generated types from OpenAPI.
  */
-export * from "../gen/index";
+export * from "../gen/index.js";
 
 /**
  * Optional: define additional types that aren't in OpenAPI.
@@ -709,17 +716,22 @@ export * from "../gen/index";
 
 ## Step 5: Write Tests
 
-### Create tests/contract.spec.ts
+Tests are run from the monorepo root using **Vitest**. Place test files alongside source code or in a `tests/` directory.
+
+> **Note:** Tests run against compiled code in `dist/`. Run `pnpm run build` before testing.
+
+### Create src/tests/contract.spec.ts
 
 ```typescript
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { start as startMockServer } from "@stoplight/prism-http";
 import axios from "axios";
-import { FoxpostAdapter } from "../src";
+import { FoxpostAdapter } from "../index.js";
 
 describe("FoxpostAdapter - Contract Tests", () => {
   let mockServer: any;
   let adapter: FoxpostAdapter;
-  let httpClient = axios;
+  const httpClient = axios;
 
   beforeAll(async () => {
     mockServer = await startMockServer({
@@ -785,10 +797,11 @@ describe("FoxpostAdapter - Contract Tests", () => {
 });
 ```
 
-### Create tests/mapper.spec.ts
+### Create src/tests/mapper.spec.ts
 
 ```typescript
-import { mapToFoxpost } from "../src/mapper";
+import { describe, it, expect } from "vitest";
+import { mapToFoxpost } from "../mapper.js";
 import type { Shipment } from "@shopickup/core";
 
 describe("Foxpost Mapper", () => {
@@ -825,39 +838,62 @@ describe("Foxpost Mapper", () => {
 });
 ```
 
-### Create jest.config.js
+### Test Configuration
 
-```javascript
-module.exports = {
-  preset: "ts-jest",
-  testEnvironment: "node",
-  roots: ["<rootDir>/tests"],
-  testMatch: ["**/*.spec.ts"],
-  moduleFileExtensions: ["ts", "js"],
-  collectCoverageFrom: ["src/**/*.ts", "!src/**/*.d.ts"],
-};
+Tests are configured at the monorepo root in `vitest.config.ts`. Individual adapters don't need their own test config.
+
+**To run tests:**
+
+```bash
+# Run all tests (monorepo)
+pnpm run test
+
+# Run tests for one adapter (watch mode)
+pnpm run test -- --project foxpost
+
+# Run with coverage
+pnpm run test:coverage
 ```
+
+**Key differences from Jest:**
+- Import `describe`, `it`, `expect` from `vitest` (globals enabled)
+- No need for `.js` extensions in imports from outside compiled packages
+- Same API as Jest, so migration is straightforward
 
 ---
 
 ## Step 6: Build & Test
 
+**Important:** This project uses a build-first workflow. TypeScript is compiled to `dist/`, and tests run against compiled code.
+
 ```bash
-# Navigate to adapter directory
-cd packages/adapters/foxpost
-
-# Install dependencies (if not in monorepo)
-pnpm install
-
-# Generate types from OpenAPI
-pnpm run codegen
-
-# Build TypeScript
+# From monorepo root, build everything
 pnpm run build
 
-# Run tests
+# Run all tests (monorepo)
 pnpm run test
+
+# Run tests with coverage
+pnpm run test:coverage
+
+# Watch mode (rebuild + retest on file changes)
+pnpm run test -- --watch
 ```
+
+**Build-first workflow benefits:**
+- Catches import path errors at compile time (via TypeScript)
+- Tests run against actual compiled output (same as production)
+- Faster iteration with watch mode
+
+**If build fails:**
+1. Check TypeScript errors: `pnpm run build`
+2. Verify all imports use `.js` extensions (ESM requirement)
+3. Ensure tsconfig.json extends root config properly
+
+**If tests fail:**
+1. Check that source code was built: `ls dist/`
+2. Verify test files import from `../index.js` (compiled code)
+3. Run a single test: `pnpm run test -- mapper.spec.ts`
 
 ---
 
@@ -950,15 +986,19 @@ npm publish --access public
 
 - [ ] OpenAPI spec at `carrier-docs/canonical/<carrier>.yaml` with `x-capabilities`
 - [ ] Types generated in `gen/index.ts`
-- [ ] `src/index.ts` implements `CarrierAdapter` interface
+- [ ] `src/index.ts` implements `CarrierAdapter` interface with ESM exports
 - [ ] `src/mapper.ts` handles bidirectional mapping
 - [ ] `src/client.ts` (even if minimal)
-- [ ] `tests/contract.spec.ts` tests against mock server
-- [ ] `tests/mapper.spec.ts` tests mapping functions
-- [ ] All tests passing
-- [ ] `package.json` with peerDependency on `@shopickup/core`
+- [ ] Test files in `src/tests/` with `.spec.ts` suffix
+- [ ] `src/tests/contract.spec.ts` tests against mock server
+- [ ] `src/tests/mapper.spec.ts` tests mapping functions
+- [ ] All imports use `.js` extensions (ESM)
+- [ ] `pnpm run build` completes successfully
+- [ ] `pnpm run test` passes all tests
+- [ ] `package.json` with `type: "module"` and peerDependency on `@shopickup/core`
+- [ ] `tsconfig.json` extends root config, sets `noEmit: false`, `declaration: true`
 - [ ] `README.md` with usage and carrier-specific notes
-- [ ] Published to npm
+- [ ] Published to npm (optional for internal use)
 
 ---
 

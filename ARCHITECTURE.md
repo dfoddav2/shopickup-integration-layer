@@ -1,5 +1,7 @@
 # Shopickup Architecture Deep Dive
 
+> **Updated January 2025** — Reflects current ESM/NodeNext build-first workflow, Vitest testing, and production-ready implementation.
+
 This document provides a comprehensive technical design of the Shopickup integration layer, covering data models, interfaces, flow orchestration, error handling, testing, and security considerations.
 
 ## Table of Contents
@@ -775,6 +777,22 @@ async function createLabelWithRetry(
 
 ## Testing Strategy
 
+### Test Infrastructure
+
+**Framework:** Vitest 4+ (ESM-native, Jest-compatible, with v8 coverage)
+
+**Configuration:**
+- `vitest.config.ts` at root with test globs: `packages/**/src/**/*.{test,spec}.{ts,tsx,js,mjs}`
+- Provider: v8 (built-in, no external dependencies)
+- Environment: Node.js
+- Globals enabled (describe, it, expect without imports)
+- Isolated: false (shared Vite context for faster execution)
+
+**Build-First Workflow:**
+1. All packages built to `dist/` first (TypeScript → JavaScript + declarations)
+2. Tests import from built `dist/` code, not TS sources
+3. This ensures tests verify production behavior exactly
+
 ### Contract Testing (Adapter ↔ Mock Carrier)
 
 Each adapter should have contract tests that verify it correctly calls carrier endpoints. Use Prism to spin up a mock server from the carrier's OpenAPI spec.
@@ -829,12 +847,14 @@ describe("FoxpostAdapter - Contract Tests", () => {
 ### Unit Tests (Mapping & Logic)
 
 ```typescript
-// packages/adapters/foxpost/tests/mapper.spec.ts
-import { mapFromFoxpost, mapToFoxpost } from "../src/mapper";
+// packages/adapters/foxpost/src/tests/mapper.spec.ts
+import { describe, it, expect } from 'vitest';  // Vitest instead of Jest
+import { mapAddressToFoxpost, determineFoxpostSize } from "../mappers/index.js";
+import type { Address, Parcel } from "@shopickup/core";
 
 describe("Foxpost Mapper", () => {
   it("should map canonical address to Foxpost format", () => {
-    const canonical = {
+    const canonical: Address = {
       name: "John Doe",
       street: "123 Main St",
       city: "Budapest",
@@ -842,72 +862,79 @@ describe("Foxpost Mapper", () => {
       country: "HU",
     };
 
-    const foxpost = mapToFoxpost(canonical);
-    expect(foxpost.RecipientName).toBe("John Doe");
-    expect(foxpost.RecipientCity).toBe("Budapest");
+    const foxpost = mapAddressToFoxpost(canonical);
+    expect(foxpost.name).toBe("John Doe");
+    expect(foxpost.city).toBe("Budapest");
   });
 
-  it("should map Foxpost tracking event to canonical format", () => {
-    const foxpostEvent = {
-      timestamp: "2024-01-17T10:30:00Z",
-      status: "IN_DELIVERY",
-      description: "Parcel out for delivery",
+  it("should determine parcel size from dimensions", () => {
+    const parcel: Parcel = {
+      id: "p1",
+      shipmentId: "s1",
+      weight: 500,
+      dimensions: { length: 20, width: 15, height: 10 },
+      status: "draft",
     };
 
-    const canonical = mapFromFoxpost.trackingEvent(foxpostEvent);
-    expect(canonical.status).toBe("OUT_FOR_DELIVERY");
-    expect(canonical.timestamp.toISOString()).toBe(
-      "2024-01-17T10:30:00.000Z"
-    );
+    const size = determineFoxpostSize(parcel);
+    expect(['xs', 's', 'm', 'l', 'xl']).toContain(size);
   });
 });
-```
 
 ### Integration Tests (Full Flow)
 
 ```typescript
-// packages/adapters/foxpost/tests/integration.spec.ts
-import { executeCreateLabelFlow } from "@shopickup/core";
-import { FoxpostAdapter } from "../src";
-import { InMemoryStore } from "@shopickup/core/stores";
+// packages/adapters/foxpost/src/tests/integration.spec.ts
+import { describe, it, expect, beforeAll } from 'vitest';
+import { FoxpostAdapter } from "../index.js";
+import type { AdapterContext, Shipment, Parcel, HttpClient } from "@shopickup/core";
 
-describe("Foxpost - Integration Tests", () => {
-  const adapter = new FoxpostAdapter("http://localhost:3456");
-  const store = new InMemoryStore();
+// Mock HttpClient implementing full interface (get, post, put, patch, delete)
+class MockHttpClient implements HttpClient {
+  async post<T>(url: string, data?: any): Promise<T> { /* ... */ }
+  async get<T>(url: string): Promise<T> { /* ... */ }
+  async put<T>(url: string, data?: any): Promise<T> { /* ... */ }
+  async patch<T>(url: string, data?: any): Promise<T> { /* ... */ }
+  async delete<T>(url: string): Promise<T> { /* ... */ }
+}
 
-  it("should complete full create-label flow", async () => {
-    const shipment: Shipment = {
-      id: "ship-1",
-      sender: { /* ... */ },
-      recipient: { /* ... */ },
-      service: "standard",
-      totalWeight: 1000,
-    };
+describe("Foxpost Integration", () => {
+  let adapter: FoxpostAdapter;
+  let context: AdapterContext;
 
-    const parcel: Parcel = {
-      id: "par-1",
-      shipmentId: "ship-1",
-      weight: 1000,
-    };
+  beforeAll(() => {
+    adapter = new FoxpostAdapter("https://webapi-test.foxpost.hu");
+    context = { http: new MockHttpClient(), logger: console };
+  });
 
-    const result = await executeCreateLabelFlow({
-      adapter,
-      shipment,
-      parcels: [parcel],
-      credentials: { apiKey: "test-key" },
-      context: { http: fetchClient, logger: console },
-      store,
-    });
+  it("should create a parcel successfully", async () => {
+    const shipment: Shipment = { /* ... */ };
+    const parcel: Parcel = { id: "p1", shipmentId: "s1", weight: 1000, status: "draft" };
 
-    expect(result.labelResources).toHaveLength(1);
-    expect(result.labelResources[0].carrierId).toBeDefined();
+    const result = await adapter.createParcel!("s1", { shipment, parcel, credentials: { apiKey: "test" } }, context);
 
-    // Verify mappings persisted
-    const savedResource = await store.getCarrierResource("par-1", "label");
-    expect(savedResource).toBeDefined();
+    expect(result.carrierId).toBeDefined();
+    expect(result.status).toBe("created");
+  });
+
+  it("should create a label for the parcel", async () => {
+    const result = await adapter.createLabel!("CLFOX0000000001", context);
+
+    expect(result.carrierId).toBeDefined();
+    expect(result.labelUrl).toBeDefined();
+  });
+
+  it("should track the parcel", async () => {
+    const result = await adapter.track!("CLFOX0000000001", context);
+
+    expect(result.trackingNumber).toBe("CLFOX0000000001");
+    expect(result.events).toHaveLength(3);
+    expect(result.status).toBe("DELIVERED");
   });
 });
 ```
+
+**Current Status:** Foxpost has 22 passing tests (14 mapper + 8 integration), all green with v8 coverage enabled.
 
 ---
 

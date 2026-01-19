@@ -1,6 +1,8 @@
 # Shopickup: Universal Multi-Carrier Shipping Integration Layer
 
-> **Status:** Architecture finalized. Shopickup is a TypeScript-first, npm-publishable **adapter library** for shipping carriers. Not a microservice — a set of importable packages that handle carrier API complexity.
+> **Status:** Phase 1 & 2 Active. Shopickup is a TypeScript-first, ESM-native, npm-publishable **adapter library** for shipping carriers. Not a microservice — a set of importable packages that handle carrier API complexity.
+> 
+> **Latest Update:** January 2025. Core library finalized. Foxpost adapter fully implemented with 22 passing tests (Vitest + v8 coverage). ESM/NodeNext monorepo build-first workflow established.
 
 ## 1. Project Overview & Philosophy
 
@@ -338,41 +340,87 @@ cd shopickup-integration-layer
 pnpm install
 pnpm run build
 pnpm run test
+pnpm run test:coverage
 ```
+
+**Tech Stack:**
+- **Language:** TypeScript 5.4 (strict mode)
+- **Module System:** ESM (NodeNext resolution)
+- **Monorepo:** pnpm workspaces
+- **Build:** TypeScript compiler (tsc), build-first approach (`dist/` required before tests)
+- **Test Runner:** Vitest 4+ (Jest-compatible, faster)
+- **Coverage:** v8 (built into Vitest)
+- **HTTP Example:** Fastify (development only)
+
+### Building
+
+Build all packages:
+```bash
+pnpm run build
+```
+
+Build specific package:
+```bash
+pnpm run build:core
+pnpm run build:adapters
+pnpm run build:examples
+```
+
+Or from package directory:
+```bash
+cd packages/core
+pnpm run build
+```
+
+### Testing
+
+**Important:** Always build core before running tests (build-first workflow):
+
+```bash
+pnpm run build
+pnpm run test           # Run all tests in watch mode
+pnpm run test:coverage  # Run all tests with coverage (v8)
+```
+
+Run tests for specific package:
+```bash
+cd packages/adapters/foxpost
+pnpm run build
+pnpm run test
+```
+
+Coverage report will be in `coverage/` directory (lcov + text summary).
 
 ### Adding a New Carrier
 
 ```bash
-# Generate adapter skeleton
-pnpm run tools/create-adapter --name=dhl
+# Generate adapter skeleton (future tooling)
+# pnpm run create-adapter --name=dhl
 
-# This creates:
-# - packages/adapters/dhl/
-# - carrier-docs/canonical/dhl.yaml (with stubs)
-# - src/index.ts, client.ts, mapper.ts, tests/
+# For now, manually create:
+mkdir -p packages/adapters/dhl/src/tests
+cp -r packages/adapters/foxpost/src/* packages/adapters/dhl/src/
 
-# Then implement and test
-pnpm run codegen --carrier=dhl
-# ... implement adapter methods ...
-pnpm run test --filter=@shopickup/adapters-dhl
+# Then:
+# 1. Create carrier-docs/canonical/dhl.yaml (OpenAPI spec)
+# 2. Run codegen
+# 3. Implement mappers and adapter methods
+# 4. Write tests (mapper + integration)
+# 5. Build and test
 ```
 
-### Running the Dev Server
+### Development Server (Example)
 
 ```bash
 cd examples/dev-server
-pnpm install
-pnpm run dev
-# Server running at http://localhost:3000
+pnpm run build
+pnpm run start
+# Server at http://localhost:3000
+```
 
-# Test endpoint
-curl -X POST http://localhost:3000/label \
-  -H "Content-Type: application/json" \
-  -d '{
-    "shipment": { /* ... */ },
-    "parcels": [{ /* ... */ }],
-    "carrier": "foxpost"
-  }'
+For local iteration, you can use:
+```bash
+pnpm run dev  # Runs tsx for hot reload (development only)
 ```
 
 ## 6. Design Principles & Decisions
@@ -382,6 +430,9 @@ curl -X POST http://localhost:3000/label \
 | **Distribution** | Library (npm package) | Easy to import, versioned independently, no ops overhead |
 | **Persistence** | Leave to integrator | Different apps need different stores; core stays small |
 | **HTTP client** | Pluggable interface | Consumers control retries, caching, instrumentation |
+| **Module System** | ESM (NodeNext) | Modern, standards-compliant, better tree-shaking |
+| **Build System** | TypeScript → dist/ | Build-first workflow ensures tests run against compiled code |
+| **Test Runner** | Vitest (v8 coverage) | Fast, ESM-native, Jest-compatible, better DX |
 | **OpenAPI specs** | In `carrier-docs/` | Single source of truth for carrier APIs, drives codegen |
 | **Errors** | Structured types | Integrators can decide retry/fallback logic cleanly |
 | **Example server** | SQLite + Drizzle | Lightweight, self-contained, not opinionated |
@@ -404,7 +455,7 @@ For detailed contribution guidelines, see **ADAPTER_DEVELOPMENT.md**.
 
 ## 9. Roadmap
 
-- **v1 (current):** Core types, Foxpost adapter, dev server.
-- **v1.1:** DHL, UPS adapters; webhook receiver helpers.
-- **v1.2:** Async flow orchestration (background jobs, event sourcing).
-- **v2:** Rate negotiation, pickup scheduling, returns management.
+- **v1.0 (Current):** ✅ Core types, Foxpost adapter (3 capabilities: CREATE_PARCEL, CREATE_LABEL, TRACK), 22 passing tests, ESM/NodeNext foundation
+- **v1.1:** DHL adapter, webhook receiver helpers, rate negotiation
+- **v1.2:** UPS adapter, async flow orchestration (background jobs)
+- **v2:** Returns management, pickup scheduling, advanced routing
