@@ -128,14 +128,15 @@ export class FoxpostAdapter implements CarrierAdapter {
       const basicPassword = (req.credentials?.password as string) || "";
 
       // Create parcels - pass the injected HTTP client and API key
+      // NOTE: Pass object directly (not stringified) — http-client will stringify it
       const response = await ctx.http.post<any>(
-        `${baseUrl}/api/parcel?isWeb=${isWeb}`,
-        [foxpostRequest],
+        `${baseUrl}/api/parcel?isWeb=${isWeb}&isRedirect=false`,
+        [foxpostRequest],  // Pass array of parcel objects (not stringified)
         {
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Basic ${Buffer.from(`${basicUsername}:${basicPassword}`).toString("base64")}`,
-            ...(apiKey && { "api-key": apiKey }),
+            ...(apiKey && { "Api-key": apiKey }),  // Match Foxpost header casing
           },
         }
       );
