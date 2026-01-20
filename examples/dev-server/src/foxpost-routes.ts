@@ -44,7 +44,7 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
                   country: { type: 'string' },
                   phone: { type: 'string' },
                   email: { type: 'string', format: 'email' },
-                }
+                },
               },
               recipient: {
                 type: 'object',
@@ -58,7 +58,7 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
                   country: { type: 'string' },
                   phone: { type: 'string' },
                   email: { type: 'string', format: 'email' },
-                }
+                },
               },
               service: { type: 'string', description: 'Service type (e.g., "standard", "express")' },
               totalWeight: { type: 'number', description: 'Total weight in grams' },
@@ -83,15 +83,17 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
                 }
               },
               status: { type: 'string', enum: ['draft', 'pending', 'ready'] },
-            }
+            },
           },
           credentials: {
             type: 'object',
-            description: 'Carrier credentials',
-            required: ['apiKey'],
+            description: 'Carrier credentials (replace example values with real credentials)',
+            required: ['apiKey', 'username', 'password'],
             properties: {
-              apiKey: { type: 'string', description: 'Foxpost API key' }
-            }
+              apiKey: { type: 'string', description: 'Foxpost API key' },
+              username: { type: 'string', description: 'Foxpost basic auth username' },
+              password: { type: 'string', description: 'Foxpost basic auth password' },
+            },
           },
           options: {
             type: 'object',
@@ -104,7 +106,54 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
               }
             }
           }
-        }
+        },
+        examples: [
+          {
+            shipment: {
+              id: 'shipment-001',
+              sender: {
+                name: 'Alice Merchant',
+                street: '456 Merchant St',
+                city: 'Budapest',
+                postalCode: '1020',
+                country: 'HU',
+                phone: '+3612345679',
+                email: 'alice.merchant@example.com'
+              },
+              recipient: {
+                name: 'John Doe',
+                street: '123 Main St',
+                city: 'Budapest',
+                postalCode: '1010',
+                country: 'HU',
+                phone: '+3612345678',
+                email: 'john.doe@example.com'
+              },
+              service: 'standard',
+              totalWeight: 1500,
+              reference: 'ORDER-12345'
+            },
+            parcel: {
+              id: 'parcel-001',
+              shipmentId: 'shipment-001',
+              weight: 1500,
+              dimensions: {
+                length: 30,
+                width: 20,
+                height: 10
+              },
+              status: 'ready'
+            },
+            credentials: {
+              apiKey: 'your-foxpost-api-key-here',
+              username: 'your-foxpost-username-here',
+              password: 'your-foxpost-password-here'
+            },
+            options: {
+              useTestApi: true
+            }
+          }
+        ]
       },
       response: {
         200: {
@@ -115,7 +164,7 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
             status: { type: 'string', enum: ['created', 'pending', 'failed'] },
             labelUrl: { type: ['string', 'null'], description: 'Optional label URL' },
             raw: { type: 'object', description: 'Raw carrier response' }
-          }
+          },
         },
         400: {
           description: 'Validation error (bad request)',
@@ -218,9 +267,9 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
       // Handle CarrierError
       if (err instanceof CarrierError) {
         const statusCode = err.category === 'Validation' ? 400
-                         : err.category === 'Auth' ? 401
-                         : err.category === 'RateLimit' ? 429
-                         : 502;
+          : err.category === 'Auth' ? 401
+            : err.category === 'RateLimit' ? 429
+              : 502;
 
         fastify.log.warn({
           message: err.message,
