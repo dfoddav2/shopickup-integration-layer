@@ -128,14 +128,15 @@ export class FoxpostAdapter implements CarrierAdapter {
       const basicPassword = (req.credentials?.password as string) || "";
 
       // Create parcels - pass the injected HTTP client and API key
+      // NOTE: Pass object directly (not stringified) — http-client will stringify it
       const response = await ctx.http.post<any>(
-        `${baseUrl}/api/parcel?isWeb=${isWeb}`,
-        [foxpostRequest],
+        `${baseUrl}/api/parcel?isWeb=${isWeb}&isRedirect=false`,
+        [foxpostRequest],  // Pass array of parcel objects (not stringified)
         {
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Basic ${Buffer.from(`${basicUsername}:${basicPassword}`).toString("base64")}`,
-            ...(apiKey && { "api-key": apiKey }),
+            ...(apiKey && { "Api-key": apiKey }),  // Match Foxpost header casing
           },
         }
       );
@@ -146,17 +147,30 @@ export class FoxpostAdapter implements CarrierAdapter {
           .map((e: any) => `${e.field}: ${e.message}`)
           .join(", ");
 
+        ctx.logger?.debug("Foxpost API response validation failed", {
+          valid: response.valid,
+          errors,
+          raw: response,
+        });
+
         throw new CarrierError(
           `Failed to create parcel: ${errorMsg || "Unknown error"}`,
-          "Validation"
+          "Validation",
+          { raw: response }
         );
       }
 
-      const barcode = response.parcels[0]?.barcode;
+      const barcode = response.parcels[0]?.barcode || response.parcels[0]?.barcodeTof || response.parcels[0]?.clFoxId;
       if (!barcode) {
+        ctx.logger?.debug("Foxpost API response missing barcode", {
+          parcels: response.parcels,
+          raw: response,
+        });
+
         throw new CarrierError(
           "No barcode returned from Foxpost",
-          "Permanent"
+          "Permanent",
+          { raw: response }
         );
       }
 

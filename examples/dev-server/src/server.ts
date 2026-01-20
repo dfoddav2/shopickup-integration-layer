@@ -5,9 +5,26 @@ import fastifySwaggerUi from '@fastify/swagger-ui';
 import { registerFoxpostRoutes } from './foxpost-routes.js';
 
 // Create a Fastify instance
+const isDev = process.env.NODE_ENV !== 'production';
 const fastify = Fastify({
-    logger: true
+    logger: {
+        level: process.env.LOG_LEVEL ?? (isDev ? 'debug' : 'info'),
+        transport: isDev ? {
+            target: 'pino-pretty',
+            options: {
+                colorize: true,
+                translateTime: 'SYS:standard',
+                ignore: 'hostname,pid'
+            }
+        } : undefined
+    }
 });
+
+// Attach HttpClient after Fastify is created so it uses the same logger
+import { makeHttpClient } from './http-client.js';
+const client = makeHttpClient(fastify.log as any);
+fastify.decorate('httpClient', client);
+
 
 // Register CORS plugin
 await fastify.register(cors, {

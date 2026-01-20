@@ -1,38 +1,13 @@
-export const httpClient = {
-  async get(url: string, options?: { headers?: Record<string,string>, responseType?: 'json'|'arraybuffer' }) {
-    const res = await fetch(url, { method: 'GET', headers: options?.headers });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    if (options?.responseType === 'arraybuffer') return await res.arrayBuffer();
-    return await res.json();
-  },
-  async post(url: string, data?: any, options?: { headers?: Record<string,string>, responseType?: 'json'|'arraybuffer' }) {
-    const headers = { 'content-type': 'application/json', ...(options?.headers || {}) };
-    const body = data !== undefined ? JSON.stringify(data) : undefined;
-    const res = await fetch(url, { method: 'POST', headers, body });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    if (options?.responseType === 'arraybuffer') return await res.arrayBuffer();
-    return await res.json();
-  },
-  async put(url: string, data?: any, options?: { headers?: Record<string,string>, responseType?: 'json'|'arraybuffer' }) {
-    const headers = { 'content-type': 'application/json', ...(options?.headers || {}) };
-    const body = data !== undefined ? JSON.stringify(data) : undefined;
-    const res = await fetch(url, { method: 'PUT', headers, body });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    if (options?.responseType === 'arraybuffer') return await res.arrayBuffer();
-    return await res.json();
-  },
-  async patch(url: string, data?: any, options?: { headers?: Record<string,string>, responseType?: 'json'|'arraybuffer' }) {
-    const headers = { 'content-type': 'application/json', ...(options?.headers || {}) };
-    const body = data !== undefined ? JSON.stringify(data) : undefined;
-    const res = await fetch(url, { method: 'PATCH', headers, body });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    if (options?.responseType === 'arraybuffer') return await res.arrayBuffer();
-    return await res.json();
-  },
-  async delete(url: string, options?: { headers?: Record<string,string>, responseType?: 'json'|'arraybuffer' }) {
-    const res = await fetch(url, { method: 'DELETE', headers: options?.headers });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    if (options?.responseType === 'arraybuffer') return await res.arrayBuffer();
-    return await res.json();
-  }
-};
+import { createAxiosHttpClient } from '@shopickup/core';
+import type { Logger } from '@shopickup/core';
+
+// Factory to create a pre-configured HttpClient bound to a provided logger.
+// Call this after Fastify is created so the client's debug logs route through Fastify's logger.
+export function makeHttpClient(logger?: Logger) {
+  return createAxiosHttpClient({
+    defaultTimeoutMs: Number(process.env.HTTP_TIMEOUT_MS) || 15000,
+    debug: process.env.HTTP_DEBUG === '1',
+    debugFullBody: process.env.HTTP_DEBUG_FULL === '1',
+    logger,
+  });
+}

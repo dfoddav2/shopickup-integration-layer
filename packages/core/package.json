@@ -17,11 +17,23 @@
     "./flows": {
       "import": "./dist/flows/index.js",
       "types": "./dist/flows/index.d.ts"
+    },
+    "./http": {
+      "import": "./dist/http/index.js",
+      "types": "./dist/http/index.d.ts"
+    },
+    "./http/axios-client": {
+      "import": "./dist/http/axios-client.js",
+      "types": "./dist/http/axios-client.d.ts"
+    },
+    "./http/fetch-client": {
+      "import": "./dist/http/fetch-client.js",
+      "types": "./dist/http/fetch-client.d.ts"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "jest",
+    "test": "vitest --run src",
     "dev": "tsc -w -p tsconfig.json"
   },
   "keywords": [
@@ -36,6 +48,7 @@
     "typescript": "^5.4.2"
   },
   "dependencies": {
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "axios": "^1.13.2"
   }
 }
