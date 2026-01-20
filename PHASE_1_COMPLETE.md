@@ -11,11 +11,13 @@ This document summarizes completion of Phase 1 (core library) and Phase 2 (ESM/V
 ### 1. Monorepo Foundation
 
 **Files Created:**
+
 - `/package.json` — Root manifest with npm workspaces
 - `/tsconfig.json` — Shared TypeScript configuration (NodeNext)
 
 **Structure:**
-```
+
+```txt
 /shopickup-integration-layer/
 ├── package.json        (workspaces: core, adapters/*, examples, tools)
 ├── tsconfig.json       (NodeNext, ESM, shared base config)
@@ -35,12 +37,13 @@ This document summarizes completion of Phase 1 (core library) and Phase 2 (ESM/V
 **Location:** `packages/core/`
 
 **Configuration Files:**
+
 - `package.json` — Defines exports, dependencies, build scripts
 - `tsconfig.json` — Project-specific TypeScript config (ESM, noEmit: false, declaration: true)
 
 **Directory Structure:**
 
-```
+```txt
 packages/core/src/
 ├── types/              # Canonical domain model
 │   ├── address.ts      # Address with validation
@@ -85,7 +88,7 @@ packages/core/src/
 
 **Directory Structure:**
 
-```
+```txt
 packages/adapters/foxpost/
 ├── src/
 │   ├── index.ts           # FoxpostAdapter implementation
@@ -102,6 +105,7 @@ packages/adapters/foxpost/
 ```
 
 **Test Stats:**
+
 - ✅ 22 tests passing (0 failures)
 - 8 integration tests (full workflows with mock HTTP client)
 - 14 mapper tests (bidirectional mapping validation)
@@ -114,7 +118,7 @@ packages/adapters/foxpost/
 ### 1. Canonical Domain Model (7 types)
 
 | Type | Purpose | Key Fields |
-|------|---------|-----------|
+|------|---------|------------|
 | **Address** | Sender/recipient location | name, street, city, postalCode, country |
 | **Shipment** | Physical mailing container | id, sender, recipient, service, totalWeight |
 | **Parcel** | Item(s) in a shipment | id, weight, dimensions, status |
@@ -126,6 +130,7 @@ packages/adapters/foxpost/
 ### 2. CarrierAdapter Interface
 
 **Capabilities** (9 optional operations):
+
 - `RATES` → `getRates()`
 - `CREATE_SHIPMENT` → `createShipment()`
 - `CREATE_PARCEL` → `createParcel()`
@@ -137,6 +142,7 @@ packages/adapters/foxpost/
 - `WEBHOOKS` → (metadata only)
 
 **Key Design:**
+
 - Adapters declare capabilities; orchestrator checks before calling
 - Optional `requires` metadata for operation dependencies (e.g., "must close before label")
 - Pluggable `AdapterContext` with injected HTTP client, logger, telemetry
@@ -154,6 +160,7 @@ packages/adapters/foxpost/
 ### 4. Error Handling
 
 **CarrierError** with categories:
+
 - `Validation` (400) — Don't retry
 - `Auth` (401/403) — Don't retry
 - `RateLimit` (429) — Retry with backoff
@@ -161,6 +168,7 @@ packages/adapters/foxpost/
 - `Permanent` — Don't retry
 
 **Includes:**
+
 - Raw carrier error response
 - Carrier-specific error code
 - Suggested retry delay (for rate limits)
@@ -169,6 +177,7 @@ packages/adapters/foxpost/
 ### 5. InMemoryStore (for Testing)
 
 **Full Store implementation:**
+
 - Save/load shipments, parcels, labels
 - Track carrier resource mappings
 - Append immutable domain events
@@ -176,6 +185,7 @@ packages/adapters/foxpost/
 - Lookup labels by tracking number
 
 **Use Cases:**
+
 - Unit tests
 - Local development
 - Integration tests
@@ -183,12 +193,14 @@ packages/adapters/foxpost/
 ### 6. Orchestration Helper: executeCreateLabelFlow
 
 **What it does:**
+
 1. Create shipment (if `CREATE_SHIPMENT` capability)
 2. Create parcels (if `CREATE_PARCEL` capability)
 3. Close shipment (if required and supported)
 4. Create labels (if `CREATE_LABEL` capability)
 
 **Features:**
+
 - Checks adapter capabilities before each step
 - Handles carrier-specific dependencies
 - Logs significant events (debug/info/error levels)
@@ -197,6 +209,7 @@ packages/adapters/foxpost/
 - Fails fast on error; throws immediately
 
 **Result Type:**
+
 ```typescript
 interface CreateLabelFlowResult {
   shipmentResource: CarrierResource | null;
@@ -209,12 +222,14 @@ interface CreateLabelFlowResult {
 ### 7. Build System & Testing Infrastructure
 
 **ESM/NodeNext Migration:**
+
 - ✅ All imports use `.js` extensions
 - ✅ TypeScript configured with `module: NodeNext`, `moduleResolution: nodenext`
 - ✅ `package.json` includes `"type": "module"` in all packages
 - ✅ Path mappings in root `tsconfig.json` for `@shopickup/*` packages
 
 **Vitest Migration (from Jest):**
+
 - ✅ Vitest 4.0.17 configured at monorepo root
 - ✅ v8 coverage enabled (built-in, no external deps)
 - ✅ Test globs: `packages/**/src/**/*.{test,spec}.{ts,tsx,js,mjs}`
@@ -223,6 +238,7 @@ interface CreateLabelFlowResult {
 - ✅ 22 passing tests (Foxpost adapter validation)
 
 **Build-first Workflow:**
+
 - ✅ TypeScript compiles to `dist/` with `declaration: true`
 - ✅ Tests run against compiled code (same as production)
 - ✅ IDE resolution fixed: root tsconfig paths + Vitest alias
@@ -233,12 +249,14 @@ interface CreateLabelFlowResult {
 ## Type Safety & Documentation
 
 **TypeScript Strict Mode Enabled:**
+
 - `strict: true`
 - `noImplicitAny: true`
 - `noUnusedLocals: true`
 - `noImplicitReturns: true`
 
 **JSDoc Comments:**
+
 - Every interface documented
 - Every type field documented
 - Usage examples where needed
@@ -385,11 +403,13 @@ Ready to proceed to **Phase 3: Add more carriers (DHL, UPS) or Phase 4: Dev serv
 ## Files Created/Modified
 
 **Phase 1 Files:**
+
 - `package.json` (root)
 - `tsconfig.json` (root)
 - `packages/core/` (full directory)
 
 **Phase 2 Files:**
+
 - `tsconfig.json` (updated for NodeNext)
 - `vitest.config.ts` (new - root level)
 - `package.json` (updated with vitest, vite, build scripts)
@@ -398,6 +418,7 @@ Ready to proceed to **Phase 3: Add more carriers (DHL, UPS) or Phase 4: Dev serv
 - `packages/adapters/foxpost/src/tests/` (2 test files)
 
 **Phase 2 Migrations:**
+
 - All `.ts` imports updated with `.js` extensions
 - Jest config replaced with Vitest
 - Test syntax updated to Vitest idioms

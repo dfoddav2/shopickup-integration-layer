@@ -782,6 +782,7 @@ async function createLabelWithRetry(
 **Framework:** Vitest 4+ (ESM-native, Jest-compatible, with v8 coverage)
 
 **Configuration:**
+
 - `vitest.config.ts` at root with test globs: `packages/**/src/**/*.{test,spec}.{ts,tsx,js,mjs}`
 - Provider: v8 (built-in, no external dependencies)
 - Environment: Node.js
@@ -789,6 +790,7 @@ async function createLabelWithRetry(
 - Isolated: false (shared Vite context for faster execution)
 
 **Build-First Workflow:**
+
 1. All packages built to `dist/` first (TypeScript → JavaScript + declarations)
 2. Tests import from built `dist/` code, not TS sources
 3. This ensures tests verify production behavior exactly

@@ -8,7 +8,7 @@ import { httpClient } from './http-client.js';
  * These endpoints allow manual testing via Swagger UI
  */
 export async function registerFoxpostRoutes(fastify: FastifyInstance) {
-  const adapter = new FoxpostAdapter('https://webapi.foxpost.hu');
+  const adapter = new FoxpostAdapter();
 
   /**
    * POST /api/dev/foxpost/create-parcel

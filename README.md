@@ -1,7 +1,7 @@
 # Shopickup: Universal Multi-Carrier Shipping Integration Layer
 
 > **Status:** Phase 1 & 2 Active. Shopickup is a TypeScript-first, ESM-native, npm-publishable **adapter library** for shipping carriers. Not a microservice — a set of importable packages that handle carrier API complexity.
-> 
+>
 > **Latest Update:** January 2025. Core library finalized. Foxpost adapter fully implemented with 22 passing tests (Vitest + v8 coverage). ESM/NodeNext monorepo build-first workflow established.
 
 ## 1. Project Overview & Philosophy
@@ -344,6 +344,7 @@ pnpm run test:coverage
 ```
 
 **Tech Stack:**
+
 - **Language:** TypeScript 5.4 (strict mode)
 - **Module System:** ESM (NodeNext resolution)
 - **Monorepo:** pnpm workspaces
@@ -355,11 +356,13 @@ pnpm run test:coverage
 ### Building
 
 Build all packages:
+
 ```bash
 pnpm run build
 ```
 
 Build specific package:
+
 ```bash
 pnpm run build:core
 pnpm run build:adapters
@@ -367,6 +370,7 @@ pnpm run build:examples
 ```
 
 Or from package directory:
+
 ```bash
 cd packages/core
 pnpm run build
@@ -383,6 +387,7 @@ pnpm run test:coverage  # Run all tests with coverage (v8)
 ```
 
 Run tests for specific package:
+
 ```bash
 cd packages/adapters/foxpost
 pnpm run build
@@ -419,6 +424,7 @@ pnpm run start
 ```
 
 For local iteration, you can use:
+
 ```bash
 pnpm run dev  # Runs tsx for hot reload (development only)
 ```
