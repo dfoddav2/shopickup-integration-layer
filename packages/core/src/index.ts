@@ -16,3 +16,7 @@ export * from './stores/index.js';
 
 // Orchestration
 export * from './flows/index.js';
+
+// Http clients (convenience exports)
+export { createAxiosHttpClient } from './http/axios-client.js';
+export { createFetchHttpClient } from './http/fetch-client.js';

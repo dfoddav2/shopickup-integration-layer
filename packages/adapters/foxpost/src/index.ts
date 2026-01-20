@@ -147,17 +147,30 @@ export class FoxpostAdapter implements CarrierAdapter {
           .map((e: any) => `${e.field}: ${e.message}`)
           .join(", ");
 
+        ctx.logger?.debug("Foxpost API response validation failed", {
+          valid: response.valid,
+          errors,
+          raw: response,
+        });
+
         throw new CarrierError(
           `Failed to create parcel: ${errorMsg || "Unknown error"}`,
-          "Validation"
+          "Validation",
+          { raw: response }
         );
       }
 
-      const barcode = response.parcels[0]?.barcode;
+      const barcode = response.parcels[0]?.barcode || response.parcels[0]?.barcodeTof || response.parcels[0]?.clFoxId;
       if (!barcode) {
+        ctx.logger?.debug("Foxpost API response missing barcode", {
+          parcels: response.parcels,
+          raw: response,
+        });
+
         throw new CarrierError(
           "No barcode returned from Foxpost",
-          "Permanent"
+          "Permanent",
+          { raw: response }
         );
       }
 
