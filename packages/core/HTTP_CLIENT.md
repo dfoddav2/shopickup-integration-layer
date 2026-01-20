@@ -1,4 +1,4 @@
-HttpClient: interface, adapters, and examples
+# HttpClient: interface, adapters, and examples
 
 This document describes the minimal `HttpClient` interface used across Shopickup core and shows example adapters (Axios + fetch). It also explains how to use the shipped Axios wrapper and how to swap in a custom client.
 
@@ -34,7 +34,7 @@ Provided implementations
   - `logger?: Logger` — optional structured logger implementing `debug/info/warn/error`
 - Normalizes Axios errors to include `status` and `response.data`.
 
-2) Fetch-backed client
+1) Fetch-backed client
 
 - Factory: `createFetchHttpClient(opts?: { fetchFn?, defaultTimeoutMs?, debug?, debugFullBody?, logger? })`
   - `fetchFn` is required in environments where `fetch` is not global (Node < 18). Example: pass `fetchFn: (await import('node-fetch')).default` or `undici.fetch`.

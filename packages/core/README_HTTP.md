@@ -1,8 +1,8 @@
-Using the HTTP clients in @shopickup/core
+# Using the HTTP clients in @shopickup/core
 
-Quick start
+There are two provided HTTP client implementations in `@shopickup/core`: one based on Axios and one based on the Fetch API. Both adhere to the same `HttpClient` interface, making it easy to swap between them or implement your own.
 
-1. Import from package root:
+## Import from package root
 
 ```ts
 import { createAxiosHttpClient } from '@shopickup/core';
@@ -10,7 +10,7 @@ import { createAxiosHttpClient } from '@shopickup/core';
 const http = createAxiosHttpClient({ debug: true, debugFullBody: false });
 ```
 
-2. Or import explicit subpath:
+## Or import explicit subpath
 
 ```ts
 import { createFetchHttpClient } from '@shopickup/core/http/fetch-client';
@@ -18,7 +18,7 @@ import { createFetchHttpClient } from '@shopickup/core/http/fetch-client';
 const http = createFetchHttpClient({ fetchFn: globalThis.fetch, debug: false });
 ```
 
-Notes
+## Nodes
 
 - In Node <18 provide `fetchFn`.
 - `debug` controls whether logs are emitted; `debugFullBody` allows a short preview of bodies to aid debugging.

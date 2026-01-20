@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { FoxpostAdapter } from '@shopickup/adapters-foxpost';
 import { CarrierError, type AdapterContext, type CreateParcelRequest, type Shipment, type Parcel } from '@shopickup/core';
-import { httpClient } from './http-client.js';
+// httpClient will be provided via fastify.decorate; create it in server.ts and attach to fastify
 
 /**
  * Register Foxpost dev endpoints for testing the adapter
@@ -10,13 +10,6 @@ import { httpClient } from './http-client.js';
 export async function registerFoxpostRoutes(fastify: FastifyInstance) {
   const adapter = new FoxpostAdapter();
 
-  /**
-   * POST /api/dev/foxpost/create-parcel
-   * Create a parcel in Foxpost (with optional test mode)
-   * 
-   * This endpoint exercises the Foxpost adapter's createParcel method.
-   * You can toggle between production and test APIs using the options.useTestApi flag.
-   */
   fastify.post('/api/dev/foxpost/create-parcel', {
     schema: {
       description: 'Create a Foxpost parcel (dev endpoint for testing)',
@@ -137,11 +130,7 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
               id: 'parcel-001',
               shipmentId: 'shipment-001',
               weight: 1500,
-              dimensions: {
-                length: 30,
-                width: 20,
-                height: 10
-              },
+              dimensions: { length: 30, width: 20, height: 10 },
               status: 'ready'
             },
             credentials: {
@@ -149,9 +138,7 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
               username: 'your-foxpost-username-here',
               password: 'your-foxpost-password-here'
             },
-            options: {
-              useTestApi: true
-            }
+            options: { useTestApi: true }
           }
         ]
       },
@@ -166,45 +153,11 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
             raw: { type: 'object', description: 'Raw carrier response' }
           },
         },
-        400: {
-          description: 'Validation error (bad request)',
-          type: 'object',
-          properties: {
-            message: { type: 'string' },
-            category: { type: 'string' }
-          }
-        },
-        401: {
-          description: 'Authentication error (invalid credentials)',
-          type: 'object',
-          properties: {
-            message: { type: 'string' },
-            category: { type: 'string' }
-          }
-        },
-        429: {
-          description: 'Rate limit exceeded',
-          type: 'object',
-          properties: {
-            message: { type: 'string' },
-            category: { type: 'string' }
-          }
-        },
-        502: {
-          description: 'Server error (carrier API error)',
-          type: 'object',
-          properties: {
-            message: { type: 'string' },
-            category: { type: 'string' }
-          }
-        },
-        500: {
-          description: 'Internal server error',
-          type: 'object',
-          properties: {
-            message: { type: 'string' }
-          }
-        }
+        400: { description: 'Validation error (bad request)', type: 'object', properties: { message: { type: 'string' }, category: { type: 'string' } } },
+        401: { description: 'Authentication error (invalid credentials)', type: 'object', properties: { message: { type: 'string' }, category: { type: 'string' } } },
+        429: { description: 'Rate limit exceeded', type: 'object', properties: { message: { type: 'string' }, category: { type: 'string' } } },
+        502: { description: 'Server error (carrier API error)', type: 'object', properties: { message: { type: 'string' }, category: { type: 'string' } } },
+        500: { description: 'Internal server error', type: 'object', properties: { message: { type: 'string' } } }
       }
     }
   }, async (request, reply) => {
@@ -241,24 +194,17 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
 
       // Build AdapterContext with httpClient and logger
       const ctx: AdapterContext = {
-        http: httpClient as any, // Cast to any to satisfy HttpClient interface
+        http: (fastify as any).httpClient as any,
         logger: fastify.log
       };
 
       // Call adapter
-      fastify.log.debug({
-        shipmentId: body.shipment.id,
-        testMode: body.options?.useTestApi ?? false
-      }, 'Calling FoxpostAdapter.createParcel');
+      fastify.log.debug({ shipmentId: body.shipment.id, testMode: body.options?.useTestApi ?? false }, 'Calling FoxpostAdapter.createParcel');
 
       const result = await adapter.createParcel!(body.shipment.id, req, ctx);
 
       // Log success
-      fastify.log.info({
-        shipmentId: body.shipment.id,
-        carrierId: result.carrierId,
-        status: result.status
-      }, 'Parcel created successfully');
+      fastify.log.info({ shipmentId: body.shipment.id, carrierId: result.carrierId, status: result.status }, 'Parcel created successfully');
 
       return reply.code(200).send(result);
     } catch (err) {
@@ -266,40 +212,28 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
 
       // Handle CarrierError
       if (err instanceof CarrierError) {
-        const statusCode = err.category === 'Validation' ? 400
-          : err.category === 'Auth' ? 401
-            : err.category === 'RateLimit' ? 429
-              : 502;
+        const statusCode = err.category === 'Validation' ? 400 : err.category === 'Auth' ? 401 : err.category === 'RateLimit' ? 429 : 502;
 
-        fastify.log.warn({
-          message: err.message,
-          category: err.category,
-          statusCode
-        }, 'CarrierError');
+        fastify.log.warn({ message: err.message, category: err.category, statusCode }, 'CarrierError');
 
-        return reply.code(statusCode).send({
-          message: err.message,
-          category: err.category
-        });
+        return reply.code(statusCode).send({ message: err.message, category: err.category });
       }
 
       // Handle unexpected errors
       if (err instanceof Error) {
-        fastify.log.error({
-          message: err.message,
-          stack: err.stack
-        }, 'Unexpected error');
-
-        return reply.code(500).send({
-          message: 'Internal server error: ' + err.message
-        });
+        fastify.log.error({ message: err.message, stack: err.stack }, 'Unexpected error');
+        return reply.code(500).send({ message: 'Internal server error: ' + err.message });
       }
 
-      return reply.code(500).send({
-        message: 'Internal server error'
-      });
+      return reply.code(500).send({ message: 'Internal server error' });
     }
   });
 
   fastify.log.info('Registered Foxpost dev routes');
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    httpClient?: any;
+  }
 }

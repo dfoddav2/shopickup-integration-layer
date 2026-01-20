@@ -262,25 +262,38 @@ http-client.ts
 
 ## Debugging
 
-All requests and errors are logged via Fastify's logger (pino). When running with `pnpm run dev`, you'll see debug logs:
+All requests and errors are logged via Fastify's logger (pino). The dev server uses a human‑friendly console format (pino‑pretty) while production emits structured JSON. You can control debug output and HTTP client request/response logging with env vars.
+
+- `NODE_ENV=development` (default when not `production`) enables pretty console logging.
+- `HTTP_DEBUG=1` enables the HttpClient debug logs (request/response events).
+- `HTTP_DEBUG_FULL=1` enables truncated body previews in HttpClient logs (USE WITH CAUTION — this can expose sensitive data).
+
+Example output (dev):
 
 ```
-[18:00:00] INFO: Foxpost createParcel request
-  endpoint: '/api/dev/foxpost/create-parcel'
-  shipmentId: 'order-123'
-  parcelId: 'parcel-1'
-  useTestApi: false
+[2026-01-20 12:09:10.349 +0100] INFO: Foxpost createParcel request
+  endpoint: /api/dev/foxpost/create-parcel
+  shipmentId: shipment-001
+  parcelId: parcel-001
+  useTestApi: true
   hasCredentials: true
 
-[18:00:00] DEBUG: Calling FoxpostAdapter.createParcel
-  shipmentId: 'order-123'
-  testMode: false
+[2026-01-20 12:09:10.349 +0100] DEBUG: Calling FoxpostAdapter.createParcel
+  shipmentId: shipment-001
+  testMode: true
 
-[18:00:01] INFO: Parcel created successfully
-  shipmentId: 'order-123'
-  carrierId: 'CLFOX0000000001'
-  status: 'created'
+[2026-01-20 12:09:10.416 +0100] ERROR: Foxpost: Error creating parcel
+
+[2026-01-20 12:09:10.416 +0100] ERROR: Error in createParcel
+  err: { type: 'CarrierError', message: 'Foxpost credentials invalid', category: 'Auth', carrierCode: 'WRONG_USERNAME_OR_PASSWORD' }
 ```
+
+Tips:
+- Use `HTTP_DEBUG=1` while developing to surface HTTP calls. Add `HTTP_DEBUG_FULL=1` to see truncated body previews.
+- Keep `HTTP_DEBUG_FULL` disabled for production.
+- The HttpClient sanitizes common sensitive headers (authorization, api-key, x-api-key, password, token) before logging.
+
+
 
 ## Next Steps
 

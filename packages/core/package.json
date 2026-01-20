@@ -33,7 +33,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "jest",
+    "test": "vitest --run src",
     "dev": "tsc -w -p tsconfig.json"
   },
   "keywords": [
