@@ -6,19 +6,20 @@
   "type": "module",
   "scripts": {
     "bootstrap": "pnpm install",
-    "build": "pnpm -w -r build",
-    "build:core": "pnpm -w -r --filter @shopickup/core build",
-    "build:adapters": "pnpm -w -r --filter \"@shopickup/adapters-*\" build",
-    "build:examples": "pnpm -w -r --filter \"examples/**\" build",
-    "start:dev-server": "pnpm --filter examples/dev-server run start",
+    "build": "pnpm -w run build:core && pnpm -w run build:adapters && pnpm -w run build:examples",
+    "build:core": "pnpm --filter @shopickup/core run build",
+    "build:adapters": "pnpm --filter @shopickup/adapters-foxpost run build",
+    "build:examples": "pnpm --filter shopickup-dev-server-example run build",
+    "start:dev-server": "pnpm --filter shopickup-dev-server-example run dev",
     "dev": "pnpm -w -r --parallel dev",
     "lint": "eslint . --ext .ts",
     "test": "vitest --run",
     "test:coverage": "vitest --run --coverage"
   },
   "workspaces": [
-    "packages/*",
-    "examples/*"
+    "packages/core",
+    "packages/adapters/foxpost",
+    "examples/dev-server"
   ],
   "devDependencies": {
     "@types/node": "^25.0.9",
