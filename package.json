@@ -8,7 +8,7 @@
     "bootstrap": "pnpm install",
     "build": "pnpm -w run build:core && pnpm -w run build:adapters && pnpm -w run build:examples",
     "build:core": "pnpm --filter @shopickup/core run build",
-    "build:adapters": "pnpm --filter @shopickup/adapters-foxpost run build",
+    "build:adapters": "pnpm --filter '@shopickup/adapters-*' run build",
     "build:examples": "pnpm --filter shopickup-dev-server-example run build",
     "start:dev-server": "pnpm --filter shopickup-dev-server-example run dev",
     "dev": "pnpm -w -r --parallel dev",
