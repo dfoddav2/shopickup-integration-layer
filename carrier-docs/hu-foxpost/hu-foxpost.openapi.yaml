@@ -13,8 +13,9 @@ info:
     maintained_by: ""
     capabilities:
       - CREATE_PARCEL
-      - TRACK
+      - DELETE_PARCEL
       - CREATE_LABEL
+      - TRACK
     requires:
       createLabel: []
     notes: |

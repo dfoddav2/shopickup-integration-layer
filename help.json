@@ -1,0 +1,45 @@
+{
+    "shipment": {
+        "id": "string",
+        "sender": {
+            "name": "David Fodor",
+            "street": "Kece utca 10.",
+            "city": "Szeged",
+            "postalCode": "6729",
+            "country": "HU",
+            "phone": "+36209615039",
+            "email": "user@example.com"
+        },
+        "recipient": {
+            "name": "David Fodor",
+            "street": "Kece utca 10.",
+            "city": "Szeged",
+            "postalCode": "6729",
+            "country": "HU",
+            "phone": "+36209615039",
+            "email": "user@example.com"
+        },
+        "service": "string",
+        "totalWeight": 1000,
+        "reference": "string"
+    },
+    "parcel": {
+        "id": "string",
+        "shipmentId": "string",
+        "weight": 1000,
+        "dimensions": {
+            "length": 12,
+            "width": 15,
+            "height": 10
+        },
+        "status": "draft"
+    },
+    "credentials": {
+        "apiKey": "qbj2QeuSpdETCOJtDE2t",
+        "username": "fodor_toth_jazmin_rita",
+        "password": "pSXGrvWANUcU"
+    },
+    "options": {
+        "useTestApi": true
+    }
+}
