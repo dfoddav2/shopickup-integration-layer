@@ -5,16 +5,13 @@ import type {
   Store,
   DomainEvent,
 } from '../interfaces/index.js';
-import type { Shipment, Parcel } from '../types/index.js';
+import type { Parcel } from '../types/index.js';
 import { Capabilities } from '../interfaces/capabilities.js';
 
 /**
  * Result of executeCreateLabelFlow
  */
 export interface CreateLabelFlowResult {
-  /** Resource created for the shipment */
-  shipmentResource: CarrierResource | null;
-
   /** Resources created for each parcel */
   parcelResources: CarrierResource[];
 
@@ -32,74 +29,40 @@ export interface CreateLabelFlowResult {
  * It handles carrier-specific dependencies (e.g., must close before label).
  *
  * Steps:
- * 1. Create shipment (if supported)
- * 2. Create parcels (if supported)
- * 3. Close shipment (if required before label)
- * 4. Create labels
+ * 1. Create parcels (if supported)
+ * 2. Create labels (if supported)
  *
  * @param opts Options for the flow
  * @returns Result with created resources
  */
 export async function executeCreateLabelFlow(opts: {
   adapter: CarrierAdapter;
-  shipment: Shipment;
   parcels: Parcel[];
   credentials: Record<string, unknown>;
   context: AdapterContext;
   store?: Store;
 }): Promise<CreateLabelFlowResult> {
-  const { adapter, shipment, parcels, credentials, context, store } = opts;
+  const { adapter, parcels, credentials, context, store } = opts;
 
   const result: CreateLabelFlowResult = {
-    shipmentResource: null,
     parcelResources: [],
     labelResources: [],
     errors: [],
   };
 
   try {
-    // Step 1: Create shipment (if supported)
-    if (adapter.capabilities.includes(Capabilities.CREATE_SHIPMENT)) {
-      context.logger?.debug("Flow: Creating shipment", { shipmentId: shipment.id });
-
-      const shipmentRes = await adapter.createShipment!(
-        { shipment, credentials },
-        context
-      );
-
-      result.shipmentResource = shipmentRes;
-
-      if (store && shipmentRes.carrierId) {
-        await store.saveCarrierResource(shipment.id, "shipment", shipmentRes);
-        await store.appendEvent(shipment.id, {
-          type: "SHIPMENT_CREATED",
-          internalId: shipment.id,
-          carrierId: adapter.id,
-          resource: shipmentRes,
-        });
-      }
-
-      context.logger?.info("Flow: Shipment created", {
-        carrierId: shipmentRes.carrierId,
-      });
-    }
-
-    // Step 2: Create parcels (if supported)
+    // Step 1: Create parcels (if supported)
     if (adapter.capabilities.includes(Capabilities.CREATE_PARCEL)) {
-      const shipmentCarrierId =
-        result.shipmentResource?.carrierId || shipment.id;
-
       for (const parcel of parcels) {
         context.logger?.debug("Flow: Creating parcel", {
           parcelId: parcel.id,
           weight: parcel.weight,
         });
 
-         const parcelRes = await adapter.createParcel!(
-           shipmentCarrierId,
-           { shipment, parcel, credentials },
-           context
-         );
+        const parcelRes = await adapter.createParcel!(
+          { parcel, credentials },
+          context
+        );
 
         result.parcelResources.push(parcelRes);
 
@@ -119,38 +82,7 @@ export async function executeCreateLabelFlow(opts: {
       }
     }
 
-    // Step 3: Close shipment (if required before label)
-    if (
-      adapter.requires?.createLabel?.includes(Capabilities.CLOSE_SHIPMENT) &&
-      adapter.capabilities.includes(Capabilities.CLOSE_SHIPMENT)
-    ) {
-      const shipmentCarrierId =
-        result.shipmentResource?.carrierId || shipment.id;
-
-      context.logger?.debug("Flow: Closing shipment", {
-        shipmentId: shipmentCarrierId,
-      });
-
-      const closeRes = await adapter.closeShipment!(
-        shipmentCarrierId,
-        context
-      );
-
-      if (store) {
-        await store.appendEvent(shipment.id, {
-          type: "SHIPMENT_CLOSED",
-          internalId: shipment.id,
-          carrierId: adapter.id,
-          resource: closeRes,
-        });
-      }
-
-      context.logger?.info("Flow: Shipment closed", {
-        shipmentId: shipmentCarrierId,
-      });
-    }
-
-    // Step 4: Create labels (for each parcel if supported)
+    // Step 2: Create labels (for each parcel if supported)
     if (adapter.capabilities.includes(Capabilities.CREATE_LABEL)) {
       for (let i = 0; i < result.parcelResources.length; i++) {
         const parcelRes = result.parcelResources[i];
@@ -201,9 +133,9 @@ export async function executeCreateLabelFlow(opts: {
     });
 
     if (store) {
-      await store.appendEvent(shipment.id, {
+      await store.appendEvent(parcels[0]?.id || "unknown", {
         type: "ERROR_OCCURRED",
-        internalId: shipment.id,
+        internalId: parcels[0]?.id || "unknown",
         carrierId: adapter.id,
         details: { error: error instanceof Error ? error.message : String(error) },
       });

@@ -1,7 +1,7 @@
 import type { Capability } from './capabilities.js';
 import type { AdapterContext } from './adapter-context.js';
 import type { CarrierResource } from './carrier-resource.js';
-import type { Shipment, Parcel, RatesResponse, TrackingUpdate } from '../types/index.js';
+import type { Parcel, RatesResponse, TrackingUpdate } from '../types/index.js';
 
 /**
  * Request options
@@ -26,30 +26,74 @@ export interface RequestOptions {
  */
 
 export interface RatesRequest {
-  shipment: Shipment;
+  /**
+   * Array of parcels to get rates for
+   * Each parcel contains complete shipping details (sender, recipient, weight, etc.)
+   */
   parcels: Parcel[];
+  /**
+   * Optional: filter by specific services (e.g., ["standard", "express"])
+   */
   services?: string[];
-  options?: RequestOptions;
-}
-
-export interface CreateShipmentRequest {
-  shipment: Shipment;
-  credentials: Record<string, unknown>;
+  /**
+   * Per-call options (e.g., useTestApi)
+   */
   options?: RequestOptions;
 }
 
 export interface CreateParcelRequest {
-  shipment: Shipment;
+  /**
+   * The parcel to create
+   * Contains complete shipping details including sender/recipient addresses
+   */
   parcel: Parcel;
+  /**
+   * Credentials for the carrier API (e.g., { apiKey, username, password })
+   */
   credentials: Record<string, unknown>;
+  /**
+   * Per-call options (e.g., useTestApi)
+   */
+  options?: RequestOptions;
+}
+
+export interface CreateParcelsRequest {
+  /**
+   * Array of parcels to create in a single batch
+   * Each parcel contains complete shipping details (sender, recipient, weight, etc.)
+   */
+  parcels: Parcel[];
+  /**
+   * Shared credentials for the entire batch
+   */
+  credentials: Record<string, unknown>;
+  /**
+   * Shared options for the entire batch
+   */
   options?: RequestOptions;
 }
 
 export interface PickupRequest {
-  shipment: Shipment;
+  /**
+   * The parcel for which to request a pickup
+   * Contains complete shipping details
+   */
+  parcel: Parcel;
+  /**
+   * Preferred pickup date
+   */
   preferredDate?: Date;
+  /**
+   * Special instructions for the pickup
+   */
   instructions?: string;
+  /**
+   * Credentials for the carrier API
+   */
   credentials: Record<string, unknown>;
+  /**
+   * Per-call options
+   */
   options?: RequestOptions;
 }
 
@@ -95,34 +139,33 @@ export interface CarrierAdapter {
 
   // ========== Capability Methods ==========
 
-  /**
-   * Fetch available rates for a shipment
-   * Capability: RATES
-   */
-  getRates?(
-    req: RatesRequest,
-    ctx: AdapterContext
-  ): Promise<RatesResponse>;
+   /**
+    * Fetch available rates for parcels
+    * Capability: RATES
+    */
+   getRates?(
+     req: RatesRequest,
+     ctx: AdapterContext
+   ): Promise<RatesResponse>;
 
-  /**
-   * Create a shipment
-   * Some carriers require this before parcels
-   * Capability: CREATE_SHIPMENT
-   */
-  createShipment?(
-    req: CreateShipmentRequest,
-    ctx: AdapterContext
-  ): Promise<CarrierResource>;
+   /**
+    * Create a parcel
+    * Capability: CREATE_PARCEL
+    */
+   createParcel?(
+     req: CreateParcelRequest,
+     ctx: AdapterContext
+   ): Promise<CarrierResource>;
 
-  /**
-   * Add a parcel to a shipment
-   * Capability: CREATE_PARCEL
-   */
-  createParcel?(
-    shipmentCarrierId: string,
-    req: CreateParcelRequest,
-    ctx: AdapterContext
-  ): Promise<CarrierResource>;
+    /**
+     * Create multiple parcels in one call
+     * Capability: CREATE_PARCELS
+     * Note: Returns per-item CarrierResource so callers can handle partial failures.
+     */
+    createParcels?(
+      req: CreateParcelsRequest,
+      ctx: AdapterContext
+    ): Promise<CarrierResource[]>;
 
   /**
    * Close/finalize a shipment

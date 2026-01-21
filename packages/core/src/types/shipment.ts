@@ -1,6 +1,9 @@
 import type { Address } from './address.js';
 
 /**
+ * @deprecated Use Parcel instead. Each parcel now contains full shipping details (sender/recipient).
+ * Shipment is kept for backward compatibility only and will be removed in a future major version.
+ * 
  * Shipment domain type
  * Represents a single physical mailing from shipper to recipient
  */

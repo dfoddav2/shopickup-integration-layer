@@ -3,7 +3,7 @@
  * Converts between canonical Shopickup types and Foxpost API types
  */
 
-import type { Shipment, Parcel, Address, TrackingEvent } from "@shopickup/core";
+import type { Parcel, TrackingEvent } from "@shopickup/core";
 import type {
   CreateParcelRequest as FoxpostParcelRequest,
   TrackDTO as FoxpostTrackDTO,
@@ -13,9 +13,9 @@ const FOXPOST_SIZES = ["xs", "s", "m", "l", "xl"] as const;
 type FoxpostSize = typeof FOXPOST_SIZES[number]; // "xs" | "s" | "m" | "l" | "xl"
 
 /**
- * Map canonical Address to Foxpost address format
+ * Map canonical Address (from Parcel.sender or Parcel.recipient) to Foxpost address format
  */
-export function mapAddressToFoxpost(addr: Address): {
+export function mapAddressToFoxpost(addr: Parcel['sender'] | Parcel['recipient']): {
   name: string;
   phone: string;
   email: string;
@@ -66,18 +66,18 @@ export function determineFoxpostSize(parcel: Parcel): FoxpostSize | undefined {
 }
 
 /**
- * Map canonical Parcel + Shipment to Foxpost CreateParcelRequest
+ * Map canonical Parcel to Foxpost CreateParcelRequest
+ * Parcel contains complete shipping details (sender, recipient, weight, service, etc.)
  */
 export function mapParcelToFoxpost(
   parcel: Parcel,
-  shipment: Shipment,
   options: {
     isWeb?: boolean;
     isRedirect?: boolean;
   } = {}
 ): FoxpostParcelRequest {
-  const recipient = mapAddressToFoxpost(shipment.recipient);
-  const sender = shipment.sender ? mapAddressToFoxpost(shipment.sender) : null;
+  const recipient = mapAddressToFoxpost(parcel.recipient);
+  const sender = parcel.sender ? mapAddressToFoxpost(parcel.sender) : null;
 
   const foxpostRequest: FoxpostParcelRequest = {
     recipientName: recipient.name,
@@ -89,7 +89,7 @@ export function mapParcelToFoxpost(
     recipientCountry: recipient.country,
     size: determineFoxpostSize(parcel),
     // Optional fields
-    refCode: shipment.reference
+    refCode: parcel.reference
       ?.substring(0, 30)
       .concat(`-${parcel.id.substring(0, 10)}`),
     comment: parcel.metadata?.["comment"] as string | undefined,

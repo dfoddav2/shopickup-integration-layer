@@ -1,13 +1,19 @@
+import type { Address } from './address.js';
+
 /**
  * Parcel domain type
- * A physical container within a shipment
+ * A self-contained physical container with full shipping details
+ * Each parcel is independent and includes all necessary addressing information.
  */
 export interface Parcel {
   /** Internal unique identifier */
   id: string;
 
-  /** Reference to parent shipment */
-  shipmentId: string;
+  /** Sender address */
+  sender: Address;
+
+  /** Recipient address */
+  recipient: Address;
 
   /** Maps carrier ID -> carrier's parcel ID */
   carrierIds?: Record<string, string>;
@@ -22,11 +28,17 @@ export interface Parcel {
     height: number; // centimeters
   };
 
+  /** Normalized service level (standard, express, economy, overnight) */
+  service: "standard" | "express" | "economy" | "overnight";
+
+  /** Customer reference (e.g., order ID, invoice number) */
+  reference?: string;
+
   /** Items contained in this parcel (optional) */
   items?: ParcelItem[];
 
   /** Current status of the parcel */
-  status: ParcelStatus;
+  status?: ParcelStatus;
 
   /** Arbitrary metadata */
   metadata?: Record<string, unknown>;

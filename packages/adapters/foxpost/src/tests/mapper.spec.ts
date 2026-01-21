@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { Shipment, Parcel, Address } from '@shopickup/core';
+import type { Parcel } from '@shopickup/core';
 import {
   mapAddressToFoxpost,
   determineFoxpostSize,
@@ -14,40 +14,63 @@ import {
 } from '../mappers/index.js';
 import type { TrackDTO } from '../types/generated.js';
 
+// Helper: create a minimal valid parcel with sender/recipient
+function createTestParcel(overrides: Partial<Parcel> = {}): Parcel {
+  return {
+    id: 'p1',
+    sender: {
+      name: 'Sender Corp',
+      street: '100 Sender St',
+      city: 'Budapest',
+      postalCode: '1011',
+      country: 'HU',
+      phone: '+36301111111',
+      email: 'sender@corp.com',
+    },
+    recipient: {
+      name: 'John Doe',
+      street: '456 Main St',
+      city: 'Debrecen',
+      postalCode: '4024',
+      country: 'HU',
+      phone: '+36302222222',
+      email: 'john@example.com',
+    },
+    weight: 1000,
+    service: 'standard',
+    reference: 'ORD-12345',
+    dimensions: { length: 20, width: 15, height: 10 },
+    ...overrides,
+  };
+}
+
 describe('Foxpost Mappers', () => {
   describe('mapAddressToFoxpost', () => {
     it('maps canonical Address to Foxpost format', () => {
-      const canonical: Address = {
-        name: 'John Doe',
-        street: '123 Main St',
-        city: 'Budapest',
-        postalCode: '1011',
-        country: 'HU',
-        phone: '+36301234567',
-        email: 'john@example.com',
-      };
-
-      const result = mapAddressToFoxpost(canonical);
+      const parcel = createTestParcel();
+      const result = mapAddressToFoxpost(parcel.recipient);
 
       expect(result).toBeDefined();
       expect(result.name).toBe('John Doe');
-      expect(result.city).toBe('Budapest');
-      expect(result.zip).toBe('1011');
+      expect(result.city).toBe('Debrecen');
+      expect(result.zip).toBe('4024');
       expect(result.country).toBe('HU');
-      expect(result.phone).toBe('+36301234567');
+      expect(result.phone).toBe('+36302222222');
       expect(result.email).toBe('john@example.com');
     });
 
     it('handles optional fields gracefully', () => {
-      const minimal: Address = {
-        name: 'Jane Doe',
-        street: '456 Oak Ave',
-        city: 'Debrecen',
-        postalCode: '4024',
-        country: 'HU',
-      };
+      const parcel = createTestParcel({
+        recipient: {
+          name: 'Jane Doe',
+          street: '456 Oak Ave',
+          city: 'Debrecen',
+          postalCode: '4024',
+          country: 'HU',
+        },
+      });
 
-      const result = mapAddressToFoxpost(minimal);
+      const result = mapAddressToFoxpost(parcel.recipient);
 
       expect(result).toBeDefined();
       expect(result.name).toBe('Jane Doe');
@@ -59,13 +82,9 @@ describe('Foxpost Mappers', () => {
 
   describe('determineFoxpostSize', () => {
     it('determines size based on dimensions', () => {
-      const parcel: Parcel = {
-        id: 'p1',
-        shipmentId: 's1',
-        weight: 1000,
+      const parcel = createTestParcel({
         dimensions: { length: 20, width: 15, height: 10 },
-        status: 'draft',
-      };
+      });
 
       const result = determineFoxpostSize(parcel);
 
@@ -74,13 +93,9 @@ describe('Foxpost Mappers', () => {
     });
 
     it('returns default size for small parcels', () => {
-      const parcel: Parcel = {
-        id: 'p2',
-        shipmentId: 's2',
-        weight: 100,
+      const parcel = createTestParcel({
         dimensions: { length: 10, width: 10, height: 10 },
-        status: 'draft',
-      };
+      });
 
       const result = determineFoxpostSize(parcel);
 
@@ -88,13 +103,9 @@ describe('Foxpost Mappers', () => {
     });
 
     it('returns larger size for bigger parcels', () => {
-      const parcel: Parcel = {
-        id: 'p3',
-        shipmentId: 's3',
-        weight: 5000,
+      const parcel = createTestParcel({
         dimensions: { length: 50, width: 40, height: 30 },
-        status: 'draft',
-      };
+      });
 
       const result = determineFoxpostSize(parcel);
 
@@ -102,12 +113,7 @@ describe('Foxpost Mappers', () => {
     });
 
     it('returns default size when no dimensions provided', () => {
-      const parcel: Parcel = {
-        id: 'p4',
-        shipmentId: 's4',
-        weight: 500,
-        status: 'draft',
-      };
+      const parcel = createTestParcel({ dimensions: undefined });
 
       const result = determineFoxpostSize(parcel);
 
@@ -117,42 +123,9 @@ describe('Foxpost Mappers', () => {
 
   describe('mapParcelToFoxpost', () => {
     it('maps canonical Parcel to Foxpost format', () => {
-      const shipment: Shipment = {
-        id: 's1',
-        sender: {
-          name: 'Sender Corp',
-          street: '100 Sender St',
-          city: 'Budapest',
-          postalCode: '1011',
-          country: 'HU',
-          phone: '+36301111111',
-          email: 'sender@corp.com',
-        },
-        recipient: {
-          name: 'John Doe',
-          street: '456 Main St',
-          city: 'Debrecen',
-          postalCode: '4024',
-          country: 'HU',
-          phone: '+36302222222',
-          email: 'john@example.com',
-        },
-        service: 'standard',
-        totalWeight: 1000,
-        reference: 'ORD-12345',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const parcel = createTestParcel();
 
-      const parcel: Parcel = {
-        id: 'p1',
-        shipmentId: 's1',
-        weight: 1000,
-        dimensions: { length: 20, width: 15, height: 10 },
-        status: 'draft',
-      };
-
-      const result = mapParcelToFoxpost(parcel, shipment);
+      const result = mapParcelToFoxpost(parcel);
 
       expect(result).toBeDefined();
       expect(result.recipientName).toBe('John Doe');
@@ -162,40 +135,27 @@ describe('Foxpost Mappers', () => {
     });
 
     it('handles parcel without dimensions', () => {
-      const shipment: Shipment = {
-        id: 's2',
-        sender: {
-          name: 'Sender',
-          street: 'St',
-          city: 'Budapest',
-          postalCode: '1011',
-          country: 'HU',
-        },
-        recipient: {
-          name: 'Recipient',
-          street: 'Street',
-          city: 'Debrecen',
-          postalCode: '4024',
-          country: 'HU',
-        },
-        service: 'standard',
-        totalWeight: 500,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const parcel = createTestParcel({
+        dimensions: undefined,
+      });
 
-      const parcel: Parcel = {
-        id: 'p2',
-        shipmentId: 's2',
-        weight: 500,
-        status: 'draft',
-      };
-
-      const result = mapParcelToFoxpost(parcel, shipment);
+      const result = mapParcelToFoxpost(parcel);
 
       expect(result).toBeDefined();
-      expect(result.recipientName).toBe('Recipient');
+      expect(result.recipientName).toBe('John Doe');
       expect(result.size).toBe('s'); // Default size when no dimensions
+    });
+
+    it('includes reference in refCode', () => {
+      const parcel = createTestParcel({
+        reference: 'ORDER-999',
+        id: 'parcel-123',
+      });
+
+      const result = mapParcelToFoxpost(parcel);
+
+      expect(result.refCode).toContain('ORDER-999');
+      expect(result.refCode).toContain('parcel-12');
     });
   });
 

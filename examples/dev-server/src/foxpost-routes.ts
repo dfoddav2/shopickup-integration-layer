@@ -1,231 +1,119 @@
 import { FastifyInstance } from 'fastify';
 import { FoxpostAdapter } from '@shopickup/adapters-foxpost';
-import { CarrierError, type AdapterContext, type CreateParcelRequest, type Shipment, type Parcel } from '@shopickup/core';
+import { CarrierError, type AdapterContext, type CreateParcelRequest, type CreateParcelsRequest, type Parcel } from '@shopickup/core';
+
 // httpClient will be provided via fastify.decorate; create it in server.ts and attach to fastify
 
-/**
- * Register Foxpost dev endpoints for testing the adapter
- * These endpoints allow manual testing via Swagger UI
- */
 export async function registerFoxpostRoutes(fastify: FastifyInstance) {
   const adapter = new FoxpostAdapter();
 
+  // Single-item create parcel endpoint
   fastify.post('/api/dev/foxpost/create-parcel', {
     schema: {
       description: 'Create a Foxpost parcel (dev endpoint for testing)',
       tags: ['Foxpost', 'Dev'],
       summary: 'Create a parcel in Foxpost',
-      body: {
-        type: 'object',
-        required: ['shipment', 'parcel', 'credentials'],
-        properties: {
-          shipment: {
-            type: 'object',
-            description: 'Canonical shipment object',
-            required: ['id', 'sender', 'recipient', 'service', 'totalWeight'],
-            properties: {
-              id: { type: 'string', description: 'Unique shipment ID' },
-              sender: {
-                type: 'object',
-                description: 'Sender address',
-                required: ['name', 'street', 'city', 'postalCode', 'country'],
-                properties: {
-                  name: { type: 'string' },
-                  street: { type: 'string' },
-                  city: { type: 'string' },
-                  postalCode: { type: 'string' },
-                  country: { type: 'string' },
-                  phone: { type: 'string' },
-                  email: { type: 'string', format: 'email' },
-                },
-              },
-              recipient: {
-                type: 'object',
-                description: 'Recipient address',
-                required: ['name', 'street', 'city', 'postalCode', 'country'],
-                properties: {
-                  name: { type: 'string' },
-                  street: { type: 'string' },
-                  city: { type: 'string' },
-                  postalCode: { type: 'string' },
-                  country: { type: 'string' },
-                  phone: { type: 'string' },
-                  email: { type: 'string', format: 'email' },
-                },
-              },
-              service: { type: 'string', description: 'Service type (e.g., "standard", "express")' },
-              totalWeight: { type: 'number', description: 'Total weight in grams' },
-              reference: { type: 'string', description: 'Optional reference/order number' },
-            }
-          },
-          parcel: {
-            type: 'object',
-            description: 'Canonical parcel object',
-            required: ['id', 'shipmentId', 'weight'],
-            properties: {
-              id: { type: 'string', description: 'Unique parcel ID' },
-              shipmentId: { type: 'string', description: 'Parent shipment ID' },
-              weight: { type: 'number', description: 'Parcel weight in grams' },
-              dimensions: {
-                type: 'object',
-                description: 'Parcel dimensions in cm',
-                properties: {
-                  length: { type: 'number' },
-                  width: { type: 'number' },
-                  height: { type: 'number' },
-                }
-              },
-              status: { type: 'string', enum: ['draft', 'pending', 'ready'] },
-            },
-          },
-          credentials: {
-            type: 'object',
-            description: 'Carrier credentials (replace example values with real credentials)',
-            required: ['apiKey', 'username', 'password'],
-            properties: {
-              apiKey: { type: 'string', description: 'Foxpost API key' },
-              username: { type: 'string', description: 'Foxpost basic auth username' },
-              password: { type: 'string', description: 'Foxpost basic auth password' },
-            },
-          },
-          options: {
-            type: 'object',
-            description: 'Optional request options',
-            properties: {
-              useTestApi: {
-                type: 'boolean',
-                description: 'Use test/sandbox API endpoint instead of production',
-                default: false
-              }
-            }
-          }
-        },
-        examples: [
-          {
-            shipment: {
-              id: 'shipment-001',
-              sender: {
-                name: 'Alice Merchant',
-                street: '456 Merchant St',
-                city: 'Budapest',
-                postalCode: '1020',
-                country: 'HU',
-                phone: '+3612345679',
-                email: 'alice.merchant@example.com'
-              },
-              recipient: {
-                name: 'John Doe',
-                street: '123 Main St',
-                city: 'Budapest',
-                postalCode: '1010',
-                country: 'HU',
-                phone: '+3612345678',
-                email: 'john.doe@example.com'
-              },
-              service: 'standard',
-              totalWeight: 1500,
-              reference: 'ORDER-12345'
-            },
-            parcel: {
-              id: 'parcel-001',
-              shipmentId: 'shipment-001',
-              weight: 1500,
-              dimensions: { length: 30, width: 20, height: 10 },
-              status: 'ready'
-            },
-            credentials: {
-              apiKey: 'your-foxpost-api-key-here',
-              username: 'your-foxpost-username-here',
-              password: 'your-foxpost-password-here'
-            },
-            options: { useTestApi: true }
-          }
-        ]
-      },
-      response: {
-        200: {
-          description: 'Successful parcel creation',
-          type: 'object',
-          properties: {
-            carrierId: { type: 'string', description: 'Barcode/ID from carrier' },
-            status: { type: 'string', enum: ['created', 'pending', 'failed'] },
-            labelUrl: { type: ['string', 'null'], description: 'Optional label URL' },
-            raw: { type: 'object', description: 'Raw carrier response' }
-          },
-        },
-        400: { description: 'Validation error (bad request)', type: 'object', properties: { message: { type: 'string' }, category: { type: 'string' } } },
-        401: { description: 'Authentication error (invalid credentials)', type: 'object', properties: { message: { type: 'string' }, category: { type: 'string' } } },
-        429: { description: 'Rate limit exceeded', type: 'object', properties: { message: { type: 'string' }, category: { type: 'string' } } },
-        502: { description: 'Server error (carrier API error)', type: 'object', properties: { message: { type: 'string' }, category: { type: 'string' } } },
-        500: { description: 'Internal server error', type: 'object', properties: { message: { type: 'string' } } }
-      }
     }
   }, async (request, reply) => {
     const body = request.body as any;
 
-    // Log request (without sensitive credentials)
-    fastify.log.info({
-      endpoint: '/api/dev/foxpost/create-parcel',
-      shipmentId: body.shipment?.id,
-      parcelId: body.parcel?.id,
-      useTestApi: body.options?.useTestApi ?? false,
-      hasCredentials: !!body.credentials?.apiKey
-    }, 'Foxpost createParcel request');
+    fastify.log.info({ endpoint: '/api/dev/foxpost/create-parcel', parcelId: body?.id }, 'Foxpost createParcel request');
 
     try {
-      // Validate required fields
-      if (!body.shipment || typeof body.shipment !== 'object') {
-        return reply.code(400).send({ message: 'Missing or invalid shipment', category: 'Validation' });
-      }
-      if (!body.parcel || typeof body.parcel !== 'object') {
-        return reply.code(400).send({ message: 'Missing or invalid parcel', category: 'Validation' });
-      }
-      if (!body.credentials?.apiKey) {
-        return reply.code(400).send({ message: 'Missing credentials.apiKey', category: 'Validation' });
+      if (!body || !body.id || !body.sender || !body.recipient || !body.weight || !body.credentials?.apiKey) {
+        return (reply as any).code(400).send({ message: 'Missing required parcel fields (id, sender, recipient, weight, service) or credentials.apiKey', category: 'Validation' });
       }
 
-      // Build CreateParcelRequest
+      const parcel: Parcel = body as Parcel;
+
       const req: CreateParcelRequest = {
-        shipment: body.shipment as Shipment,
-        parcel: body.parcel as Parcel,
+        parcel,
         credentials: body.credentials,
         options: body.options
       };
 
-      // Build AdapterContext with httpClient and logger
-      const ctx: AdapterContext = {
-        http: (fastify as any).httpClient as any,
-        logger: fastify.log
-      };
+      const ctx: AdapterContext = { http: (fastify as any).httpClient as any, logger: fastify.log };
 
-      // Call adapter
-      fastify.log.debug({ shipmentId: body.shipment.id, testMode: body.options?.useTestApi ?? false }, 'Calling FoxpostAdapter.createParcel');
+      const result = await adapter.createParcel!(req, ctx);
 
-      const result = await adapter.createParcel!(body.shipment.id, req, ctx);
-
-      // Log success
-      fastify.log.info({ shipmentId: body.shipment.id, carrierId: result.carrierId, status: result.status }, 'Parcel created successfully');
-
-      return reply.code(200).send(result);
+      return reply.send(result);
     } catch (err) {
       fastify.log.error(err, 'Error in createParcel');
-
-      // Handle CarrierError
       if (err instanceof CarrierError) {
-        const statusCode = err.category === 'Validation' ? 400 : err.category === 'Auth' ? 401 : err.category === 'RateLimit' ? 429 : 502;
+        return (reply as any).code(502).send({ message: err.message, category: err.category });
+      }
+      return (reply as any).code(500).send({ message: 'Internal server error' });
+    }
+  });
 
-        fastify.log.warn({ message: err.message, category: err.category, statusCode }, 'CarrierError');
+  // Batch create endpoint
+  fastify.post('/api/dev/foxpost/create-parcels', {
+    schema: {
+      description: 'Create multiple Foxpost parcels (dev endpoint for testing)',
+      tags: ['Foxpost', 'Dev'],
+      summary: 'Create multiple parcels in Foxpost',
+    }
+  }, async (request, reply) => {
+    const body = request.body as any;
 
-        return reply.code(statusCode).send({ message: err.message, category: err.category });
+    fastify.log.info({ endpoint: '/api/dev/foxpost/create-parcels', itemCount: body?.parcels?.length ?? 0 }, 'Foxpost createParcels request');
+
+    try {
+      // Expect: { parcels: [...], credentials: {...}, options: {...} } - CreateParcelsRequest format
+      if (!body || !Array.isArray(body.parcels) || body.parcels.length === 0) {
+        return (reply as any).code(400).send({ message: 'Body must be an object with parcels array (non-empty)', category: 'Validation' });
       }
 
-      // Handle unexpected errors
-      if (err instanceof Error) {
-        fastify.log.error({ message: err.message, stack: err.stack }, 'Unexpected error');
-        return reply.code(500).send({ message: 'Internal server error: ' + err.message });
+      if (!body.credentials?.apiKey) {
+        return (reply as any).code(400).send({ message: 'Credentials with apiKey required', category: 'Validation' });
       }
 
-      return reply.code(500).send({ message: 'Internal server error' });
+      // Validate all parcel items
+      for (const p of body.parcels) {
+        if (!p.id || !p.sender || !p.recipient || !p.weight) {
+          return (reply as any).code(400).send({ message: 'Each parcel must have id, sender, recipient, weight, service', category: 'Validation' });
+        }
+      }
+
+      const parcelsReq: CreateParcelsRequest = {
+        parcels: body.parcels as Parcel[],
+        credentials: body.credentials,
+        options: body.options,
+      };
+
+      const ctx: AdapterContext = { http: (fastify as any).httpClient as any, logger: fastify.log };
+
+      if (!(adapter as any).createParcels) {
+        // Fallback: call createParcel for each item if batch not available
+        const results: any[] = [];
+        for (const p of parcelsReq.parcels) {
+          try {
+            const req: CreateParcelRequest = {
+              parcel: p,
+              credentials: parcelsReq.credentials,
+              options: parcelsReq.options,
+            };
+            const res = adapter.createParcel ? await adapter.createParcel(req, ctx) : null;
+            results.push(res);
+          } catch (err) {
+            if (err instanceof CarrierError) {
+              results.push({ carrierId: null, status: 'failed', raw: { message: err.message, category: err.category } });
+            } else {
+              results.push({ carrierId: null, status: 'failed', raw: { message: String(err) } });
+            }
+          }
+        }
+        return reply.send(results);
+      }
+
+      const results = await (adapter as any).createParcels(parcelsReq, ctx);
+      return reply.send(results);
+    } catch (err) {
+      fastify.log.error(err, 'Error in createParcels');
+      if (err instanceof CarrierError) {
+        return (reply as any).code(502).send({ message: err.message, category: err.category });
+      }
+      return (reply as any).code(500).send({ message: 'Internal server error' });
     }
   });
 
