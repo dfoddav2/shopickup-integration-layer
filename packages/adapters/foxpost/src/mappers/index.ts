@@ -3,11 +3,12 @@
  * Converts between canonical Shopickup types and Foxpost API types
  */
 
-import type { Parcel, TrackingEvent } from "@shopickup/core";
+import type { Parcel, TrackingEvent, Delivery } from "@shopickup/core";
 import type {
   CreateParcelRequest as FoxpostParcelRequest,
   TrackDTO as FoxpostTrackDTO,
 } from '../types/generated.js';
+import type { FoxpostParcel, FoxpostPackageSize } from '../validation.js';
 
 const FOXPOST_SIZES = ["xs", "s", "m", "l", "xl"] as const;
 type FoxpostSize = typeof FOXPOST_SIZES[number]; // "xs" | "s" | "m" | "l" | "xl"
@@ -15,7 +16,7 @@ type FoxpostSize = typeof FOXPOST_SIZES[number]; // "xs" | "s" | "m" | "l" | "xl
 /**
  * Map canonical Address (from Parcel.sender or Parcel.recipient) to Foxpost address format
  */
-export function mapAddressToFoxpost(addr: Parcel['sender'] | Parcel['recipient']): {
+export function mapAddressToFoxpost(addr: { name: string; street: string; city: string; postalCode: string; country: string; phone?: string; email?: string }): {
   name: string;
   phone: string;
   email: string;
@@ -41,11 +42,11 @@ export function mapAddressToFoxpost(addr: Parcel['sender'] | Parcel['recipient']
  */
 export function determineFoxpostSize(parcel: Parcel): FoxpostSize | undefined {
   // If no dimensions, default to 's' (small)
-  if (!parcel.dimensions) {
+  if (!parcel.package.dimensionsCm) {
     return "s";
   }
 
-  const { length, width, height } = parcel.dimensions;
+  const { length, width, height } = parcel.package.dimensionsCm;
   const volume = length * width * height;
 
   // Very rough heuristic based on volume
@@ -76,8 +77,19 @@ export function mapParcelToFoxpost(
     isRedirect?: boolean;
   } = {}
 ): FoxpostParcelRequest {
-  const recipient = mapAddressToFoxpost(parcel.recipient);
-  const sender = parcel.sender ? mapAddressToFoxpost(parcel.sender) : null;
+  const recipientAddr = parcel.recipient.delivery.method === 'HOME' 
+    ? parcel.recipient.delivery.address 
+    : undefined;
+  
+  const recipient = {
+    name: parcel.recipient.contact.name.substring(0, 150),
+    phone: parcel.recipient.contact.phone || "",
+    email: parcel.recipient.contact.email || "",
+    city: recipientAddr?.city?.substring(0, 25),
+    zip: recipientAddr?.postalCode,
+    address: recipientAddr?.street?.substring(0, 150),
+    country: recipientAddr?.country || "HU",
+  };
 
   const foxpostRequest: FoxpostParcelRequest = {
     recipientName: recipient.name,
@@ -89,11 +101,11 @@ export function mapParcelToFoxpost(
     recipientCountry: recipient.country,
     size: determineFoxpostSize(parcel),
     // Optional fields
-    refCode: parcel.reference
+    refCode: parcel.references?.customerReference
       ?.substring(0, 30)
       .concat(`-${parcel.id.substring(0, 10)}`),
-    comment: parcel.metadata?.["comment"] as string | undefined,
-    fragile: (parcel.metadata?.["fragile"] as boolean) || false,
+    comment: parcel.handling?.fragile ? 'FRAGILE' : undefined,
+    fragile: parcel.handling?.fragile || false,
   };
 
   return foxpostRequest;
@@ -177,4 +189,74 @@ export function getFoxpostStatusDescription(status: string): string {
   };
 
   return descriptions[status] || status;
+}
+
+/**
+ * Map canonical Parcel to Foxpost carrier-specific parcel (HD or APM)
+ * Discriminates based on Delivery type in the parcel
+ * 
+ * @param parcel - Canonical parcel with full shipping details
+ * @param options - Additional mapping options (COD, comment, etc.)
+ * @returns FoxpostParcelHD | FoxpostParcelAPM with type discriminator set
+ */
+export function mapParcelToFoxpostCarrierType(
+  parcel: Parcel,
+  options: {
+    cod?: number;
+    comment?: string;
+    deliveryNote?: string;
+    fragile?: boolean;
+  } = {}
+): FoxpostParcel {
+  const recipient = parcel.recipient;
+  const delivery = recipient.delivery;
+
+  // Determine parcel size
+  const size = (determineFoxpostSize(parcel) || 's').toUpperCase() as 'XS' | 'S' | 'M' | 'L' | 'XL' | '1' | '2' | '3' | '4' | '5';
+
+  // COD amount from parcel.cod or options override
+  const codAmount = options.cod ?? parcel.cod?.amount.amount ?? 0;
+
+  // Fragile from options or parcel.handling
+  const isFragile = options.fragile ?? parcel.handling?.fragile ?? false;
+
+  // If delivery is PICKUP_POINT, create APM parcel
+  if (delivery.method === 'PICKUP_POINT') {
+    const apmParcel: FoxpostParcel = {
+      type: 'APM',
+      cod: codAmount,
+      comment: options.comment,
+      destination: delivery.pickupPoint.id,
+      recipientEmail: recipient.contact.email || '',
+      recipientName: recipient.contact.name.substring(0, 150),
+      recipientPhone: recipient.contact.phone || '',
+      refCode: parcel.references?.customerReference?.substring(0, 30),
+      size,
+    };
+    return apmParcel;
+  }
+
+  // Otherwise (HOME delivery), create HD parcel
+  const homeDelivery = delivery;
+  const recipientAddr = homeDelivery.address;
+  
+  const hdParcel: FoxpostParcel = {
+    type: 'HD',
+    cod: codAmount,
+    comment: options.comment,
+    deliveryNote: options.deliveryNote || homeDelivery.instructions,
+    fragile: isFragile,
+    label: false, // Default: Foxpost prints label for B2B, not for C2C
+    recipientAddress: `${recipientAddr.street || ''}, ${recipientAddr.postalCode || ''} ${recipientAddr.city || ''}`.trim(),
+    recipientCity: recipientAddr.city,
+    recipientCountry: recipientAddr.country,
+    recipientEmail: recipient.contact.email || '',
+    recipientName: recipient.contact.name.substring(0, 150),
+    recipientPhone: recipient.contact.phone || '',
+    recipientZip: recipientAddr.postalCode,
+    refCode: parcel.references?.customerReference?.substring(0, 30),
+    size,
+  };
+
+  return hdParcel;
 }

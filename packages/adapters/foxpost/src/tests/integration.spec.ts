@@ -89,28 +89,49 @@ class MockHttpClient implements HttpClient {
 function createTestParcel(id: string = 'p1'): Parcel {
   return {
     id,
-    sender: {
-      name: "Acme Corp",
-      street: "123 Business Ave",
-      city: "Budapest",
-      postalCode: "1011",
-      country: "HU",
-      phone: "+36301111111",
-      email: "sender@acme.com",
+    shipper: {
+      contact: {
+        name: "Acme Corp",
+        phone: "+36301111111",
+        email: "sender@acme.com",
+      },
+      address: {
+        name: "Acme Corp",
+        street: "123 Business Ave",
+        city: "Budapest",
+        postalCode: "1011",
+        country: "HU",
+        phone: "+36301111111",
+        email: "sender@acme.com",
+      },
     },
     recipient: {
-      name: "John Smith",
-      street: "456 Customer St",
-      city: "Debrecen",
-      postalCode: "4024",
-      country: "HU",
-      phone: "+36302222222",
-      email: "john@example.com",
+      contact: {
+        name: "John Smith",
+        phone: "+36302222222",
+        email: "john@example.com",
+      },
+      delivery: {
+        method: "HOME" as const,
+        address: {
+          name: "John Smith",
+          street: "456 Customer St",
+          city: "Debrecen",
+          postalCode: "4024",
+          country: "HU",
+          phone: "+36302222222",
+          email: "john@example.com",
+        },
+      },
     },
-    weight: 1500,
-    service: "standard",
-    reference: "ORD-12345",
-    dimensions: { length: 30, width: 20, height: 15 },
+    package: {
+      weightGrams: 1500,
+      dimensionsCm: { length: 30, width: 20, height: 15 },
+    },
+    service: "standard" as const,
+    references: {
+      customerReference: "ORD-12345",
+    },
   };
 }
 
@@ -132,7 +153,7 @@ describe("FoxpostAdapter Integration", () => {
       const result = await adapter.createParcel!(
         {
           parcel: testParcel,
-          credentials: { apiKey: "test-key", username: "user", password: "pass" },
+          credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
         },
         context
       );
@@ -174,7 +195,7 @@ describe("FoxpostAdapter Integration", () => {
         adapter.createParcel!(
           {
             parcel: testParcel,
-            credentials: { apiKey: "test-key", username: "user", password: "pass" },
+            credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
           },
           noHttpContext
         )
@@ -216,7 +237,7 @@ describe("FoxpostAdapter Integration", () => {
       await productionAdapter.createParcel!(
         {
           parcel: testParcel,
-          credentials: { apiKey: "test-key", username: "user", password: "pass" },
+          credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
           options: { useTestApi: false },
         },
         ctx
@@ -234,7 +255,7 @@ describe("FoxpostAdapter Integration", () => {
       await productionAdapter.createParcel!(
         {
           parcel: testParcel,
-          credentials: { apiKey: "test-key", username: "user", password: "pass" },
+          credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
           options: { useTestApi: true },
         },
         ctx

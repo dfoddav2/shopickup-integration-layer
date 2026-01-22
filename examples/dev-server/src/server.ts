@@ -34,7 +34,7 @@ await fastify.register(cors, {
 // Register Swagger plugin
 await fastify.register(swagger, {
     openapi: {
-        openapi: '3.0.0',
+        openapi: '3.1.0',
         info: {
             title: "Shopickup Example Dev Server",
             description: "API documentation for the Shopickup Example Dev Server",

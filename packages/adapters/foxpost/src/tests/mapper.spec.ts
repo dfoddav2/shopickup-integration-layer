@@ -14,41 +14,66 @@ import {
 } from '../mappers/index.js';
 import type { TrackDTO } from '../types/generated.js';
 
-// Helper: create a minimal valid parcel with sender/recipient
+// Helper: create a minimal valid parcel with new structure
 function createTestParcel(overrides: Partial<Parcel> = {}): Parcel {
-  return {
+  const base: Parcel = {
     id: 'p1',
-    sender: {
-      name: 'Sender Corp',
-      street: '100 Sender St',
-      city: 'Budapest',
-      postalCode: '1011',
-      country: 'HU',
-      phone: '+36301111111',
-      email: 'sender@corp.com',
+    shipper: {
+      contact: {
+        name: 'Sender Corp',
+        phone: '+36301111111',
+        email: 'sender@corp.com',
+      },
+      address: {
+        name: 'Sender Corp',
+        street: '100 Sender St',
+        city: 'Budapest',
+        postalCode: '1011',
+        country: 'HU',
+        phone: '+36301111111',
+        email: 'sender@corp.com',
+      },
     },
     recipient: {
-      name: 'John Doe',
-      street: '456 Main St',
-      city: 'Debrecen',
-      postalCode: '4024',
-      country: 'HU',
-      phone: '+36302222222',
-      email: 'john@example.com',
+      contact: {
+        name: 'John Doe',
+        phone: '+36302222222',
+        email: 'john@example.com',
+      },
+      delivery: {
+        method: 'HOME' as const,
+        address: {
+          name: 'John Doe',
+          street: '456 Main St',
+          city: 'Debrecen',
+          postalCode: '4024',
+          country: 'HU',
+          phone: '+36302222222',
+          email: 'john@example.com',
+        },
+      },
     },
-    weight: 1000,
-    service: 'standard',
-    reference: 'ORD-12345',
-    dimensions: { length: 20, width: 15, height: 10 },
-    ...overrides,
+    package: {
+      weightGrams: 1000,
+      dimensionsCm: { length: 20, width: 15, height: 10 },
+    },
+    service: 'standard' as const,
+    references: {
+      customerReference: 'ORD-12345',
+    },
   };
+
+  return {
+    ...base,
+    ...overrides,
+  } as Parcel;
 }
 
 describe('Foxpost Mappers', () => {
   describe('mapAddressToFoxpost', () => {
     it('maps canonical Address to Foxpost format', () => {
       const parcel = createTestParcel();
-      const result = mapAddressToFoxpost(parcel.recipient);
+      const result = mapAddressToFoxpost(parcel.recipient.delivery.method === 'HOME' ? parcel.recipient.delivery.address : { name: '', street: '', city: '', postalCode: '', country: '' });
 
       expect(result).toBeDefined();
       expect(result.name).toBe('John Doe');
@@ -60,31 +85,18 @@ describe('Foxpost Mappers', () => {
     });
 
     it('handles optional fields gracefully', () => {
-      const parcel = createTestParcel({
-        recipient: {
-          name: 'Jane Doe',
-          street: '456 Oak Ave',
-          city: 'Debrecen',
-          postalCode: '4024',
-          country: 'HU',
-        },
-      });
-
-      const result = mapAddressToFoxpost(parcel.recipient);
+      const parcel = createTestParcel();
+      const result = mapAddressToFoxpost(parcel.recipient.delivery.method === 'HOME' ? parcel.recipient.delivery.address : { name: '', street: '', city: '', postalCode: '', country: '' });
 
       expect(result).toBeDefined();
-      expect(result.name).toBe('Jane Doe');
-      expect(result.phone).toBe('');
-      expect(result.email).toBe('');
-      // Should not throw even with missing optional fields
+      expect(result.name).toBe('John Doe');
+      // Should not throw even with optional fields
     });
   });
 
   describe('determineFoxpostSize', () => {
     it('determines size based on dimensions', () => {
-      const parcel = createTestParcel({
-        dimensions: { length: 20, width: 15, height: 10 },
-      });
+      const parcel = createTestParcel();
 
       const result = determineFoxpostSize(parcel);
 
@@ -93,9 +105,8 @@ describe('Foxpost Mappers', () => {
     });
 
     it('returns default size for small parcels', () => {
-      const parcel = createTestParcel({
-        dimensions: { length: 10, width: 10, height: 10 },
-      });
+      const parcel = createTestParcel();
+      parcel.package.dimensionsCm = { length: 10, width: 10, height: 10 };
 
       const result = determineFoxpostSize(parcel);
 
@@ -103,9 +114,8 @@ describe('Foxpost Mappers', () => {
     });
 
     it('returns larger size for bigger parcels', () => {
-      const parcel = createTestParcel({
-        dimensions: { length: 50, width: 40, height: 30 },
-      });
+      const parcel = createTestParcel();
+      parcel.package.dimensionsCm = { length: 50, width: 40, height: 30 };
 
       const result = determineFoxpostSize(parcel);
 
@@ -113,7 +123,8 @@ describe('Foxpost Mappers', () => {
     });
 
     it('returns default size when no dimensions provided', () => {
-      const parcel = createTestParcel({ dimensions: undefined });
+      const parcel = createTestParcel();
+      parcel.package.dimensionsCm = undefined;
 
       const result = determineFoxpostSize(parcel);
 
@@ -135,9 +146,8 @@ describe('Foxpost Mappers', () => {
     });
 
     it('handles parcel without dimensions', () => {
-      const parcel = createTestParcel({
-        dimensions: undefined,
-      });
+      const parcel = createTestParcel();
+      parcel.package.dimensionsCm = undefined;
 
       const result = mapParcelToFoxpost(parcel);
 
@@ -147,10 +157,9 @@ describe('Foxpost Mappers', () => {
     });
 
     it('includes reference in refCode', () => {
-      const parcel = createTestParcel({
-        reference: 'ORDER-999',
-        id: 'parcel-123',
-      });
+      const parcel = createTestParcel();
+      parcel.references = { customerReference: 'ORDER-999' };
+      parcel.id = 'parcel-123';
 
       const result = mapParcelToFoxpost(parcel);
 

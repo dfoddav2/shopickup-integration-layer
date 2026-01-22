@@ -6,7 +6,7 @@
     "scripts": {
         "build": "tsc -p tsconfig.json",
         "start": "node dist/server.js",
-        "dev": "tsx src/server.ts"
+        "dev": "tsx src/server.ts --watch"
     },
     "dependencies": {
         "@fastify/cors": "^11.2.0",
@@ -15,7 +15,7 @@
         "@shopickup/adapters-foxpost": "link:../../packages/adapters/foxpost",
         "@shopickup/core": "link:../../packages/core",
         "fastify": "^5.7.1",
-        "zod": "^3.25.76"
+        "zod": "^4.3.5"
     },
     "devDependencies": {
         "tsx": "^4.21.0"

@@ -54,10 +54,10 @@ export async function executeCreateLabelFlow(opts: {
     // Step 1: Create parcels (if supported)
     if (adapter.capabilities.includes(Capabilities.CREATE_PARCEL)) {
       for (const parcel of parcels) {
-        context.logger?.debug("Flow: Creating parcel", {
-          parcelId: parcel.id,
-          weight: parcel.weight,
-        });
+         context.logger?.debug("Flow: Creating parcel", {
+           parcelId: parcel.id,
+           weight: parcel.package.weightGrams,
+         });
 
         const parcelRes = await adapter.createParcel!(
           { parcel, credentials },

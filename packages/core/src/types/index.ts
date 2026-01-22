@@ -1,4 +1,7 @@
 export * from './address.js';
+export * from './contact.js';
+export * from './money.js';
+export * from './delivery.js';
 export * from './shipment.js';
 export * from './parcel.js';
 export * from './label.js';

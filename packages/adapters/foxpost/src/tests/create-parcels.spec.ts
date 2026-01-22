@@ -25,31 +25,52 @@ class MockHttpClient {
   }
 }
 
-// Helper: create a minimal valid parcel
+// Helper: create a minimal valid parcel with new Parcel structure
 function createTestParcel(id: string = 'p1'): Parcel {
   return {
     id,
-    sender: {
-      name: 'Sender',
-      street: '1 Main St',
-      city: 'Budapest',
-      postalCode: '1011',
-      country: 'HU',
-      phone: '+36301234567',
-      email: 'sender@example.com',
+    shipper: {
+      contact: {
+        name: 'Sender Company',
+        phone: '+36301234567',
+        email: 'sender@example.com',
+      },
+      address: {
+        name: 'Sender',
+        street: '1 Main St',
+        city: 'Budapest',
+        postalCode: '1011',
+        country: 'HU',
+        phone: '+36301234567',
+        email: 'sender@example.com',
+      },
     },
     recipient: {
-      name: 'Recipient',
-      street: '2 Main St',
-      city: 'Budapest',
-      postalCode: '1012',
-      country: 'HU',
-      phone: '+36307654321',
-      email: 'recipient@example.com',
+      contact: {
+        name: 'Recipient',
+        phone: '+36307654321',
+        email: 'recipient@example.com',
+      },
+      delivery: {
+        method: 'HOME' as const,
+        address: {
+          name: 'Recipient',
+          street: '2 Main St',
+          city: 'Budapest',
+          postalCode: '1012',
+          country: 'HU',
+          phone: '+36307654321',
+          email: 'recipient@example.com',
+        },
+      },
     },
-    weight: 1000,
-    service: 'standard',
-    reference: 'REF-001',
+    package: {
+      weightGrams: 1000,
+    },
+    service: 'standard' as const,
+    references: {
+      customerReference: 'REF-001',
+    },
   };
 }
 
@@ -70,7 +91,7 @@ describe('FoxpostAdapter createParcels', () => {
         createTestParcel('p1'),
         createTestParcel('p2'),
       ],
-      credentials: { apiKey: 'test-key', username: 'user', password: 'pass' },
+      credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
       options: { useTestApi: true },
     };
 
@@ -83,7 +104,7 @@ describe('FoxpostAdapter createParcels', () => {
   it('rejects empty parcel array', async () => {
     const req: CreateParcelsRequest = {
       parcels: [],
-      credentials: { apiKey: 'test-key', username: 'user', password: 'pass' },
+      credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
     };
 
     await expect(adapter.createParcels(req, ctx)).rejects.toThrow(
@@ -96,7 +117,7 @@ describe('FoxpostAdapter createParcels', () => {
       parcels: [
         createTestParcel('p1'),
       ],
-      credentials: { apiKey: 'batch-api-key', username: 'batch-user', password: 'batch-pass' },
+      credentials: { apiKey: 'batch-api-key', basicUsername: 'batch-user', basicPassword: 'batch-pass' },
     };
 
     const res = await adapter.createParcels(req, ctx);
