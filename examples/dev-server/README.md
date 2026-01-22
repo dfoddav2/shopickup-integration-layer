@@ -333,15 +333,187 @@ curl -X POST http://localhost:3000/api/dev/foxpost/create-parcel \
 }
 ```
 
+### Create Foxpost Parcels Batch (Dev)
+
+**POST /api/dev/foxpost/create-parcels**
+
+Creates multiple Foxpost parcels in a single batch request. Demonstrates intelligent HTTP status codes for mixed results.
+
+**Features:**
+
+- Accepts array of parcels in single request
+- Returns appropriate HTTP status based on batch results:
+  - **200 OK**: All parcels created successfully
+  - **207 Multi-Status**: Some succeeded, some failed (mixed results)
+  - **400 Bad Request**: All parcels failed with validation errors
+- Includes `summary` field for quick status understanding
+- Each parcel includes validation errors if applicable
+- Shared credentials for the entire batch
+
+#### Smart HTTP Status Codes
+
+The batch endpoint uses semantic HTTP status codes to communicate different outcomes:
+
+| Status | Meaning | When Used |
+|--------|---------|-----------|
+| **200 OK** | All parcels succeeded | Every parcel has `status: "created"` |
+| **207 Multi-Status** | Mixed results | Some parcels succeeded, some failed |
+| **400 Bad Request** | All failed with validation | All parcels have validation errors |
+
+#### Request Example
+
+```json
+{
+  "parcels": [
+    {
+      "recipientName": "John Doe",
+      "recipientPhone": "+36201234567",
+      "recipientEmail": "john@example.com",
+      "recipientCity": "Budapest",
+      "recipientPostalCode": "1011",
+      "recipientCountry": "HU"
+    },
+    {
+      "recipientName": "Jane Smith",
+      "recipientPhone": "+36307654321",
+      "recipientEmail": "jane@example.com",
+      "recipientCity": "Debrecen",
+      "recipientPostalCode": "4026",
+      "recipientCountry": "HU"
+    }
+  ],
+  "credentials": {
+    "apiKey": "your-foxpost-api-key"
+  },
+  "options": {
+    "useTestApi": true
+  }
+}
+```
+
+#### Success Response (200 - All Succeeded)
+
+```json
+{
+  "summary": "All 2 parcels created successfully",
+  "results": [
+    {
+      "carrierId": "CLFOX0000000001",
+      "status": "created",
+      "raw": { "valid": true, "parcels": [...] }
+    },
+    {
+      "carrierId": "CLFOX0000000002",
+      "status": "created",
+      "raw": { "valid": true, "parcels": [...] }
+    }
+  ]
+}
+```
+
+#### Mixed Results Response (207 - Partial Success)
+
+```json
+{
+  "summary": "Mixed: 1 succeeded, 1 failed",
+  "results": [
+    {
+      "carrierId": "CLFOX0000000001",
+      "status": "created",
+      "raw": { "valid": true, "parcels": [...] }
+    },
+    {
+      "carrierId": null,
+      "status": "failed",
+      "errors": [
+        {
+          "field": "recipientPhone",
+          "code": "INVALID_FORMAT",
+          "message": "Phone number format is invalid"
+        }
+      ],
+      "raw": { "valid": false, "errors": [...] }
+    }
+  ]
+}
+```
+
+#### Failed Response (400 - All Failed)
+
+```json
+{
+  "summary": "All 2 parcels failed with validation errors",
+  "results": [
+    {
+      "carrierId": null,
+      "status": "failed",
+      "errors": [
+        {
+          "field": "recipientName",
+          "code": "REQUIRED",
+          "message": "Recipient name is required"
+        }
+      ],
+      "raw": {}
+    },
+    {
+      "carrierId": null,
+      "status": "failed",
+      "errors": [
+        {
+          "field": "recipientEmail",
+          "code": "INVALID_FORMAT",
+          "message": "Email format is invalid"
+        }
+      ],
+      "raw": {}
+    }
+  ]
+}
+```
+
+#### Error Response (502 - Server Error)
+
+```json
+{
+  "message": "Server error from carrier API",
+  "category": "Transient"
+}
+```
+
 ## Testing via Swagger UI
 
 1. Start the server: `pnpm run dev`
 2. Open Swagger UI: `http://localhost:3000/docs`
-3. Expand the "POST /api/dev/foxpost/create-parcel" endpoint
+3. Expand the "POST /api/dev/foxpost/create-parcel" or "POST /api/dev/foxpost/create-parcels" endpoint
 4. Click "Try it out"
-5. Fill in the request body with your shipment, parcel, and credentials
+5. Fill in the request body with your parcels and credentials
 6. Click "Execute"
 7. See the response and response headers
+
+## Running E2E Tests
+
+The dev-server includes end-to-end tests that verify the batch endpoint behavior:
+
+```bash
+# Install dependencies
+pnpm install
+
+# Run tests (will skip if server not running)
+pnpm test
+
+# Run tests in watch mode
+pnpm test:watch
+```
+
+The E2E tests verify:
+
+- ✅ HTTP 200 returns when all parcels succeed
+- ✅ HTTP 207 returns for mixed success/failure results
+- ✅ HTTP 400 returns when all parcels fail with validation errors
+- ✅ Error details include field, code, and message
+- ✅ Summary field correctly describes the batch result
+- ✅ Each result includes standard CarrierResource fields
 
 ## How It Works
 
