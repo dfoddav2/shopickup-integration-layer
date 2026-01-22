@@ -1,6 +1,6 @@
 # Shopickup Example Dev Server
 
-A Fastify-based development server that demonstrates how to use Shopickup adapters. Includes Swagger UI for interactive testing.
+A Fastify-based development server that demonstrates how to use Shopickup adapters. Includes Swagger UI for interactive testing and configurable environment-based logging.
 
 ## Features
 
@@ -8,16 +8,38 @@ A Fastify-based development server that demonstrates how to use Shopickup adapte
 - Foxpost adapter dev endpoint with full request/response validation
 - Swagger UI for exploring and testing endpoints
 - Structured logging for debugging
+- Environment-based configuration (logging level, HTTP timeouts, etc.)
+- Full HTTP request/response debugging support
 
-## Getting Started
+## Quick Start
 
-### Install
+### 1. Install Dependencies
 
 ```bash
 pnpm install
 ```
 
-### Run
+### 2. Configure Environment (Optional)
+
+Copy the environment template:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` to customize logging and server settings (all settings have sensible defaults):
+
+```env
+NODE_ENV=development
+LOG_LEVEL=debug
+HTTP_DEBUG=1
+HTTP_TIMEOUT_MS=30000
+SERVER_PORT=3000
+```
+
+See [Environment Variables](#environment-variables) for all available options.
+
+### 3. Start the Server
 
 **Development (with tsx hot-reload):**
 
@@ -32,11 +54,85 @@ pnpm run build
 pnpm run start
 ```
 
-The server starts on `http://localhost:3000`.
+The server starts on `http://localhost:3000` (or the port specified in `SERVER_PORT`).
+
+You should see startup output like:
+
+```
+[dev-server] {"level":30,"time":"...","msg":"Server is running at http://localhost:3000"}
+```
 
 ### Access Swagger UI
 
 Open your browser to `http://localhost:3000/docs` to see all available endpoints and test them interactively.
+
+## Environment Variables
+
+Create a `.env` file in this directory (see `.env.example` as a template). All variables are optional; sensible defaults are provided.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NODE_ENV` | `development` | Environment mode: `development`, `production`, or `test` |
+| `LOG_LEVEL` | `info` | Fastify/Pino log level: `debug`, `info`, `warn`, `error`, `fatal`, or `silent` |
+| `HTTP_DEBUG` | `0` | Enable HTTP request/response logging (headers, status): `0` or `1` |
+| `HTTP_DEBUG_FULL` | `0` | Enable full HTTP body logging (very verbose, includes request/response bodies): `0` or `1` |
+| `HTTP_TIMEOUT_MS` | `30000` | Request timeout in milliseconds |
+| `SERVER_PORT` | `3000` | Server port |
+| `FOXPOST_API_KEY` | (empty) | Foxpost API key for real API testing (optional) |
+| `FOXPOST_USE_TEST_API` | `true` | Use Foxpost test API: `true` or `false` |
+
+### Debug Logging Example
+
+To see detailed HTTP requests and responses:
+
+```env
+LOG_LEVEL=debug
+HTTP_DEBUG=1
+HTTP_DEBUG_FULL=1
+```
+
+Then restart: `pnpm run dev`
+
+You'll see logs with request/response details, which is useful for understanding adapter-to-carrier communication.
+
+## Understanding the `raw` Field
+
+All endpoint responses include a `raw` field containing the **full response from the carrier's API**. This is critical for debugging and understanding what data the carrier returns.
+
+### Why `raw` Content Differs
+
+**Test Mode** (default, `FOXPOST_USE_TEST_API=true` or no credentials):
+- Returns mock data from Shopickup's test HTTP client
+- `raw` contains realistic but fabricated carrier responses
+- Useful for testing adapter logic without hitting the real carrier API
+- Example: `{"valid": true, "parcels": [...]}`
+
+**Production Mode** (`FOXPOST_USE_TEST_API=false` + valid `FOXPOST_API_KEY`):
+- Makes real API calls to the carrier
+- `raw` contains actual carrier response data
+- Requires valid carrier credentials
+- Example: Real Foxpost API response structure
+
+### Debugging `raw` Field Data
+
+Enable full HTTP debugging to see exactly what the adapter sends and receives:
+
+```env
+LOG_LEVEL=debug
+HTTP_DEBUG=1
+HTTP_DEBUG_FULL=1
+```
+
+Restart and make a request. Look for logs like:
+
+```
+[dev-server] {...,"msg":"→ POST /parcels","body":{...}}
+[dev-server] {...,"msg":"← 200 OK","headers":{...},"body":{...}}
+```
+
+The response body is what becomes the `raw` field in the endpoint response.
+
+For a deeper dive, see [RAW_FIELD.md](./RAW_FIELD.md).
 
 ## Endpoints
 
@@ -301,11 +397,20 @@ Tips:
 
 ## Next Steps
 
-1. Add more dev endpoints for other adapter methods (`track`, `createLabel`, etc.)
-2. Add database persistence (SQLite + Drizzle ORM)
-3. Add store implementation for tracking carrier resources
-4. Add webhook receiver for carrier events
-5. Deploy to staging/production environment
+1. Read [RAW_FIELD.md](./RAW_FIELD.md) for a deep dive into the `raw` field and debugging strategies
+2. Add more dev endpoints for other adapter methods (`track`, `createLabel`, etc.)
+3. Add database persistence (SQLite + Drizzle ORM)
+4. Add store implementation for tracking carrier resources
+5. Add webhook receiver for carrier events
+6. Deploy to staging/production environment
+
+## Support & Resources
+
+- [RAW_FIELD.md](./RAW_FIELD.md) — Comprehensive guide to the `raw` field, debugging, and examples
+- [Environment Variables](#environment-variables) — Reference for `.env` configuration
+- [Debugging](#debugging) — Tips for troubleshooting and inspecting requests
+- Foxpost adapter source: `packages/adapters/foxpost/src/`
+- Core types: `packages/core/src/types/`
 
 ## License
 
