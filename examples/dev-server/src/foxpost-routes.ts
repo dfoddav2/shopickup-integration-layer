@@ -118,7 +118,7 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
   const adapter = new FoxpostAdapter();
 
   // Single-item create parcel endpoint
-  (fastify.post as any)('/api/dev/foxpost/create-parcel', {
+  fastify.post('/api/dev/foxpost/create-parcel', {
     schema: {
       description: 'Create a Foxpost parcel (dev endpoint for testing)',
       tags: ['Foxpost', 'Dev'],
@@ -243,7 +243,7 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
   });
 
   // Batch create parcels endpoint
-  (fastify.post as any)('/api/dev/foxpost/create-parcels', {
+  fastify.post('/api/dev/foxpost/create-parcels', {
     schema: {
       description: 'Create multiple Foxpost parcels in one call (dev endpoint)',
       tags: ['Foxpost', 'Dev'],
@@ -338,7 +338,7 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
   });
 
   // Example parcels endpoint (GET)
-  (fastify.get as any)('/api/dev/foxpost/examples', {
+  fastify.get('/api/dev/foxpost/examples', {
     schema: {
       description: 'Get example parcels for testing',
       tags: ['Foxpost', 'Dev'],

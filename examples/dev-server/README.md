@@ -20,11 +20,13 @@ pnpm install
 ### Run
 
 **Development (with tsx hot-reload):**
+
 ```bash
 pnpm run dev
 ```
 
 **Production (compiled):**
+
 ```bash
 pnpm run build
 pnpm run start
@@ -49,6 +51,7 @@ curl http://localhost:3000/health
 ```
 
 Response:
+
 ```json
 {
   "status": "ok",
@@ -63,6 +66,7 @@ Response:
 Creates a parcel in the Foxpost carrier system. Demonstrates full adapter integration with the Shopickup core.
 
 **Features:**
+
 - Validates request against OpenAPI schema
 - Supports both production and test APIs via `options.useTestApi`
 - Returns normalized CarrierResource or structured error
@@ -236,6 +240,7 @@ curl -X POST http://localhost:3000/api/dev/foxpost/create-parcel \
 ## How It Works
 
 The dev endpoint:
+
 1. Validates incoming request against OpenAPI schema (automatic by Fastify)
 2. Builds a canonical `CreateParcelRequest` from the request body
 3. Creates an `AdapterContext` with the built-in fetch HTTP client
@@ -289,11 +294,10 @@ Example output (dev):
 ```
 
 Tips:
+
 - Use `HTTP_DEBUG=1` while developing to surface HTTP calls. Add `HTTP_DEBUG_FULL=1` to see truncated body previews.
 - Keep `HTTP_DEBUG_FULL` disabled for production.
 - The HttpClient sanitizes common sensitive headers (authorization, api-key, x-api-key, password, token) before logging.
-
-
 
 ## Next Steps
 

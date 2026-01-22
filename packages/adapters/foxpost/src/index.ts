@@ -29,9 +29,10 @@ import type { TrackingUpdate } from "@shopickup/core";
  * Foxpost (hu-foxpost) is a major Hungarian logistics carrier.
  * 
  * Capabilities supported:
- * - CREATE_PARCEL: Create parcels directly (no shipment container needed)
- * - TRACK: Track parcels by barcode
+ * - CREATE_PARCEL: Create parcels directly
+ * - CREATE_PARCELS: Batch create multiple parcels
  * - CREATE_LABEL: Generate PDF labels for parcels
+ * - TRACK: Track parcels by barcode
  * - TEST_MODE_SUPPORTED: Can switch to test API for sandbox testing
  * 
  * Test API:
