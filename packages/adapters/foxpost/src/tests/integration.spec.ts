@@ -200,7 +200,7 @@ describe("FoxpostAdapter Integration", () => {
     });
   });
 
-  describe("Error handling", () => {
+   describe("Error handling", () => {
     it("throws error when HTTP client is not provided", async () => {
       const noHttpContext: AdapterContext = { logger: console };
 
@@ -213,6 +213,114 @@ describe("FoxpostAdapter Integration", () => {
           noHttpContext
         )
       ).rejects.toThrow();
+    });
+
+    it("handles parcel-level validation errors (HTTP 200 with valid=false)", async () => {
+      // Mock HTTP client that returns validation error response
+      const mockHttp: MockHttpClient = {
+        ...new MockHttpClient(),
+        async post<T>(url: string, data?: any, options?: any): Promise<T> {
+          if (url.includes("/api/parcel")) {
+            // Simulate Foxpost's response for validation error
+            // HTTP 200 but parcels have errors
+            return {
+              valid: false,
+              parcels: [
+                {
+                  recipientName: "John Doe",
+                  recipientPhone: "+36301111111",
+                  recipientEmail: "john@example.hu",
+                  size: "S",
+                  recipientCountry: null,
+                  recipientCity: null,
+                  recipientZip: null,
+                  recipientAddress: null,
+                  cod: 0,
+                  deliveryNote: null,
+                  comment: null,
+                  label: null,
+                  fragile: false,
+                  uniqueBarcode: null,
+                  refCode: "TEST-001",
+                  voucher: null,
+                  clFoxId: null,
+                  validTo: "2026-03-23 13:11",
+                  orderId: null,
+                  barcode: null,
+                  sendCode: null,
+                  barcodeTof: null,
+                  sendType: "APM",
+                  parcelType: "NORMAL",
+                  partnerType: "B2C",
+                  routeInfo: null,
+                  errors: [
+                    {
+                      field: "destination",
+                      message: "INVALID_APM_ID",
+                    },
+                  ],
+                  source: null,
+                  destination: "bp-01",
+                },
+              ],
+              errors: null,
+            } as unknown as T;
+          }
+          throw new Error(`Unexpected POST: ${url}`);
+        },
+      } as any;
+
+      const ctx: AdapterContext = { http: mockHttp, logger: console };
+      const result = await adapter.createParcel!(
+        {
+          parcel: createTestParcel("apm-parcel"),
+          credentials: { apiKey: "test", basicUsername: "user", basicPassword: "pass" },
+        },
+        ctx
+      );
+
+      // Should return failed status with error details in raw field
+      expect(result.status).toBe("failed");
+      expect(result.carrierId).toBeNull();
+      expect(result.raw).toBeDefined();
+      const rawData = result.raw as any;
+      expect(rawData.errors).toBeDefined();
+      expect(rawData.errors[0].message).toBe("INVALID_APM_ID");
+    });
+
+    it("throws error when response.valid is false with top-level errors", async () => {
+      // Mock HTTP client that returns validation error response with valid=false
+      const mockHttp: MockHttpClient = {
+        ...new MockHttpClient(),
+        async post<T>(url: string, data?: any, options?: any): Promise<T> {
+          if (url.includes("/api/parcel")) {
+            // Simulate response with top-level validation error
+            return {
+              valid: false,
+              parcels: [],
+              errors: [
+                {
+                  field: "shipperId",
+                  message: "INVALID_SHIPPER",
+                },
+              ],
+            } as unknown as T;
+          }
+          throw new Error(`Unexpected POST: ${url}`);
+        },
+      } as any;
+
+      const ctx: AdapterContext = { http: mockHttp, logger: console };
+
+      await expect(
+        adapter.createParcel!(
+          {
+            parcel: testParcel,
+            credentials: { apiKey: "test", basicUsername: "user", basicPassword: "pass" },
+          },
+          ctx
+        )
+      ).rejects.toThrow(/Validation error/);
     });
   });
 

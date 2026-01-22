@@ -4,12 +4,79 @@ import type { Logger, HttpClient } from '@shopickup/core';
 /**
  * Mock HTTP Client for testing without real carrier credentials
  * Returns realistic-looking mock responses for Foxpost API calls
+ * 
+ * Special behavior:
+ * - APM parcels with invalid pickup point IDs return validation errors
+ * - This simulates real Foxpost API behavior
  */
 class MockHttpClient implements HttpClient {
   async post<T>(url: string, data?: any, options?: any): Promise<T> {
     // Mock parcel creation response
     if (url.includes("/api/parcel")) {
       const requestArray = Array.isArray(data) ? data : [data];
+      
+      // Check if any parcel is APM type with invalid pickup point
+      // In real scenario: pickup point IDs must be valid Foxpost APM locations
+      // APM parcels have a 'destination' field set, HD parcels don't
+      const hasInvalidApm = requestArray.some((p: any) => 
+        p?.destination === "bp-01" // bp-01 is invalid in mock
+      );
+
+      if (hasInvalidApm) {
+        // Return Foxpost's error response format: HTTP 200 with valid=false
+        return {
+          valid: false,
+          parcels: requestArray.map((parcel: any, idx: number) => {
+            const hasInvalidDestination = parcel?.sendType === "APM" && parcel?.destination === "bp-01";
+            
+            return {
+              recipientName: parcel?.recipientName,
+              recipientPhone: parcel?.recipientPhone,
+              recipientEmail: parcel?.recipientEmail,
+              size: parcel?.size,
+              recipientCountry: hasInvalidDestination ? null : parcel?.recipientCountry,
+              recipientCity: hasInvalidDestination ? null : parcel?.recipientCity,
+              recipientZip: hasInvalidDestination ? null : parcel?.recipientZip,
+              recipientAddress: hasInvalidDestination ? null : parcel?.recipientAddress,
+              cod: 0,
+              deliveryNote: null,
+              comment: null,
+              label: null,
+              fragile: parcel?.fragile ?? false,
+              uniqueBarcode: null,
+              refCode: parcel?.refCode,
+              voucher: null,
+              clFoxId: hasInvalidDestination ? null : `CLFOX${String(idx + 1).padStart(12, '0')}`,
+              validTo: "2026-03-23 12:58",
+              orderId: hasInvalidDestination ? null : 12517 + idx,
+              barcode: null,
+              sendCode: hasInvalidDestination ? null : 7175527 + idx,
+              barcodeTof: hasInvalidDestination ? null : `501397${String(7175527 + idx).padStart(9, '0')}000013604024`,
+              sendType: parcel?.sendType,
+              parcelType: "NORMAL",
+              partnerType: "B2C",
+              routeInfo: hasInvalidDestination ? null : {
+                routeNumber: "1",
+                countryCode: "HU",
+                labelSubType: "H24",
+                depoCode: "DE1",
+                destinationApm: null
+              },
+              errors: hasInvalidDestination ? [
+                {
+                  field: "destination",
+                  message: "INVALID_APM_ID"
+                }
+              ] : null,
+              source: null,
+              destination: parcel?.destination
+            };
+          }),
+          errors: null,
+        } as unknown as T;
+      }
+
+      // Success case - all parcels valid
       const parcels = requestArray.map((parcel: any, idx: number) => ({
         recipientName: parcel?.recipientName,
         recipientPhone: parcel?.recipientPhone,
@@ -33,7 +100,7 @@ class MockHttpClient implements HttpClient {
         barcode: null,
         sendCode: 7175527 + idx,
         barcodeTof: `501397${String(7175527 + idx).padStart(9, '0')}000013604024`,
-        sendType: "HD",
+        sendType: parcel?.sendType || "HD",
         parcelType: "NORMAL",
         partnerType: "B2C",
         routeInfo: {
@@ -45,7 +112,7 @@ class MockHttpClient implements HttpClient {
         },
         errors: null,
         source: null,
-        destination: "1477"
+        destination: parcel?.destination || "1477"
       }));
       return {
         valid: true,
