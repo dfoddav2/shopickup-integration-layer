@@ -88,11 +88,117 @@ Shopickup solves the **carrier API heterogeneity problem** by providing:
 All carriers are normalized to these core concepts:
 
 - **Shipment:** Top-level container (represents a single physical mailing).
-- **Parcel:** One or more items within a shipment.
+- **Parcel:** Rich structure with nested shipper/recipient, delivery method discriminator, and shipping features.
 - **Address:** Sender/recipient with validation logic.
+- **Contact:** Decoupled from address; includes name, phone, email, company.
+- **Delivery:** Discriminated union for shipping methods (HOME address or PICKUP_POINT locker/shop).
+- **Money:** Structured amounts with ISO currency codes.
 - **Label:** Generated shipping label (PDF/PNG) + tracking number.
 - **TrackingEvent:** Normalized status update (PENDING, IN_TRANSIT, DELIVERED, EXCEPTION).
 - **Rate:** Available service + price for a route/weight.
+
+#### New Parcel Structure (v2.0)
+
+The **Parcel** type was redesigned to be more comprehensive and carrier-agnostic:
+
+```typescript
+interface Parcel {
+  id: string;
+  
+  // Structured shipper (contact + full address)
+  shipper: {
+    contact: Contact;
+    address: Address;
+  };
+  
+  // Structured recipient with delivery method discriminator
+  recipient: {
+    contact: Contact;
+    delivery: Delivery;  // HOME or PICKUP_POINT
+  };
+  
+  // Package details
+  package: {
+    weightGrams: number;
+    dimensionsCm?: { length, width, height };
+  };
+  
+  // Carrier-agnostic shipping features
+  handling?: {
+    fragile?: boolean;
+    perishables?: boolean;
+    batteries?: 'NONE' | 'LITHIUM_ION' | 'LITHIUM_METAL';
+  };
+  
+  // Structured COD, insurance, declared value
+  cod?: { amount: Money; reference?: string };
+  declaredValue?: Money;
+  insurance?: { amount: Money };
+  
+  // References for tracking
+  references?: {
+    orderId?: string;
+    customerReference?: string;
+  };
+  
+  // Service level
+  service: 'standard' | 'express' | 'economy' | 'overnight';
+  
+  // Optional: Line items with weight/quantity
+  items?: ParcelItem[];
+  
+  // Metadata for carrier-specific quirks
+  metadata?: Record<string, unknown>;
+}
+```
+
+**Key Design Decisions:**
+
+1. **Delivery as Discriminated Union:** Enables compile-time type safety:
+   ```typescript
+   if (parcel.recipient.delivery.method === 'HOME') {
+     // TypeScript knows delivery.address exists
+     const street = parcel.recipient.delivery.address.street;
+   } else if (parcel.recipient.delivery.method === 'PICKUP_POINT') {
+     // TypeScript knows delivery.pickupPoint exists
+     const code = parcel.recipient.delivery.pickupPoint.id;
+   }
+   ```
+
+2. **Shipper Required in Core:** Keeps integration point clear. Adapters document if they ignore it (e.g., "Foxpost derives shipper from API key").
+
+3. **Nested Money/Contact Types:** Avoids naming conflicts across carriers. Each carrier maps these canonical types to their own schema.
+
+4. **Carrier-Agnostic Features:** COD, fragile, batteries, insurance are top-level fields—no metadata hacks needed.
+
+### Delivery Methods
+
+```typescript
+type Delivery = HomeDelivery | PickupPointDelivery;
+
+interface HomeDelivery {
+  method: 'HOME';
+  address: Address;  // Full street address
+  instructions?: string;
+}
+
+interface PickupPointDelivery {
+  method: 'PICKUP_POINT';
+  pickupPoint: {
+    id: string;              // e.g., Foxpost APM code
+    provider?: string;       // "foxpost", "dhl", etc.
+    name?: string;
+    address?: Address;       // Optional pickup location details
+    type?: 'LOCKER' | 'SHOP' | 'POST_OFFICE' | 'OTHER';
+  };
+  instructions?: string;
+}
+```
+
+This design enables:
+- **Type-safe adapter code:** Discriminator checked at compile time
+- **Multi-carrier support:** Different carriers can map to same discriminator
+- **Validation efficiency:** Validation layers catch mapping bugs before API calls
 
 ### The CarrierAdapter Interface
 
