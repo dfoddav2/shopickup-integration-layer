@@ -19,6 +19,7 @@ import {
   mapFoxpostTrackToCanonical,
 } from './mappers/index.js';
 import { translateFoxpostError } from './errors.js';
+import { safeValidateCreateParcelRequest, safeValidateCreateParcelsRequest } from './validation.js';
 import type { TrackingUpdate } from "@shopickup/core";
 
 /**
@@ -83,20 +84,30 @@ export class FoxpostAdapter implements CarrierAdapter {
     * Maps canonical Parcel to Foxpost CreateParcelRequest
     * Returns the parcel barcode as carrierId
     */
-   async createParcel(
-     req: CreateParcelRequest,
-     ctx: AdapterContext
-   ): Promise<CarrierResource> {
-     // Delegate to createParcels when available to reuse batching logic
-     if (this.createParcels) {
-       const batchReq: CreateParcelsRequest = {
-         parcels: [req.parcel],
-         credentials: req.credentials,
-         options: req.options,
-       };
-       const results = await this.createParcels(batchReq, ctx);
-       return results[0];
-     }
+    async createParcel(
+      req: CreateParcelRequest,
+      ctx: AdapterContext
+    ): Promise<CarrierResource> {
+      // Validate request format and credentials
+      const validated = safeValidateCreateParcelRequest(req);
+      if (!validated.success) {
+        throw new CarrierError(
+          `Invalid request: ${validated.error.message}`,
+          "Validation",
+          { raw: validated.error }
+        );
+      }
+
+      // Delegate to createParcels when available to reuse batching logic
+      if (this.createParcels) {
+        const batchReq: CreateParcelsRequest = {
+          parcels: [req.parcel],
+          credentials: req.credentials,
+          options: req.options,
+        };
+        const results = await this.createParcels(batchReq, ctx);
+        return results[0];
+      }
      try {
        if (!ctx.http) {
          throw new CarrierError(
@@ -201,6 +212,16 @@ export class FoxpostAdapter implements CarrierAdapter {
     ctx: AdapterContext
   ): Promise<CarrierResource[]> {
     try {
+      // Validate request format and credentials
+      const validated = safeValidateCreateParcelsRequest(req);
+      if (!validated.success) {
+        throw new CarrierError(
+          `Invalid request: ${validated.error.message}`,
+          "Validation",
+          { raw: validated.error }
+        );
+      }
+
       if (!ctx.http) {
         throw new CarrierError(
           "HTTP client not provided in context",

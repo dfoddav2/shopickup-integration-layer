@@ -80,14 +80,15 @@ describe('FoxpostAdapter createParcels', () => {
     expect(res[1].status).toBe('failed');
   });
 
-  it('handles empty parcel array', async () => {
+  it('rejects empty parcel array', async () => {
     const req: CreateParcelsRequest = {
       parcels: [],
       credentials: { apiKey: 'test-key', username: 'user', password: 'pass' },
     };
 
-    const res = await adapter.createParcels(req, ctx);
-    expect(res).toHaveLength(0);
+    await expect(adapter.createParcels(req, ctx)).rejects.toThrow(
+      'Invalid request'
+    );
   });
 
   it('extracts and uses shared credentials for batch', async () => {

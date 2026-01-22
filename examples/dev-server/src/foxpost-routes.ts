@@ -1,37 +1,290 @@
 import { FastifyInstance } from 'fastify';
 import { FoxpostAdapter } from '@shopickup/adapters-foxpost';
+import { safeValidateCreateParcelRequest, safeValidateCreateParcelsRequest } from '@shopickup/adapters-foxpost/validation';
 import { CarrierError, type AdapterContext, type CreateParcelRequest, type CreateParcelsRequest, type Parcel } from '@shopickup/core';
 
 // httpClient will be provided via fastify.decorate; create it in server.ts and attach to fastify
+
+/**
+ * Example data for testing
+ */
+const EXAMPLE_ADDRESS = {
+  name: 'John Doe',
+  street: '123 Main Street',
+  city: 'Budapest',
+  postalCode: '1011',
+  country: 'HU',
+  phone: '+36 1 234 5678',
+  email: 'john@example.com'
+};
+
+const EXAMPLE_PARCEL: Parcel = {
+  id: 'parcel-001',
+  sender: EXAMPLE_ADDRESS,
+  recipient: {
+    name: 'Jane Smith',
+    street: '456 Oak Avenue',
+    city: 'Debrecen',
+    postalCode: '4024',
+    country: 'HU',
+    phone: '+36 52 123 4567',
+    email: 'jane@example.com'
+  },
+  weight: 1500, // grams
+  service: 'standard',
+  reference: 'ORD-2024-001',
+  status: 'draft'
+};
+
+const EXAMPLE_CREDENTIALS = {
+  apiKey: 'test-api-key-123456'
+};
 
 export async function registerFoxpostRoutes(fastify: FastifyInstance) {
   const adapter = new FoxpostAdapter();
 
   // Single-item create parcel endpoint
-  fastify.post('/api/dev/foxpost/create-parcel', {
+  (fastify.post as any)('/api/dev/foxpost/create-parcel', {
     schema: {
       description: 'Create a Foxpost parcel (dev endpoint for testing)',
       tags: ['Foxpost', 'Dev'],
-      summary: 'Create a parcel in Foxpost',
-    }
-  }, async (request, reply) => {
+      summary: 'Create a single parcel in Foxpost',
+      body: {
+        type: 'object',
+        required: ['parcel', 'credentials'],
+        properties: {
+          parcel: {
+            type: 'object',
+            description: 'Canonical parcel object with complete shipping details',
+            required: ['id', 'sender', 'recipient', 'weight', 'service'],
+            properties: {
+              id: {
+                type: 'string',
+                description: 'Unique parcel ID'
+              },
+              sender: {
+                type: 'object',
+                description: 'Sender/shipper address',
+                required: ['name', 'street', 'city', 'postalCode', 'country'],
+                properties: {
+                  name: { type: 'string' },
+                  street: { type: 'string' },
+                  city: { type: 'string' },
+                  postalCode: { type: 'string' },
+                  country: { type: 'string', description: 'ISO 3166-1 alpha-2' },
+                  phone: { type: 'string' },
+                  email: { type: 'string', format: 'email' }
+                }
+              },
+              recipient: {
+                type: 'object',
+                description: 'Recipient/destination address',
+                required: ['name', 'street', 'city', 'postalCode', 'country'],
+                properties: {
+                  name: { type: 'string' },
+                  street: { type: 'string' },
+                  city: { type: 'string' },
+                  postalCode: { type: 'string' },
+                  country: { type: 'string', description: 'ISO 3166-1 alpha-2' },
+                  phone: { type: 'string' },
+                  email: { type: 'string', format: 'email' }
+                }
+              },
+              weight: {
+                type: 'number',
+                description: 'Parcel weight in grams'
+              },
+              service: {
+                type: 'string',
+                description: 'Shipping service type',
+                enum: ['standard', 'express', 'economy', 'overnight']
+              },
+              reference: {
+                type: 'string',
+                description: 'Optional customer reference or order number'
+              },
+              status: {
+                type: 'string',
+                description: 'Parcel status',
+                enum: ['draft', 'created', 'closed', 'label_generated', 'shipped', 'delivered', 'exception']
+              }
+            }
+          },
+           credentials: {
+             type: 'object',
+             description: 'Foxpost-specific carrier credentials (supports API key or basic auth)',
+             properties: {
+               apiKey: {
+                 type: 'string',
+                 description: 'Foxpost API key for authentication (alternative to basicUsername/basicPassword)'
+               },
+               basicUsername: {
+                 type: 'string',
+                 description: 'Username for basic authentication (requires basicPassword)'
+               },
+               basicPassword: {
+                 type: 'string',
+                 description: 'Password for basic authentication (requires basicUsername)'
+               },
+               username: {
+                 type: 'string',
+                 description: 'Alternative username field (legacy, equivalent to basicUsername)'
+               },
+               password: {
+                 type: 'string',
+                 description: 'Alternative password field (legacy, equivalent to basicPassword)'
+               }
+             }
+           },
+          options: {
+            type: 'object',
+            description: 'Optional request options',
+            properties: {
+              useTestApi: {
+                type: 'boolean',
+                description: 'Use test/sandbox API endpoint instead of production',
+                default: false
+              }
+            }
+          }
+        }
+      },
+      response: {
+        200: {
+          description: 'Successful parcel creation',
+          type: 'object',
+          properties: {
+            carrierId: { type: 'string', description: 'Barcode/ID from carrier' },
+            status: { type: 'string', enum: ['created', 'pending', 'failed'] },
+            labelUrl: { type: ['string', 'null'], description: 'Optional label URL' },
+            raw: { type: 'object', description: 'Raw carrier response' }
+          }
+        },
+        400: {
+          description: 'Validation error (bad request)',
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' }
+          }
+        },
+        401: {
+          description: 'Authentication error (invalid credentials)',
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' }
+          }
+        },
+        429: {
+          description: 'Rate limit exceeded',
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' }
+          }
+        },
+        502: {
+          description: 'Bad Gateway (carrier API error)',
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' }
+          }
+        },
+        500: {
+          description: 'Internal server error',
+          type: 'object',
+          properties: {
+            message: { type: 'string' }
+          }
+        }
+      }
+    },
+    examples: [
+      {
+        summary: 'Create parcel with minimal data',
+        value: {
+          parcel: {
+            id: 'parcel-001',
+            sender: {
+              name: 'John Doe',
+              street: '123 Main Street',
+              city: 'Budapest',
+              postalCode: '1011',
+              country: 'HU'
+            },
+            recipient: {
+              name: 'Jane Smith',
+              street: '456 Oak Avenue',
+              city: 'Debrecen',
+              postalCode: '4024',
+              country: 'HU'
+            },
+            weight: 1500,
+            service: 'standard'
+          },
+          credentials: {
+            apiKey: 'test-api-key-123456'
+          }
+        }
+      },
+       {
+         summary: 'Create parcel with full details',
+         value: {
+           parcel: EXAMPLE_PARCEL,
+           credentials: EXAMPLE_CREDENTIALS,
+           options: { useTestApi: false }
+         }
+       },
+       {
+         summary: 'Create parcel with basic auth credentials',
+         value: {
+           parcel: {
+             id: 'parcel-003',
+             sender: {
+               name: 'John Doe',
+               street: '123 Main Street',
+               city: 'Budapest',
+               postalCode: '1011',
+               country: 'HU'
+             },
+             recipient: {
+               name: 'Alice Wong',
+               street: '321 Elm Street',
+               city: 'Budapest',
+               postalCode: '1053',
+               country: 'HU'
+             },
+             weight: 800,
+             service: 'standard'
+           },
+           credentials: {
+             basicUsername: 'myuser@example.com',
+             basicPassword: 'mypassword123'
+           },
+           options: { useTestApi: true }
+         }
+       }
+     ]
+  }, async (request: any, reply: any) => {
     const body = request.body as any;
 
-    fastify.log.info({ endpoint: '/api/dev/foxpost/create-parcel', parcelId: body?.id }, 'Foxpost createParcel request');
+    fastify.log.info({ endpoint: '/api/dev/foxpost/create-parcel', parcelId: body?.parcel?.id }, 'Foxpost createParcel request');
 
     try {
-      if (!body || !body.id || !body.sender || !body.recipient || !body.weight || !body.credentials?.apiKey) {
-        return (reply as any).code(400).send({ message: 'Missing required parcel fields (id, sender, recipient, weight, service) or credentials.apiKey', category: 'Validation' });
+      // Validate request with zod schema
+      const validated = safeValidateCreateParcelRequest(body);
+      if (!validated.success) {
+        fastify.log.warn({ errors: validated.error.flatten() }, 'Validation failed for createParcel');
+        return (reply as any).code(400).send({ 
+          message: validated.error.message,
+          category: 'Validation',
+          errors: validated.error.flatten()
+        });
       }
 
-      const parcel: Parcel = body as Parcel;
-
-      const req: CreateParcelRequest = {
-        parcel,
-        credentials: body.credentials,
-        options: body.options
-      };
-
+      const req: CreateParcelRequest = validated.data;
       const ctx: AdapterContext = { http: (fastify as any).httpClient as any, logger: fastify.log };
 
       const result = await adapter.createParcel!(req, ctx);
@@ -47,40 +300,252 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
   });
 
   // Batch create endpoint
-  fastify.post('/api/dev/foxpost/create-parcels', {
+  (fastify.post as any)('/api/dev/foxpost/create-parcels', {
     schema: {
-      description: 'Create multiple Foxpost parcels (dev endpoint for testing)',
+      description: 'Create multiple Foxpost parcels in a single batch request',
       tags: ['Foxpost', 'Dev'],
-      summary: 'Create multiple parcels in Foxpost',
-    }
-  }, async (request, reply) => {
+      summary: 'Batch create multiple parcels in Foxpost',
+      body: {
+        type: 'object',
+        required: ['parcels', 'credentials'],
+        properties: {
+          parcels: {
+            type: 'array',
+            description: 'Array of parcels to create',
+            minItems: 1,
+            items: {
+              type: 'object',
+              required: ['id', 'sender', 'recipient', 'weight', 'service'],
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'Unique parcel ID'
+                },
+                sender: {
+                  type: 'object',
+                  description: 'Sender/shipper address',
+                  required: ['name', 'street', 'city', 'postalCode', 'country'],
+                  properties: {
+                    name: { type: 'string' },
+                    street: { type: 'string' },
+                    city: { type: 'string' },
+                    postalCode: { type: 'string' },
+                    country: { type: 'string', description: 'ISO 3166-1 alpha-2' },
+                    phone: { type: 'string' },
+                    email: { type: 'string', format: 'email' }
+                  }
+                },
+                recipient: {
+                  type: 'object',
+                  description: 'Recipient/destination address',
+                  required: ['name', 'street', 'city', 'postalCode', 'country'],
+                  properties: {
+                    name: { type: 'string' },
+                    street: { type: 'string' },
+                    city: { type: 'string' },
+                    postalCode: { type: 'string' },
+                    country: { type: 'string', description: 'ISO 3166-1 alpha-2' },
+                    phone: { type: 'string' },
+                    email: { type: 'string', format: 'email' }
+                  }
+                },
+                weight: {
+                  type: 'number',
+                  description: 'Parcel weight in grams'
+                },
+                service: {
+                  type: 'string',
+                  description: 'Shipping service type',
+                  enum: ['standard', 'express', 'economy', 'overnight']
+                },
+                reference: {
+                  type: 'string',
+                  description: 'Optional customer reference or order number'
+                },
+                status: {
+                   type: 'string',
+                   description: 'Parcel status',
+                   enum: ['draft', 'created', 'closed', 'label_generated', 'shipped', 'delivered', 'exception']
+                }
+              }
+            }
+          },
+           credentials: {
+             type: 'object',
+             description: 'Shared carrier credentials for all parcels (supports API key or basic auth)',
+             properties: {
+               apiKey: {
+                 type: 'string',
+                 description: 'Foxpost API key for authentication (alternative to basicUsername/basicPassword)'
+               },
+               basicUsername: {
+                 type: 'string',
+                 description: 'Username for basic authentication (requires basicPassword)'
+               },
+               basicPassword: {
+                 type: 'string',
+                 description: 'Password for basic authentication (requires basicUsername)'
+               },
+               username: {
+                 type: 'string',
+                 description: 'Alternative username field (legacy, equivalent to basicUsername)'
+               },
+               password: {
+                 type: 'string',
+                 description: 'Alternative password field (legacy, equivalent to basicPassword)'
+               }
+             }
+           },
+          options: {
+            type: 'object',
+            description: 'Optional request options applied to all parcels',
+            properties: {
+              useTestApi: {
+                type: 'boolean',
+                description: 'Use test/sandbox API endpoint instead of production',
+                default: false
+              }
+            }
+          }
+        }
+      },
+      response: {
+        200: {
+          description: 'Array of parcel creation results (per-item responses)',
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              carrierId: { type: ['string', 'null'], description: 'Barcode/ID from carrier or null if failed' },
+              status: { type: 'string', enum: ['created', 'pending', 'failed'] },
+              labelUrl: { type: ['string', 'null'], description: 'Optional label URL' },
+              raw: { type: 'object', description: 'Raw carrier response or error details' }
+            }
+          }
+        },
+        400: {
+          description: 'Validation error (bad request)',
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' }
+          }
+        },
+        401: {
+          description: 'Authentication error (invalid credentials)',
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' }
+          }
+        },
+        429: {
+          description: 'Rate limit exceeded',
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' }
+          }
+        },
+        502: {
+          description: 'Bad Gateway (carrier API error)',
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' }
+          }
+        },
+        500: {
+          description: 'Internal server error',
+          type: 'object',
+          properties: {
+            message: { type: 'string' }
+          }
+        }
+      }
+    },
+     examples: [
+       {
+         summary: 'Create two parcels in batch',
+         value: {
+           parcels: [
+             {
+               id: 'parcel-001',
+               sender: EXAMPLE_ADDRESS,
+               recipient: {
+                 name: 'Jane Smith',
+                 street: '456 Oak Avenue',
+                 city: 'Debrecen',
+                 postalCode: '4024',
+                 country: 'HU'
+               },
+               weight: 1500,
+               service: 'standard',
+               reference: 'ORD-2024-001'
+             },
+             {
+               id: 'parcel-002',
+               sender: EXAMPLE_ADDRESS,
+               recipient: {
+                 name: 'Bob Johnson',
+                 street: '789 Pine Road',
+                 city: 'Szeged',
+                 postalCode: '6720',
+                 country: 'HU'
+               },
+               weight: 2000,
+               service: 'express',
+               reference: 'ORD-2024-002'
+             }
+           ],
+           credentials: EXAMPLE_CREDENTIALS,
+           options: { useTestApi: false }
+         }
+       },
+       {
+         summary: 'Create parcel with basic auth credentials',
+         value: {
+           parcels: [
+             {
+               id: 'parcel-003',
+               sender: EXAMPLE_ADDRESS,
+               recipient: {
+                 name: 'Alice Wong',
+                 street: '321 Elm Street',
+                 city: 'Budapest',
+                 postalCode: '1053',
+                 country: 'HU'
+               },
+               weight: 800,
+               service: 'standard'
+             }
+           ],
+           credentials: {
+             basicUsername: 'myuser@example.com',
+             basicPassword: 'mypassword123'
+           },
+           options: { useTestApi: true }
+         }
+       }
+     ]
+  }, async (request: any, reply: any) => {
     const body = request.body as any;
 
     fastify.log.info({ endpoint: '/api/dev/foxpost/create-parcels', itemCount: body?.parcels?.length ?? 0 }, 'Foxpost createParcels request');
 
     try {
-      // Expect: { parcels: [...], credentials: {...}, options: {...} } - CreateParcelsRequest format
-      if (!body || !Array.isArray(body.parcels) || body.parcels.length === 0) {
-        return (reply as any).code(400).send({ message: 'Body must be an object with parcels array (non-empty)', category: 'Validation' });
+      // Validate request with zod schema
+      const validated = safeValidateCreateParcelsRequest(body);
+      if (!validated.success) {
+        fastify.log.warn({ errors: validated.error.flatten() }, 'Validation failed for createParcels');
+        return (reply as any).code(400).send({ 
+          message: validated.error.message,
+          category: 'Validation',
+          errors: validated.error.flatten()
+        });
       }
 
-      if (!body.credentials?.apiKey) {
-        return (reply as any).code(400).send({ message: 'Credentials with apiKey required', category: 'Validation' });
-      }
-
-      // Validate all parcel items
-      for (const p of body.parcels) {
-        if (!p.id || !p.sender || !p.recipient || !p.weight) {
-          return (reply as any).code(400).send({ message: 'Each parcel must have id, sender, recipient, weight, service', category: 'Validation' });
-        }
-      }
-
-      const parcelsReq: CreateParcelsRequest = {
-        parcels: body.parcels as Parcel[],
-        credentials: body.credentials,
-        options: body.options,
-      };
-
+      const parcelsReq: CreateParcelsRequest = validated.data;
       const ctx: AdapterContext = { http: (fastify as any).httpClient as any, logger: fastify.log };
 
       if (!(adapter as any).createParcels) {
