@@ -69,6 +69,8 @@ export function determineFoxpostSize(parcel: Parcel): FoxpostSize | undefined {
 /**
  * Map canonical Parcel to Foxpost CreateParcelRequest
  * Parcel contains complete shipping details (sender, recipient, weight, service, etc.)
+ * 
+ * Handles both HOME delivery (full address) and PICKUP_POINT delivery (APM/locker)
  */
 export function mapParcelToFoxpost(
   parcel: Parcel,
@@ -76,9 +78,11 @@ export function mapParcelToFoxpost(
     isWeb?: boolean;
     isRedirect?: boolean;
   } = {}
-): FoxpostParcelRequest {
-  const recipientAddr = parcel.recipient.delivery.method === 'HOME' 
-    ? parcel.recipient.delivery.address 
+): FoxpostParcelRequest & { destination?: string } {
+  const delivery = parcel.recipient.delivery;
+  const isHomeDelivery = delivery.method === 'HOME';
+  const recipientAddr = isHomeDelivery 
+    ? delivery.address 
     : undefined;
   
   const recipient = {
@@ -91,14 +95,17 @@ export function mapParcelToFoxpost(
     country: recipientAddr?.country || "HU",
   };
 
-  const foxpostRequest: FoxpostParcelRequest = {
+  const foxpostRequest: FoxpostParcelRequest & { destination?: string } = {
     recipientName: recipient.name,
     recipientPhone: recipient.phone,
     recipientEmail: recipient.email,
-    recipientCity: recipient.city,
-    recipientZip: recipient.zip,
-    recipientAddress: recipient.address,
-    recipientCountry: recipient.country,
+    // HOME delivery includes address fields; APM leaves them undefined
+    ...(isHomeDelivery && {
+      recipientCity: recipient.city,
+      recipientZip: recipient.zip,
+      recipientAddress: recipient.address,
+      recipientCountry: recipient.country,
+    }),
     size: determineFoxpostSize(parcel),
     // Optional fields
     refCode: parcel.references?.customerReference
@@ -107,6 +114,14 @@ export function mapParcelToFoxpost(
     comment: parcel.handling?.fragile ? 'FRAGILE' : undefined,
     fragile: parcel.handling?.fragile || false,
   };
+
+  // For PICKUP_POINT delivery, add destination (locker/APM code)
+  if (!isHomeDelivery && delivery.method === 'PICKUP_POINT') {
+    const pickupPoint = delivery.pickupPoint;
+    if (pickupPoint?.id) {
+      foxpostRequest.destination = pickupPoint.id;
+    }
+  }
 
   return foxpostRequest;
 }

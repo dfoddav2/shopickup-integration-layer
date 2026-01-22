@@ -133,7 +133,7 @@ describe('Foxpost Mappers', () => {
   });
 
   describe('mapParcelToFoxpost', () => {
-    it('maps canonical Parcel to Foxpost format', () => {
+    it('maps canonical Parcel to Foxpost format for HOME delivery', () => {
       const parcel = createTestParcel();
 
       const result = mapParcelToFoxpost(parcel);
@@ -156,7 +156,7 @@ describe('Foxpost Mappers', () => {
       expect(result.size).toBe('s'); // Default size when no dimensions
     });
 
-    it('includes reference in refCode', () => {
+    it('includes reference in refCode for HOME delivery', () => {
       const parcel = createTestParcel();
       parcel.references = { customerReference: 'ORDER-999' };
       parcel.id = 'parcel-123';
@@ -165,6 +165,123 @@ describe('Foxpost Mappers', () => {
 
       expect(result.refCode).toContain('ORDER-999');
       expect(result.refCode).toContain('parcel-12');
+    });
+
+    it('maps canonical Parcel with PICKUP_POINT delivery to APM format', () => {
+      const parcel: Parcel = {
+        id: 'p-apm-001',
+        shipper: {
+          contact: {
+            name: 'Sender Corp',
+            phone: '+36301111111',
+            email: 'sender@corp.com',
+          },
+          address: {
+            name: 'Sender Corp',
+            street: '100 Sender St',
+            city: 'Budapest',
+            postalCode: '1011',
+            country: 'HU',
+            phone: '+36301111111',
+            email: 'sender@corp.com',
+          },
+        },
+        recipient: {
+          contact: {
+            name: 'Jane Doe',
+            phone: '+36302222222',
+            email: 'jane@example.com',
+          },
+          delivery: {
+            method: 'PICKUP_POINT' as const,
+            pickupPoint: {
+              id: 'APM-FOX-12345', // Foxpost locker code
+              provider: 'foxpost',
+              name: 'Foxpost Locker Downtown',
+              type: 'LOCKER',
+            },
+            instructions: 'Leave on top shelf',
+          },
+        },
+        package: {
+          weightGrams: 500,
+          dimensionsCm: { length: 15, width: 10, height: 8 },
+        },
+        service: 'standard' as const,
+        references: {
+          customerReference: 'APM-ORD-555',
+        },
+      };
+
+      const result = mapParcelToFoxpost(parcel);
+
+      // APM payloads map to Foxpost format with destination field
+      expect(result).toBeDefined();
+      expect(result.recipientName).toBe('Jane Doe');
+      expect(result.recipientEmail).toBe('jane@example.com');
+      expect(result.recipientPhone).toBe('+36302222222');
+      expect(result.size).toBeDefined();
+      // APM delivery should have 'destination' field (the locker ID)
+      expect((result as any).destination).toBe('APM-FOX-12345');
+      expect(result.refCode).toContain('APM-ORD-555');
+    });
+
+    it('returns correct parcel type discriminator for HOME delivery', () => {
+      const parcel = createTestParcel();
+
+      const result = mapParcelToFoxpost(parcel);
+
+      // For HOME delivery, type field should be 'HD' (but mapParcelToFoxpost returns generic request)
+      // The type is determined at validation layer
+      expect(result).toBeDefined();
+      expect(result.recipientAddress).toBeDefined();
+    });
+
+    it('returns correct payload structure for APM delivery without address fields', () => {
+      const parcel: Parcel = {
+        id: 'p-apm-002',
+        shipper: {
+          contact: { name: 'Sender' },
+          address: {
+            name: 'Sender',
+            street: '100 St',
+            city: 'Budapest',
+            postalCode: '1011',
+            country: 'HU',
+          },
+        },
+        recipient: {
+          contact: {
+            name: 'John Smith',
+            phone: '+36301234567',
+            email: 'john@example.com',
+          },
+          delivery: {
+            method: 'PICKUP_POINT' as const,
+            pickupPoint: {
+              id: 'LOCKER-99',
+              provider: 'foxpost',
+              type: 'LOCKER',
+            },
+          },
+        },
+        package: {
+          weightGrams: 300,
+        },
+        service: 'express' as const,
+      };
+
+      const result = mapParcelToFoxpost(parcel);
+
+      // APM should not have recipientAddress, recipientCity, recipientZip when it's a pickup point
+      expect(result).toBeDefined();
+      expect(result.recipientName).toBe('John Smith');
+      // APM uses destination instead of address fields
+      expect((result as any).destination).toBe('LOCKER-99');
+      // Address fields should be undefined or not present for APM
+      expect(result.recipientAddress).toBeUndefined();
+      expect(result.recipientCity).toBeUndefined();
+      expect(result.recipientZip).toBeUndefined();
     });
   });
 
