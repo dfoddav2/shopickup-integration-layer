@@ -248,14 +248,44 @@ This exact body becomes the `raw` field.
 #### Scenario: "The `raw` field is empty"
 
 This usually means:
-1. You're in test mode (mock data is fabricated, may appear minimal)
-2. The carrier returned an error (check the `status` field)
+1. **Invalid credentials** — The most common cause! If you're using test credentials (`apiKey: "test-key"`, `basicUsername: "user"`, `basicPassword: "pass"`), the Foxpost test API will reject them and return an error
+2. The carrier returned an error response (check the `status` field and HTTP logs)
 3. The adapter filtered the response (check `mapper.ts`)
 
-**Solution:**
-- Enable `HTTP_DEBUG_FULL=1` to see the actual response from the carrier
-- Switch to production mode with real credentials to see real carrier data
-- Review the adapter's mapper to understand response transformation
+**Solution — Check Your Credentials:**
+- Are you using placeholder test credentials? The Foxpost API requires **real Foxpost test account credentials**
+- Get valid test credentials from your Foxpost account
+- Update `.env` with real credentials:
+  ```env
+  FOXPOST_API_KEY=your-real-test-api-key
+  FOXPOST_USE_TEST_API=true
+  ```
+- Restart the dev server
+- Make another request; the `raw` field should now have real data from Foxpost
+
+**Solution — Debug the Actual Error:**
+- Enable `HTTP_DEBUG_FULL=1` to see the actual HTTP response from the carrier:
+  ```env
+  LOG_LEVEL=debug
+  HTTP_DEBUG=1
+  HTTP_DEBUG_FULL=1
+  ```
+- Restart: `pnpm run dev`
+- Make a request and look at the response body in the logs
+- This shows you what the carrier actually returned
+- If it's an error response, look for error codes or messages
+
+**Solution — Test with Mock Mode:**
+- If you don't have valid credentials yet, you can use mock data by leaving credentials empty
+- The dev-server will use a test HTTP client that returns fabricated responses
+- Example request without real credentials:
+  ```json
+  {
+    "parcel": {...},
+    "credentials": null,  // or omit entirely
+    "options": { "useTestApi": true }
+  }
+  ```
 
 #### Scenario: "I want to extract something from `raw` but it's not there"
 

@@ -20,7 +20,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "test": "vitest --run",
     "dev": "tsc -w -p tsconfig.json",
     "codegen": "openapi-typescript ../../carrier-docs/hu-foxpost/hu-foxpost.openapi.yaml --output ./src/types/generated.ts"

@@ -32,8 +32,9 @@ describe('axios client response redaction and body preview', () => {
     // axios lowercases response header keys, assert on lowercase form
     expect(meta.headers.authorization || meta.headers.Authorization).toBe('REDACTED');
     expect(meta.headers.other || meta.headers.Other).toBe('ok');
-    // bodyPreview should be undefined when debugFullBody=false
-    expect(meta.bodyPreview).toBeUndefined();
+    // body should be undefined when debugFullBody=false, but bodyLength should be present
+    expect(meta.body).toBeUndefined();
+    expect(meta.bodyLength).toBeDefined();
 
     // ensure no debug call contains the full raw body string
     const raw = JSON.stringify(body);
@@ -68,10 +69,10 @@ describe('axios client response redaction and body preview', () => {
     expect(meta).toBeDefined();
     expect(meta.headers['x-api-key']).toBe('REDACTED');
     expect(meta.headers.authorization).toBe('REDACTED');
-    // bodyPreview should be present but truncated to at most 200 chars
-    expect(typeof meta.bodyPreview).toBe('string');
-    expect(meta.bodyPreview.length).toBeLessThanOrEqual(200);
-    // ensure it is a prefix of the JSON body
-    expect(JSON.stringify(body).startsWith(meta.bodyPreview)).toBe(true);
+    // body should be included fully when debugFullBody=true
+    expect(meta.body).toBeDefined();
+    expect(meta.body).toMatchObject(body);
+    // ensure the body is present in the log
+    expect(meta.body.big).toBe(long);
   });
 });

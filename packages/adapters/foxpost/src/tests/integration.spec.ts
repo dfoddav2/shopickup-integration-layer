@@ -20,20 +20,21 @@ class MockHttpClient implements HttpClient {
     this.lastUrl = url;
     this.lastMethod = 'POST';
     
-    // Mock parcel creation response
-    if (url.includes("/api/parcel")) {
-      // Support batch requests: generate a response for each parcel in the request
-      const requestArray = Array.isArray(data) ? data : [data];
-      const parcels = requestArray.map((parcel: any, idx: number) => ({
-        barcode: `CLFOX${String(idx + 1).padStart(10, '0')}`,
-        refCode: parcel?.refCode,
-        errors: [],
-      }));
-      return {
-        valid: true,
-        parcels,
-      } as unknown as T;
-    }
+     // Mock parcel creation response
+     if (url.includes("/api/parcel")) {
+       // Support batch requests: generate a response for each parcel in the request
+       const requestArray = Array.isArray(data) ? data : [data];
+       const parcels = requestArray.map((parcel: any, idx: number) => ({
+         clFoxId: `CLFOX${String(idx + 1).padStart(10, '0')}`,
+         barcodeTof: `501397${String(7175527 + idx).padStart(9, '0')}000013604024`,
+         refCode: parcel?.refCode,
+         errors: null,
+       }));
+       return {
+         valid: true,
+         parcels,
+       } as unknown as T;
+     }
     throw new Error(`Unexpected POST: ${url}`);
   }
 

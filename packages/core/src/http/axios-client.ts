@@ -79,79 +79,237 @@ export function createAxiosHttpClient(opts: AxiosHttpClientOptions = {}): HttpCl
   }
 
   const resolvedDebug = opts.debug ?? (process.env.HTTP_DEBUG === '1');
-  const resolvedFull = opts.debugFullBody ?? false;
+  const resolvedFull = opts.debugFullBody ?? (process.env.HTTP_DEBUG_FULL === '1');
   const log = opts.logger ?? defaultLogger();
 
   const client: HttpClient = {
     async get<T = unknown>(url: string, config?: HttpClientConfig): Promise<T> {
-      const ac = toAxiosConfig(config);
-      if ((config as any)?.responseType === "arraybuffer") ac.responseType = "arraybuffer";
-      if (resolvedDebug) log.debug('request', { method: 'GET', url, headers: sanitizeHeaders(ac.headers) });
-      try {
-        const res = await instance.request<T>({ method: "GET", url, ...ac });
-        if (resolvedDebug) log.debug('response', { status: res.status, headers: sanitizeHeaders(res.headers as any), bodyPreview: resolvedFull ? (JSON.stringify(res.data).slice(0, 200)) : undefined });
-        return res.data as T;
-      } catch (err) {
-        if (resolvedDebug) log.debug('error', { err, bodyPreview: resolvedFull ? JSON.stringify((err as any).response?.data) : undefined });
-        return handleError(err) as unknown as Promise<T>;
-      }
-    },
+       const ac = toAxiosConfig(config);
+       if ((config as any)?.responseType === "arraybuffer") ac.responseType = "arraybuffer";
+       if (resolvedDebug) {
+         log.debug('request', {
+           method: 'GET',
+           url,
+           headers: sanitizeHeaders(ac.headers)
+         });
+       }
+       try {
+         const res = await instance.request<T>({ method: "GET", url, ...ac });
+         if (resolvedDebug) {
+           const logObj: any = {
+             status: res.status,
+             statusText: res.statusText,
+             headers: sanitizeHeaders(res.headers as any)
+           };
+           if (resolvedFull) {
+             logObj.body = res.data;
+           } else {
+             logObj.bodyLength = JSON.stringify(res.data).length;
+           }
+           log.debug('response', logObj);
+         }
+         return res.data as T;
+       } catch (err) {
+         if (resolvedDebug) {
+           const logObj: any = {
+             status: (err as any).response?.status,
+             statusText: (err as any).response?.statusText,
+             error: (err as any).message
+           };
+           if (resolvedFull && (err as any).response?.data) {
+             logObj.body = (err as any).response.data;
+           }
+           log.debug('error', logObj);
+         }
+         return handleError(err) as unknown as Promise<T>;
+       }
+     },
 
     async post<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<T> {
-      const ac = toAxiosConfig(config);
-      if ((config as any)?.responseType === "arraybuffer") ac.responseType = "arraybuffer";
-      if (resolvedDebug) log.debug('request', { method: 'POST', url, headers: sanitizeHeaders(ac.headers), bodyLength: data ? JSON.stringify(data).length : 0, bodyPreview: resolvedFull ? JSON.stringify(data).slice(0,200) : undefined });
-      try {
-        const res = await instance.request<T>({ method: "POST", url, data, ...ac });
-        if (resolvedDebug) log.debug('response', { status: res.status, headers: sanitizeHeaders(res.headers as any), bodyPreview: resolvedFull ? (JSON.stringify(res.data).slice(0,200)) : undefined });
-        return res.data as T;
-      } catch (err) {
-        if (resolvedDebug) log.debug('error', { err, bodyPreview: resolvedFull ? JSON.stringify((err as any).response?.data).slice(0,200) : undefined });
-        return handleError(err) as unknown as Promise<T>;
-      }
-    },
+       const ac = toAxiosConfig(config);
+       if ((config as any)?.responseType === "arraybuffer") ac.responseType = "arraybuffer";
+       if (resolvedDebug) {
+         const logObj: any = {
+           method: 'POST',
+           url,
+           headers: sanitizeHeaders(ac.headers)
+         };
+         const bodyStr = data ? JSON.stringify(data) : undefined;
+         logObj.bodyLength = bodyStr?.length || 0;
+         if (resolvedFull && bodyStr) {
+           logObj.body = JSON.parse(bodyStr);
+         }
+         log.debug('request', logObj);
+       }
+       try {
+         const res = await instance.request<T>({ method: "POST", url, data, ...ac });
+         if (resolvedDebug) {
+           const logObj: any = {
+             status: res.status,
+             statusText: res.statusText,
+             headers: sanitizeHeaders(res.headers as any)
+           };
+           if (resolvedFull) {
+             logObj.body = res.data;
+           } else {
+             logObj.bodyLength = JSON.stringify(res.data).length;
+           }
+           log.debug('response', logObj);
+         }
+         return res.data as T;
+       } catch (err) {
+         if (resolvedDebug) {
+           const logObj: any = {
+             status: (err as any).response?.status,
+             statusText: (err as any).response?.statusText,
+             error: (err as any).message
+           };
+           if (resolvedFull && (err as any).response?.data) {
+             logObj.body = (err as any).response.data;
+           }
+           log.debug('error', logObj);
+         }
+         return handleError(err) as unknown as Promise<T>;
+       }
+     },
 
     async put<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<T> {
-      const ac = toAxiosConfig(config);
-      if ((config as any)?.responseType === "arraybuffer") ac.responseType = "arraybuffer";
-      if (resolvedDebug) log.debug('request', { method: 'PUT', url, headers: sanitizeHeaders(ac.headers), bodyLength: data ? JSON.stringify(data).length : 0 });
-      try {
-        const res = await instance.request<T>({ method: "PUT", url, data, ...ac });
-        if (resolvedDebug) log.debug('response', { status: res.status, headers: sanitizeHeaders(res.headers as any) });
-        return res.data as T;
-      } catch (err) {
-        if (resolvedDebug) log.debug('error', { err });
-        return handleError(err) as unknown as Promise<T>;
-      }
-    },
+       const ac = toAxiosConfig(config);
+       if ((config as any)?.responseType === "arraybuffer") ac.responseType = "arraybuffer";
+       if (resolvedDebug) {
+         const logObj: any = {
+           method: 'PUT',
+           url,
+           headers: sanitizeHeaders(ac.headers)
+         };
+         const bodyStr = data ? JSON.stringify(data) : undefined;
+         logObj.bodyLength = bodyStr?.length || 0;
+         if (resolvedFull && bodyStr) {
+           logObj.body = JSON.parse(bodyStr);
+         }
+         log.debug('request', logObj);
+       }
+       try {
+         const res = await instance.request<T>({ method: "PUT", url, data, ...ac });
+         if (resolvedDebug) {
+           const logObj: any = {
+             status: res.status,
+             statusText: res.statusText,
+             headers: sanitizeHeaders(res.headers as any)
+           };
+           if (resolvedFull) {
+             logObj.body = res.data;
+           } else {
+             logObj.bodyLength = JSON.stringify(res.data).length;
+           }
+           log.debug('response', logObj);
+         }
+         return res.data as T;
+       } catch (err) {
+         if (resolvedDebug) {
+           const logObj: any = {
+             status: (err as any).response?.status,
+             statusText: (err as any).response?.statusText,
+             error: (err as any).message
+           };
+           if (resolvedFull && (err as any).response?.data) {
+             logObj.body = (err as any).response.data;
+           }
+           log.debug('error', logObj);
+         }
+         return handleError(err) as unknown as Promise<T>;
+       }
+     },
 
     async patch<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<T> {
-      const ac = toAxiosConfig(config);
-      if ((config as any)?.responseType === "arraybuffer") ac.responseType = "arraybuffer";
-      if (resolvedDebug) log.debug('request', { method: 'PATCH', url, headers: sanitizeHeaders(ac.headers), bodyLength: data ? JSON.stringify(data).length : 0 });
-      try {
-        const res = await instance.request<T>({ method: "PATCH", url, data, ...ac });
-        if (resolvedDebug) log.debug('response', { status: res.status, headers: sanitizeHeaders(res.headers as any) });
-        return res.data as T;
-      } catch (err) {
-        if (resolvedDebug) log.debug('error', { err });
-        return handleError(err) as unknown as Promise<T>;
-      }
-    },
+       const ac = toAxiosConfig(config);
+       if ((config as any)?.responseType === "arraybuffer") ac.responseType = "arraybuffer";
+       if (resolvedDebug) {
+         const logObj: any = {
+           method: 'PATCH',
+           url,
+           headers: sanitizeHeaders(ac.headers)
+         };
+         const bodyStr = data ? JSON.stringify(data) : undefined;
+         logObj.bodyLength = bodyStr?.length || 0;
+         if (resolvedFull && bodyStr) {
+           logObj.body = JSON.parse(bodyStr);
+         }
+         log.debug('request', logObj);
+       }
+       try {
+         const res = await instance.request<T>({ method: "PATCH", url, data, ...ac });
+         if (resolvedDebug) {
+           const logObj: any = {
+             status: res.status,
+             statusText: res.statusText,
+             headers: sanitizeHeaders(res.headers as any)
+           };
+           if (resolvedFull) {
+             logObj.body = res.data;
+           } else {
+             logObj.bodyLength = JSON.stringify(res.data).length;
+           }
+           log.debug('response', logObj);
+         }
+         return res.data as T;
+       } catch (err) {
+         if (resolvedDebug) {
+           const logObj: any = {
+             status: (err as any).response?.status,
+             statusText: (err as any).response?.statusText,
+             error: (err as any).message
+           };
+           if (resolvedFull && (err as any).response?.data) {
+             logObj.body = (err as any).response.data;
+           }
+           log.debug('error', logObj);
+         }
+         return handleError(err) as unknown as Promise<T>;
+       }
+     },
 
     async delete<T = unknown>(url: string, config?: HttpClientConfig): Promise<T> {
-      const ac = toAxiosConfig(config);
-      if ((config as any)?.responseType === "arraybuffer") ac.responseType = "arraybuffer";
-      if (resolvedDebug) log.debug('request', { method: 'DELETE', url, headers: sanitizeHeaders(ac.headers) });
-      try {
-        const res = await instance.request<T>({ method: "DELETE", url, ...ac });
-        if (resolvedDebug) log.debug('response', { status: res.status, headers: sanitizeHeaders(res.headers as any) });
-        return res.data as T;
-      } catch (err) {
-        if (resolvedDebug) log.debug('error', { err });
-        return handleError(err) as unknown as Promise<T>;
-      }
-    },
+       const ac = toAxiosConfig(config);
+       if ((config as any)?.responseType === "arraybuffer") ac.responseType = "arraybuffer";
+       if (resolvedDebug) {
+         log.debug('request', {
+           method: 'DELETE',
+           url,
+           headers: sanitizeHeaders(ac.headers)
+         });
+       }
+       try {
+         const res = await instance.request<T>({ method: "DELETE", url, ...ac });
+         if (resolvedDebug) {
+           const logObj: any = {
+             status: res.status,
+             statusText: res.statusText,
+             headers: sanitizeHeaders(res.headers as any)
+           };
+           if (resolvedFull) {
+             logObj.body = res.data;
+           } else {
+             logObj.bodyLength = JSON.stringify(res.data).length;
+           }
+           log.debug('response', logObj);
+         }
+         return res.data as T;
+       } catch (err) {
+         if (resolvedDebug) {
+           const logObj: any = {
+             status: (err as any).response?.status,
+             statusText: (err as any).response?.statusText,
+             error: (err as any).message
+           };
+           if (resolvedFull && (err as any).response?.data) {
+             logObj.body = (err as any).response.data;
+           }
+           log.debug('error', logObj);
+         }
+         return handleError(err) as unknown as Promise<T>;
+       }
+     },
   };
 
   return client;

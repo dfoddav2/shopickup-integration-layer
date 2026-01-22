@@ -123,16 +123,26 @@ HTTP_DEBUG=1
 HTTP_DEBUG_FULL=1
 ```
 
-Restart and make a request. Look for logs like:
+Restart and make a request. Look for debug-level logs showing request and response details:
 
 ```
-[dev-server] {...,"msg":"→ POST /parcels","body":{...}}
-[dev-server] {...,"msg":"← 200 OK","headers":{...},"body":{...}}
+[dev-server] DEBUG: request
+  method: "POST"
+  url: "https://webapi-test.foxpost.hu/api/parcel?..."
+  body: {...request body...}
+
+[dev-server] DEBUG: response
+  status: 200
+  body: {...carrier response...}
 ```
 
-The response body is what becomes the `raw` field in the endpoint response.
+The response `body` is what becomes the `raw` field in the endpoint response.
 
-For a deeper dive, see [RAW_FIELD.md](./RAW_FIELD.md).
+**Important:** If `raw` appears empty or minimal in your response:
+- Check that you provided valid Foxpost credentials (apiKey, basicUsername, basicPassword)
+- Invalid credentials cause the carrier to return an error or empty response
+- Use `HTTP_DEBUG_FULL=1` to see the actual HTTP response from the carrier
+- Refer to [RAW_FIELD.md](./RAW_FIELD.md) for detailed debugging guidance
 
 ## Endpoints
 

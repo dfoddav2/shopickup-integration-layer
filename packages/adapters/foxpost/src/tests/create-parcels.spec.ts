@@ -11,8 +11,9 @@ class MockHttpClient {
     // If payload contains two parcels, simulate mixed response
     if (Array.isArray(data) && data.length === 2) {
       return {
+        valid: true,
         parcels: [
-          { barcode: 'CLFOXOK1', refCode: data[0].refCode, errors: [] },
+          { clFoxId: 'CLFOXOK1', refCode: data[0].refCode, errors: null },
           { errors: [{ field: 'recipientPhone', message: 'MISSING' }] },
         ],
       } as unknown as T;
@@ -20,7 +21,8 @@ class MockHttpClient {
 
     // Default single item
     return {
-      parcels: [{ barcode: 'CLFOX0000000002', errors: [] }],
+      valid: true,
+      parcels: [{ clFoxId: 'CLFOX0000000002', errors: null }],
     } as unknown as T;
   }
 }
@@ -123,5 +125,59 @@ describe('FoxpostAdapter createParcels', () => {
     const res = await adapter.createParcels(req, ctx);
     expect(res).toHaveLength(1);
     expect(res[0].carrierId).toBe('CLFOX0000000002');
+  });
+
+  it('returns validation errors array for failed parcels', async () => {
+    const mockHttp: any = {
+      async post<T>(url: string, data?: any): Promise<T> {
+        return {
+          valid: true,
+          parcels: [
+            {
+              clFoxId: 'CLFOX0000000001',
+              refCode: 'p1',
+              errors: null,
+            },
+            {
+              clFoxId: null,
+              refCode: 'p2',
+              errors: [
+                { field: 'recipientPhone', message: 'MISSING' },
+                { field: 'recipientZip', message: 'INVALID_FORMAT' },
+              ],
+            },
+          ],
+        } as unknown as T;
+      },
+    };
+
+    const contextWithMock: AdapterContext = { http: mockHttp, logger: console };
+    const req: CreateParcelsRequest = {
+      parcels: [createTestParcel('p1'), createTestParcel('p2')],
+      credentials: { apiKey: 'test', basicUsername: 'user', basicPassword: 'pass' },
+    };
+
+    const res = await adapter.createParcels(req, contextWithMock);
+    expect(res).toHaveLength(2);
+    
+    // First parcel succeeded
+    expect(res[0].status).toBe('created');
+    expect(res[0].carrierId).toBe('CLFOX0000000001');
+    expect(res[0].errors).toBeUndefined();
+    
+    // Second parcel failed with multiple errors
+    expect(res[1].status).toBe('failed');
+    expect(res[1].carrierId).toBeNull();
+    expect(res[1].errors).toBeDefined();
+    expect(res[1].errors).toHaveLength(2);
+    
+    // Check error details
+    const errors = res[1].errors!;
+    expect(errors[0].field).toBe('recipientPhone');
+    expect(errors[0].code).toBe('MISSING');
+    expect(errors[0].message).toContain('recipientPhone');
+    
+    expect(errors[1].field).toBe('recipientZip');
+    expect(errors[1].code).toBe('INVALID_FORMAT');
   });
 });

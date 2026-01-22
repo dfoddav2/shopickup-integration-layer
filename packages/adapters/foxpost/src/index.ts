@@ -7,6 +7,7 @@ import type {
   CarrierAdapter,
   Capability,
   CarrierResource,
+  ParcelValidationError,
   AdapterContext,
   CreateParcelRequest,
   CreateParcelsRequest,
@@ -225,47 +226,65 @@ export class FoxpostAdapter implements CarrierAdapter {
         }
 
         // Map carrier response array -> CarrierResource[]
-        // Check each parcel for individual errors even if response.valid is true
-        const results: CarrierResource[] = response.parcels.map((p: any, idx: number) => {
-          // Check for parcel-level validation errors
-          if (p.errors && Array.isArray(p.errors) && p.errors.length > 0) {
-            // Parcel has validation errors - return failed status with error details
-            const firstError = p.errors[0];
-            const errorCode = firstError?.message || "PARCEL_VALIDATION_ERROR";
-            
-            ctx.logger?.warn("Foxpost: Parcel validation error", {
-              parcelIdx: idx,
-              errorCode,
-              field: firstError?.field,
-              refCode: p.refCode,
-            });
-            
-            return { 
-              carrierId: null as any, 
-              status: "failed", 
-              raw: p,
-              error: {
-                message: `Parcel validation error: ${errorCode}`,
-                code: errorCode,
-                field: firstError?.field,
-              } as any,
-            };
-          }
+         // Check each parcel for individual errors even if response.valid is true
+         const results: CarrierResource[] = response.parcels.map((p: any, idx: number) => {
+           // Check for parcel-level validation errors
+           if (p.errors && Array.isArray(p.errors) && p.errors.length > 0) {
+             // Parcel has validation errors - collect all errors
+             const errors: ParcelValidationError[] = p.errors.map((err: any): ParcelValidationError => ({
+               field: err.field,
+               code: err.message, // Foxpost returns error code in 'message' field
+               message: `${err.field ? `Field '${err.field}': ` : ''}${err.message}`,
+             }));
+             
+             ctx.logger?.warn("Foxpost: Parcel validation errors", {
+               parcelIdx: idx,
+               errorCount: errors.length,
+               errorSummary: errors.map(e => `${e.field || 'unknown'}: ${e.code}`),
+               refCode: p.refCode,
+             });
+             
+             return { 
+               carrierId: null as any, 
+               status: "failed", 
+               raw: p,
+               errors,
+             };
+           }
 
-          // Check for successful barcode assignment
-          const barcode = p?.barcode || p?.barcodeTof || p?.clFoxId;
-          if (!barcode) {
-            // No barcode was generated - this is a failure
-            ctx.logger?.warn("Foxpost: Parcel created but no barcode assigned", {
-              parcelIdx: idx,
-              refCode: p.refCode,
-            });
-            return { carrierId: null as any, status: "failed", raw: p };
-          }
+           // Check for successful barcode assignment
+           const carrierId = p.clFoxId;
+           if (!carrierId) {
+             // No barcode was generated - this is a failure
+             ctx.logger?.warn("Foxpost: Parcel created but no barcode assigned", {
+               parcelIdx: idx,
+               refCode: p.refCode,
+             });
+             return { 
+               carrierId: null as any, 
+               status: "failed", 
+               raw: p,
+               errors: [{
+                 message: "No barcode assigned by carrier",
+                 code: "NO_BARCODE_ASSIGNED",
+               }],
+             };
+           }
+           // - Old barcode tracking is deprecated, prefer clFoxId in any case
+           // const barcode = p?.barcode || p?.barcodeTof || p?.clFoxId;
+           // if (!barcode) {
+           //   // No barcode was generated - this is a failure
+           //   ctx.logger?.warn("Foxpost: Parcel created but no barcode assigned", {
+           //     parcelIdx: idx,
+           //     refCode: p.refCode,
+           //   });
+           //   return { carrierId: null as any, status: "failed", raw: p };
+           // }
 
-          // Success - parcel was created with barcode
-          return { carrierId: barcode, status: "created", raw: p };
-        });
+
+           // Success - parcel was created with barcode
+           return { carrierId, status: "created", raw: p };
+         });
 
         ctx.logger?.info("Foxpost: Parcels created", { count: results.length, testMode: useTestApi });
 
