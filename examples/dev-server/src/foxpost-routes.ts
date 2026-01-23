@@ -15,12 +15,12 @@ import { CarrierError, type AdapterContext, type CreateParcelRequest, type Creat
 function determineBatchStatusCode(results: CarrierResource[]): { statusCode: number; summary: string } {
   const succeeded = results.filter(r => r.status === 'created').length;
   const failed = results.filter(r => r.status === 'failed').length;
-  
+
   if (failed === 0) {
     // All succeeded
     return { statusCode: 200, summary: `All ${succeeded} parcels created successfully` };
   }
-  
+
   if (succeeded === 0) {
     // All failed - check if all are validation errors
     const allValidationErrors = results.every(r => r.errors && r.errors.length > 0);
@@ -29,7 +29,7 @@ function determineBatchStatusCode(results: CarrierResource[]): { statusCode: num
     }
     return { statusCode: 400, summary: `All ${failed} parcels failed` };
   }
-  
+
   // Mixed results
   return { statusCode: 207, summary: `Mixed: ${succeeded} succeeded, ${failed} failed` };
 }
@@ -198,56 +198,56 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
         ],
       },
       response: {
-         200: {
-           description: 'Successful parcel creation',
-           type: 'object',
-           additionalProperties: false,
-           properties: {
-             carrierId: { type: 'string' },
-             status: { type: 'string' },
-             labelUrl: { type: ['string', 'null'] },
-             raw: { 
-               type: 'object',
-               additionalProperties: true,  // Allow any properties in raw
-             },
-           },
-         },
-         400: {
-           description: 'Validation error or client error',
-           type: 'object',
-           properties: {
-             message: { type: 'string' },
-             category: { type: 'string' },
-             raw: { type: 'object' },
-           },
-         },
-         401: {
-           description: 'Authentication error - invalid carrier credentials',
-           type: 'object',
-           properties: {
-             message: { 
-               type: 'string',
-               example: 'Foxpost credentials invalid'
-             },
-             category: { 
-               type: 'string',
-               example: 'Auth'
-             },
-             carrierCode: {
-               type: 'string',
-               example: 'WRONG_USERNAME_OR_PASSWORD'
-             },
-             raw: { 
-               type: 'object',
-               properties: {
-                 timestamp: { type: 'string' },
-                 error: { type: 'string' },
-                 status: { type: 'number' }
-               }
-             },
-           },
-         },
-       },
+        200: {
+          description: 'Successful parcel creation',
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            carrierId: { type: 'string' },
+            status: { type: 'string' },
+            labelUrl: { type: ['string', 'null'] },
+            raw: {
+              type: 'object',
+              additionalProperties: true,  // Allow any properties in raw
+            },
+          },
+        },
+        400: {
+          description: 'Validation error or client error',
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' },
+            raw: { type: 'object' },
+          },
+        },
+        401: {
+          description: 'Authentication error - invalid carrier credentials',
+          type: 'object',
+          properties: {
+            message: {
+              type: 'string',
+              example: 'Foxpost credentials invalid'
+            },
+            category: {
+              type: 'string',
+              example: 'Auth'
+            },
+            carrierCode: {
+              type: 'string',
+              example: 'WRONG_USERNAME_OR_PASSWORD'
+            },
+            raw: {
+              type: 'object',
+              properties: {
+                timestamp: { type: 'string' },
+                error: { type: 'string' },
+                status: { type: 'number' }
+              }
+            },
+          },
+        },
+      },
     },
     async handler(request: any, reply: any) {
       try {
@@ -278,32 +278,32 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
           });
         }
 
-         const ctx: AdapterContext = {
-           http: httpClient,
-           logger: fastify.log,
-         };
+        const ctx: AdapterContext = {
+          http: httpClient,
+          logger: fastify.log,
+        };
 
-          const result = await adapter.createParcel!(createReq, ctx);
-          return reply.status(200).send(result);
-       } catch (error) {
-         fastify.log.error(error);
+        const result = await adapter.createParcel!(createReq, ctx);
+        return reply.status(200).send(result);
+      } catch (error) {
+        fastify.log.error(error);
 
-         if (error instanceof CarrierError) {
-           // Map carrier error categories to HTTP status codes
-           const statusCode = error.category === 'Auth' ? 401 : 400;
-           return reply.status(statusCode).send({
-             message: error.message,
-             category: error.category,
-             ...(error.carrierCode && { carrierCode: error.carrierCode }),
-             raw: error.raw,
-           });
-         }
+        if (error instanceof CarrierError) {
+          // Map carrier error categories to HTTP status codes
+          const statusCode = error.category === 'Auth' ? 401 : 400;
+          return reply.status(statusCode).send({
+            message: error.message,
+            category: error.category,
+            ...(error.carrierCode && { carrierCode: error.carrierCode }),
+            raw: error.raw,
+          });
+        }
 
-         return reply.status(500).send({
-           message: error instanceof Error ? error.message : String(error),
-           category: 'Internal',
-         });
-       }
+        return reply.status(500).send({
+          message: error instanceof Error ? error.message : String(error),
+          category: 'Internal',
+        });
+      }
     },
   });
 
@@ -331,115 +331,122 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
             description: 'Optional request options',
           },
         },
-       },
-        response: {
-          200: {
-            description: 'All parcels created successfully',
-            type: 'object',
-            properties: {
-              summary: { type: 'string' },
-              results: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    carrierId: { type: 'string' },
-                    status: { type: 'string', enum: ['created', 'failed'] },
-                    errors: {
-                      type: 'array',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          field: { type: 'string' },
-                          code: { type: 'string' },
-                          message: { type: 'string' },
-                        },
+        examples: [
+          {
+            parcels: [EXAMPLE_PARCEL_HOME_DELIVERY, EXAMPLE_PARCEL_APM_DELIVERY],
+            credentials: EXAMPLE_CREDENTIALS,
+            options: { useTestApi: true },
+          },
+        ]
+      },
+      response: {
+        200: {
+          description: 'All parcels created successfully',
+          type: 'object',
+          properties: {
+            summary: { type: 'string' },
+            results: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  carrierId: { type: 'string' },
+                  status: { type: 'string', enum: ['created', 'failed'] },
+                  errors: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        field: { type: 'string' },
+                        code: { type: 'string' },
+                        message: { type: 'string' },
                       },
                     },
-                    raw: { 
-                      type: 'object',
-                      additionalProperties: true,
-                    },
+                  },
+                  raw: {
+                    type: 'object',
+                    additionalProperties: true,
                   },
                 },
               },
-            },
-          },
-          207: {
-            description: 'Multi-Status - some parcels created, some failed',
-            type: 'object',
-            properties: {
-              summary: { type: 'string' },
-              results: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    carrierId: { type: 'string' },
-                    status: { type: 'string', enum: ['created', 'failed'] },
-                    errors: {
-                      type: 'array',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          field: { type: 'string' },
-                          code: { type: 'string' },
-                          message: { type: 'string' },
-                        },
-                      },
-                    },
-                    raw: { 
-                      type: 'object',
-                      additionalProperties: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-          400: {
-            description: 'All parcels failed or validation error',
-            type: 'object',
-            properties: {
-              summary: { type: 'string' },
-              results: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    carrierId: { type: 'string' },
-                    status: { type: 'string', enum: ['created', 'failed'] },
-                    errors: {
-                      type: 'array',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          field: { type: 'string' },
-                          code: { type: 'string' },
-                          message: { type: 'string' },
-                        },
-                      },
-                    },
-                    raw: { 
-                      type: 'object',
-                      additionalProperties: true,
-                    },
-                  },
-                },
-             },
-           },
-          },
-          401: {
-            description: 'Authentication error - invalid carrier credentials',
-            type: 'object',
-            properties: {
-              message: { type: 'string' },
-              category: { type: 'string' },
-              carrierCode: { type: 'string' },
             },
           },
         },
-     },
+        207: {
+          description: 'Multi-Status - some parcels created, some failed',
+          type: 'object',
+          properties: {
+            summary: { type: 'string' },
+            results: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  carrierId: { type: 'string' },
+                  status: { type: 'string', enum: ['created', 'failed'] },
+                  errors: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        field: { type: 'string' },
+                        code: { type: 'string' },
+                        message: { type: 'string' },
+                      },
+                    },
+                  },
+                  raw: {
+                    type: 'object',
+                    additionalProperties: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        400: {
+          description: 'All parcels failed or validation error',
+          type: 'object',
+          properties: {
+            summary: { type: 'string' },
+            results: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  carrierId: { type: 'string' },
+                  status: { type: 'string', enum: ['created', 'failed'] },
+                  errors: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        field: { type: 'string' },
+                        code: { type: 'string' },
+                        message: { type: 'string' },
+                      },
+                    },
+                  },
+                  raw: {
+                    type: 'object',
+                    additionalProperties: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        401: {
+          description: 'Authentication error - invalid carrier credentials',
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' },
+            carrierCode: { type: 'string' },
+          },
+        },
+      },
+    },
     async handler(request: any, reply: any) {
       try {
         const { parcels, credentials, options } = request.body as any;
@@ -469,36 +476,36 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
           });
         }
 
-         const ctx: AdapterContext = {
-           http: httpClient,
-           logger: fastify.log,
-         };
+        const ctx: AdapterContext = {
+          http: httpClient,
+          logger: fastify.log,
+        };
 
-         const results = await adapter.createParcels!(createReq, ctx);
-         
-         // Analyze results to determine appropriate HTTP status code
-         const { statusCode, summary } = determineBatchStatusCode(results);
-         
-         // Add summary metadata to response
-         const response = {
-           summary,
-           results,
-         };
-         
-         return reply.status(statusCode).send(response);
-       } catch (error) {
-         fastify.log.error(error);
+        const results = await adapter.createParcels!(createReq, ctx);
 
-         if (error instanceof CarrierError) {
-           // Map carrier error categories to HTTP status codes
-           const statusCode = error.category === 'Auth' ? 401 : 400;
-           return reply.status(statusCode).send({
-             message: error.message,
-             category: error.category,
-             ...(error.carrierCode && { carrierCode: error.carrierCode }),
-             raw: error.raw,
-           });
-         }
+        // Analyze results to determine appropriate HTTP status code
+        const { statusCode, summary } = determineBatchStatusCode(results);
+
+        // Add summary metadata to response
+        const response = {
+          summary,
+          results,
+        };
+
+        return reply.status(statusCode).send(response);
+      } catch (error) {
+        fastify.log.error(error);
+
+        if (error instanceof CarrierError) {
+          // Map carrier error categories to HTTP status codes
+          const statusCode = error.category === 'Auth' ? 401 : 400;
+          return reply.status(statusCode).send({
+            message: error.message,
+            category: error.category,
+            ...(error.carrierCode && { carrierCode: error.carrierCode }),
+            raw: error.raw,
+          });
+        }
 
         return reply.status(500).send({
           message: error instanceof Error ? error.message : String(error),
