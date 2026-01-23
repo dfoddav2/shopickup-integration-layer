@@ -284,17 +284,18 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
           logger: wrapPinoLogger(fastify.log),
         };
 
-         const result = await adapter.createParcel!(createReq, ctx);
+        // Invoke createParcel method
+        const result = await adapter.createParcel(createReq, ctx);
 
-         // Determine HTTP status code based on result
-         let statusCode = 200; // Default: success
-         if (result.status === 'failed') {
-           // Single parcel failed - return 400 if validation errors, 500 for other errors
-           const hasValidationErrors = result.errors && result.errors.length > 0;
-           statusCode = hasValidationErrors ? 400 : 500;
-         }
+        // Determine HTTP status code based on result
+        let statusCode = 200; // Default: success
+        if (result.status === 'failed') {
+          // Single parcel failed - return 400 if validation errors, 500 for other errors
+          const hasValidationErrors = result.errors && result.errors.length > 0;
+          statusCode = hasValidationErrors ? 400 : 500;
+        }
 
-         return reply.status(statusCode).send(result);
+        return reply.status(statusCode).send(result);
       } catch (error) {
         fastify.log.error(error);
 
@@ -493,31 +494,10 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
 
          const response = await adapter.createParcels!(createReq, ctx);
 
-         // Handle both CreateParcelsResponse (new) and CarrierResource[] (legacy) formats
-         let batchResponse: CreateParcelsResponse;
-         if (Array.isArray(response)) {
-           // Legacy format - convert to CreateParcelsResponse
-           const succeeded = response.filter(r => r.status === 'created').length;
-           const failed = response.filter(r => r.status === 'failed').length;
-           batchResponse = {
-             results: response,
-             successCount: succeeded,
-             failureCount: failed,
-             totalCount: response.length,
-             allSucceeded: failed === 0 && response.length > 0,
-             allFailed: succeeded === 0 && response.length > 0,
-             someFailed: succeeded > 0 && failed > 0,
-             summary: determineBatchStatusCode(response).summary,
-           };
-         } else {
-           // New CreateParcelsResponse format
-           batchResponse = response;
-         }
+         // Response is now strongly-typed as CreateParcelsResponse
+         const statusCode = getHttpStatusForBatchResponse(response);
 
-         // Determine HTTP status code from response
-         const statusCode = getHttpStatusForBatchResponse(batchResponse);
-
-         return reply.status(statusCode).send(batchResponse);
+         return reply.status(statusCode).send(response);
       } catch (error) {
         fastify.log.error(error);
 

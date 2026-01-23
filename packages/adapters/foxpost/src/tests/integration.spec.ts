@@ -280,13 +280,13 @@ describe("FoxpostAdapter Integration", () => {
         ctx
       );
 
-      // Should return failed status with error details in raw field
-      expect(result.status).toBe("failed");
-      expect(result.carrierId).toBeNull();
-      expect(result.raw).toBeDefined();
-      const rawData = result.raw as any;
-      expect(rawData.errors).toBeDefined();
-      expect(rawData.errors[0].message).toBe("INVALID_APM_ID");
+       // Should return failed status with error details in raw field
+       expect(result.status).toBe("failed");
+       expect(result.carrierId).toBeNull();
+       expect(result.raw).toBeDefined();
+       const rawData = result.raw as any;
+       expect(rawData.errors).toBeDefined();
+       expect(rawData.errors[0].code).toBe("INVALID_APM_ID");
     });
 
     it("throws error when response.valid is false with top-level errors", async () => {

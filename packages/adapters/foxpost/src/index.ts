@@ -106,24 +106,24 @@ export class FoxpostAdapter implements CarrierAdapter {
       );
     }
 
-     // Delegate to createParcels when available to reuse batching logic
-     if (this.createParcels) {
-       const batchReq: CreateParcelsRequest = {
-         parcels: [req.parcel],
-         credentials: req.credentials,
-         options: req.options,
-       };
-       const response = await this.createParcels(batchReq, ctx);
-       
-       // Handle both CreateParcelsResponse and legacy CarrierResource[] for compatibility
-       if ('results' in response) {
-         // New CreateParcelsResponse format
-         return response.results[0];
-       } else {
-         // Legacy CarrierResource[] format
-         return response[0];
-       }
-     }
+    // Delegate to createParcels when available to reuse batching logic
+    if (this.createParcels) {
+      const batchReq: CreateParcelsRequest = {
+        parcels: [req.parcel],
+        credentials: req.credentials,
+        options: req.options,
+      };
+      const response = await this.createParcels(batchReq, ctx);
+
+      // Handle both CreateParcelsResponse and legacy CarrierResource[] for compatibility
+      if ('results' in response) {
+        // New CreateParcelsResponse format
+        return response.results[0];
+      } else {
+        // Legacy CarrierResource[] format
+        return response[0];
+      }
+    }
 
     throw new CarrierError(
       "createParcels not implemented on adapter",
@@ -131,20 +131,20 @@ export class FoxpostAdapter implements CarrierAdapter {
     );
   }
 
-   /**
-    * Create multiple parcels in one call
-    * Maps canonical Parcel array to Foxpost CreateParcelRequest and calls the
-    * Foxpost batch endpoint which accepts an array. Returns per-item CarrierResource
-    * so callers can handle partial failures.
-    * 
-    * Validates both the incoming parcels and the mapped carrier-specific payloads.
-    * 
-    * @returns CreateParcelsResponse with summary and per-item results
-    */
-   async createParcels(
-     req: CreateParcelsRequest,
-     ctx: AdapterContext
-   ): Promise<CreateParcelsResponse> {
+  /**
+   * Create multiple parcels in one call
+   * Maps canonical Parcel array to Foxpost CreateParcelRequest and calls the
+   * Foxpost batch endpoint which accepts an array. Returns per-item CarrierResource
+   * so callers can handle partial failures.
+   * 
+   * Validates both the incoming parcels and the mapped carrier-specific payloads.
+   * 
+   * @returns CreateParcelsResponse with summary and per-item results
+   */
+  async createParcels(
+    req: CreateParcelsRequest,
+    ctx: AdapterContext
+  ): Promise<CreateParcelsResponse> {
     try {
       // Validate request format and credentials
       const validated = safeValidateCreateParcelsRequest(req);
@@ -163,18 +163,18 @@ export class FoxpostAdapter implements CarrierAdapter {
         );
       }
 
-       if (!Array.isArray(req.parcels) || req.parcels.length === 0) {
-         return {
-           results: [],
-           successCount: 0,
-           failureCount: 0,
-           totalCount: 0,
-           allSucceeded: false,
-           allFailed: false,
-           someFailed: false,
-           summary: "No parcels to process",
-         };
-       }
+      if (!Array.isArray(req.parcels) || req.parcels.length === 0) {
+        return {
+          results: [],
+          successCount: 0,
+          failureCount: 0,
+          totalCount: 0,
+          allSucceeded: false,
+          allFailed: false,
+          someFailed: false,
+          summary: "No parcels to process",
+        };
+      }
 
       // For simplicity require uniform test-mode and credentials across the batch
       const useTestApi = req.options?.useTestApi ?? false;
@@ -265,12 +265,22 @@ export class FoxpostAdapter implements CarrierAdapter {
             errors: serializeForLog(errors),
           });
 
-          return {
-            carrierId: null as any,
-            status: "failed",
-            raw: serializeForLog(p) as any,
-            errors,
-          };
+           return {
+             carrierId: null as any,
+             status: "failed",
+             raw: {
+               parcelIndex: idx,
+               refCode: p.refCode,
+               errors: errors,
+               foxpostResponse: {
+                 clFoxId: p.clFoxId,
+                 valid: response.valid,
+                 recipientName: p.recipientName,
+                 destination: p.destination,
+               }
+             },
+             errors,
+           };
         }
 
         // Check for successful barcode assignment
@@ -281,16 +291,23 @@ export class FoxpostAdapter implements CarrierAdapter {
             parcelIdx: idx,
             refCode: p.refCode,
           });
-          return {
-            carrierId: null as any,
-            status: "failed",
-            raw: serializeForLog(p) as any,
-            errors: [{
-              field: "clFoxId",
-              message: "No barcode assigned by carrier",
-              code: "NO_BARCODE_ASSIGNED",
-            }],
-          };
+           return {
+             carrierId: null as any,
+             status: "failed",
+             raw: {
+               parcelIndex: idx,
+               refCode: p.refCode,
+               clFoxId: p.clFoxId,
+               recipientName: p.recipientName,
+               destination: p.destination,
+               issue: "No barcode assigned by carrier",
+             },
+             errors: [{
+               field: "clFoxId",
+               message: "No barcode assigned by carrier",
+               code: "NO_BARCODE_ASSIGNED",
+             }],
+           };
         }
         // - Old barcode tracking is deprecated, prefer clFoxId in any case
         // const barcode = p?.barcode || p?.barcodeTof || p?.clFoxId;
@@ -304,44 +321,56 @@ export class FoxpostAdapter implements CarrierAdapter {
         // }
 
 
-       // Success - parcel was created with barcode
-       return { carrierId, status: "created", raw: serializeForLog(p) as any };
-     });
+         // Success - parcel was created with barcode
+         return { 
+           carrierId, 
+           status: "created", 
+           raw: {
+             refCode: p.refCode,
+             clFoxId: p.clFoxId,
+             orderId: p.orderId,
+             barcode: p.barcode,
+             barcodeTof: p.barcodeTof,
+             validTo: p.validTo,
+             routeInfo: p.routeInfo,
+           }
+         };
+      });
 
-     // Calculate summary statistics
-     const successCount = results.filter(r => r.status === 'created').length;
-     const failureCount = results.filter(r => r.status === 'failed').length;
-     const totalCount = results.length;
+      // Calculate summary statistics
+      const successCount = results.filter(r => r.status === 'created').length;
+      const failureCount = results.filter(r => r.status === 'failed').length;
+      const totalCount = results.length;
 
-     // Determine summary text
-     let summary: string;
-     if (failureCount === 0) {
-       summary = `All ${totalCount} parcels created successfully`;
-     } else if (successCount === 0) {
-       summary = `All ${totalCount} parcels failed`;
-     } else {
-       summary = `Mixed results: ${successCount} succeeded, ${failureCount} failed`;
-     }
+      // Determine summary text
+      let summary: string;
+      if (failureCount === 0) {
+        summary = `All ${totalCount} parcels created successfully`;
+      } else if (successCount === 0) {
+        summary = `All ${totalCount} parcels failed`;
+      } else {
+        summary = `Mixed results: ${successCount} succeeded, ${failureCount} failed`;
+      }
 
-     ctx.logger?.info("Foxpost: Parcels created", { 
-       count: results.length, 
-       testMode: useTestApi,
-       summary,
-       successCount,
-       failureCount,
-     });
+      ctx.logger?.info("Foxpost: Parcels creation finished", {
+        count: results.length,
+        testMode: useTestApi,
+        summary,
+        successCount,
+        failureCount,
+      });
 
-     // Return strongly-typed response
-     return {
-       results,
-       successCount,
-       failureCount,
-       totalCount,
-       allSucceeded: failureCount === 0 && totalCount > 0,
-       allFailed: successCount === 0 && totalCount > 0,
-       someFailed: successCount > 0 && failureCount > 0,
-       summary,
-     };
+      // Return strongly-typed response
+      return {
+        results,
+        successCount,
+        failureCount,
+        totalCount,
+        allSucceeded: failureCount === 0 && totalCount > 0,
+        allFailed: successCount === 0 && totalCount > 0,
+        someFailed: successCount > 0 && failureCount > 0,
+        summary,
+      };
     } catch (error) {
       ctx.logger?.error("Foxpost: Error creating parcels batch", {
         error: errorToLog(error),

@@ -161,16 +161,18 @@ export interface CarrierAdapter {
      * Create multiple parcels in one call
      * Capability: CREATE_PARCELS
      * 
-     * Can return either:
-     * 1. CreateParcelsResponse (recommended) - strongly-typed with summary stats
-     * 2. CarrierResource[] (legacy) - just the per-item results
+     * Returns strongly-typed CreateParcelsResponse with:
+     * - Per-item results (results: CarrierResource[])
+     * - Summary statistics (successCount, failureCount, totalCount)
+     * - Convenience flags (allSucceeded, allFailed, someFailed)
+     * - Human-readable summary text
      * 
-     * Both allow callers to handle partial failures appropriately.
+     * Allows callers to handle partial failures appropriately.
      */
     createParcels?(
       req: CreateParcelsRequest,
       ctx: AdapterContext
-    ): Promise<CreateParcelsResponse | CarrierResource[]>;
+    ): Promise<CreateParcelsResponse>;
 
   /**
    * Close/finalize a shipment
