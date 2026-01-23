@@ -97,11 +97,11 @@ describe('FoxpostAdapter createParcels', () => {
       options: { useTestApi: true },
     };
 
-    const res = await adapter.createParcels(req, ctx);
-    expect(res).toHaveLength(2);
-    expect(res[0].carrierId).toBe('CLFOXOK1');
-    expect(res[1].status).toBe('failed');
-  });
+     const res = await adapter.createParcels(req, ctx);
+     expect(res.results).toHaveLength(2);
+     expect(res.results[0].carrierId).toBe('CLFOXOK1');
+     expect(res.results[1].status).toBe('failed');
+   });
 
   it('rejects empty parcel array', async () => {
     const req: CreateParcelsRequest = {
@@ -114,18 +114,18 @@ describe('FoxpostAdapter createParcels', () => {
     );
   });
 
-  it('extracts and uses shared credentials for batch', async () => {
-    const req: CreateParcelsRequest = {
-      parcels: [
-        createTestParcel('p1'),
-      ],
-      credentials: { apiKey: 'batch-api-key', basicUsername: 'batch-user', basicPassword: 'batch-pass' },
-    };
+   it('extracts and uses shared credentials for batch', async () => {
+     const req: CreateParcelsRequest = {
+       parcels: [
+         createTestParcel('p1'),
+       ],
+       credentials: { apiKey: 'batch-api-key', basicUsername: 'batch-user', basicPassword: 'batch-pass' },
+     };
 
-    const res = await adapter.createParcels(req, ctx);
-    expect(res).toHaveLength(1);
-    expect(res[0].carrierId).toBe('CLFOX0000000002');
-  });
+     const res = await adapter.createParcels(req, ctx);
+     expect(res.results).toHaveLength(1);
+     expect(res.results[0].carrierId).toBe('CLFOX0000000002');
+   });
 
   it('returns validation errors array for failed parcels', async () => {
     const mockHttp: any = {
@@ -157,27 +157,27 @@ describe('FoxpostAdapter createParcels', () => {
       credentials: { apiKey: 'test', basicUsername: 'user', basicPassword: 'pass' },
     };
 
-    const res = await adapter.createParcels(req, contextWithMock);
-    expect(res).toHaveLength(2);
-    
-    // First parcel succeeded
-    expect(res[0].status).toBe('created');
-    expect(res[0].carrierId).toBe('CLFOX0000000001');
-    expect(res[0].errors).toBeUndefined();
-    
-    // Second parcel failed with multiple errors
-    expect(res[1].status).toBe('failed');
-    expect(res[1].carrierId).toBeNull();
-    expect(res[1].errors).toBeDefined();
-    expect(res[1].errors).toHaveLength(2);
-    
-    // Check error details
-    const errors = res[1].errors!;
-    expect(errors[0].field).toBe('recipientPhone');
-    expect(errors[0].code).toBe('MISSING');
-    expect(errors[0].message).toContain('recipientPhone');
-    
-    expect(errors[1].field).toBe('recipientZip');
-    expect(errors[1].code).toBe('INVALID_FORMAT');
-  });
+     const res = await adapter.createParcels(req, contextWithMock);
+     expect(res.results).toHaveLength(2);
+     
+     // First parcel succeeded
+     expect(res.results[0].status).toBe('created');
+     expect(res.results[0].carrierId).toBe('CLFOX0000000001');
+     expect(res.results[0].errors).toBeUndefined();
+     
+     // Second parcel failed with multiple errors
+     expect(res.results[1].status).toBe('failed');
+     expect(res.results[1].carrierId).toBeNull();
+     expect(res.results[1].errors).toBeDefined();
+     expect(res.results[1].errors).toHaveLength(2);
+     
+     // Check error details
+     const errors = res.results[1].errors!;
+     expect(errors[0].field).toBe('recipientPhone');
+     expect(errors[0].code).toBe('MISSING');
+     expect(errors[0].message).toContain('recipientPhone');
+     
+     expect(errors[1].field).toBe('recipientZip');
+     expect(errors[1].code).toBe('INVALID_FORMAT');
+   });
 });

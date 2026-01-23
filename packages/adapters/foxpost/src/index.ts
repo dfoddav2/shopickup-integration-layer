@@ -12,6 +12,7 @@ import type {
   CreateParcelRequest,
   CreateParcelsRequest,
   RatesRequest,
+  CreateParcelsResponse,
 } from "@shopickup/core";
 import { Capabilities, CarrierError, NotImplementedError, serializeForLog, errorToLog } from "@shopickup/core";
 import { FoxpostClient } from './client/index.js';
@@ -95,26 +96,34 @@ export class FoxpostAdapter implements CarrierAdapter {
     req: CreateParcelRequest,
     ctx: AdapterContext
   ): Promise<CarrierResource> {
-       // Validate request format and credentials
-       const validated = safeValidateCreateParcelRequest(req);
-       if (!validated.success) {
-         throw new CarrierError(
-           `Invalid request: ${validated.error.message}`,
-           "Validation",
-           { raw: serializeForLog(validated.error) as any }
-         );
-       }
-
-    // Delegate to createParcels when available to reuse batching logic
-    if (this.createParcels) {
-      const batchReq: CreateParcelsRequest = {
-        parcels: [req.parcel],
-        credentials: req.credentials,
-        options: req.options,
-      };
-      const results = await this.createParcels(batchReq, ctx);
-      return results[0];
+    // Validate request format and credentials
+    const validated = safeValidateCreateParcelRequest(req);
+    if (!validated.success) {
+      throw new CarrierError(
+        `Invalid request: ${validated.error.message}`,
+        "Validation",
+        { raw: serializeForLog(validated.error) as any }
+      );
     }
+
+     // Delegate to createParcels when available to reuse batching logic
+     if (this.createParcels) {
+       const batchReq: CreateParcelsRequest = {
+         parcels: [req.parcel],
+         credentials: req.credentials,
+         options: req.options,
+       };
+       const response = await this.createParcels(batchReq, ctx);
+       
+       // Handle both CreateParcelsResponse and legacy CarrierResource[] for compatibility
+       if ('results' in response) {
+         // New CreateParcelsResponse format
+         return response.results[0];
+       } else {
+         // Legacy CarrierResource[] format
+         return response[0];
+       }
+     }
 
     throw new CarrierError(
       "createParcels not implemented on adapter",
@@ -122,18 +131,20 @@ export class FoxpostAdapter implements CarrierAdapter {
     );
   }
 
-  /**
-   * Create multiple parcels in one call
-   * Maps canonical Parcel array to Foxpost CreateParcelRequest and calls the
-   * Foxpost batch endpoint which accepts an array. Returns per-item CarrierResource
-   * so callers can handle partial failures.
-   * 
-   * Validates both the incoming parcels and the mapped carrier-specific payloads.
-   */
-  async createParcels(
-    req: CreateParcelsRequest,
-    ctx: AdapterContext
-  ): Promise<CarrierResource[]> {
+   /**
+    * Create multiple parcels in one call
+    * Maps canonical Parcel array to Foxpost CreateParcelRequest and calls the
+    * Foxpost batch endpoint which accepts an array. Returns per-item CarrierResource
+    * so callers can handle partial failures.
+    * 
+    * Validates both the incoming parcels and the mapped carrier-specific payloads.
+    * 
+    * @returns CreateParcelsResponse with summary and per-item results
+    */
+   async createParcels(
+     req: CreateParcelsRequest,
+     ctx: AdapterContext
+   ): Promise<CreateParcelsResponse> {
     try {
       // Validate request format and credentials
       const validated = safeValidateCreateParcelsRequest(req);
@@ -152,9 +163,18 @@ export class FoxpostAdapter implements CarrierAdapter {
         );
       }
 
-      if (!Array.isArray(req.parcels) || req.parcels.length === 0) {
-        return [];
-      }
+       if (!Array.isArray(req.parcels) || req.parcels.length === 0) {
+         return {
+           results: [],
+           successCount: 0,
+           failureCount: 0,
+           totalCount: 0,
+           allSucceeded: false,
+           allFailed: false,
+           someFailed: false,
+           summary: "No parcels to process",
+         };
+       }
 
       // For simplicity require uniform test-mode and credentials across the batch
       const useTestApi = req.options?.useTestApi ?? false;
@@ -167,15 +187,15 @@ export class FoxpostAdapter implements CarrierAdapter {
         // Map to carrier-specific parcel type (HD or APM)
         const carrierParcel = mapParcelToFoxpostCarrierType(parcel);
 
-         // Validate the mapped carrier parcel
-         const carrierValidation = safeValidateFoxpostParcel(carrierParcel);
-         if (!carrierValidation.success) {
-           throw new CarrierError(
-             `Invalid carrier payload for parcel ${idx}: ${carrierValidation.error.message}`,
-             "Validation",
-             { raw: serializeForLog({ ...carrierValidation.error, parcelIdx: idx }) as any }
-           );
-         }
+        // Validate the mapped carrier parcel
+        const carrierValidation = safeValidateFoxpostParcel(carrierParcel);
+        if (!carrierValidation.success) {
+          throw new CarrierError(
+            `Invalid carrier payload for parcel ${idx}: ${carrierValidation.error.message}`,
+            "Validation",
+            { raw: serializeForLog({ ...carrierValidation.error, parcelIdx: idx }) as any }
+          );
+        }
 
         // Map to Foxpost OpenAPI request format
         return mapParcelToFoxpost(parcel);
@@ -203,27 +223,27 @@ export class FoxpostAdapter implements CarrierAdapter {
         }
       );
 
-       if (!response || !Array.isArray(response.parcels)) {
-         throw new CarrierError("Invalid response from Foxpost", "Transient", { raw: serializeForLog(response) as any });
-       }
+      if (!response || !Array.isArray(response.parcels)) {
+        throw new CarrierError("Invalid response from Foxpost", "Transient", { raw: serializeForLog(response) as any });
+      }
 
-       // Check if response indicates an overall validation failure
-       // Foxpost returns HTTP 200 with valid=false when parcels have validation errors
-       if (response.valid === false && response.errors && Array.isArray(response.errors)) {
-         // Extract first error for the error message
-         const firstError = response.errors[0];
-         const errorCode = firstError?.message || "VALIDATION_ERROR";
-         const errorField = firstError?.field || "unknown";
+      // Check if response indicates an overall validation failure
+      // Foxpost returns HTTP 200 with valid=false when parcels have validation errors
+      if (response.valid === false && response.errors && Array.isArray(response.errors)) {
+        // Extract first error for the error message
+        const firstError = response.errors[0];
+        const errorCode = firstError?.message || "VALIDATION_ERROR";
+        const errorField = firstError?.field || "unknown";
 
-         throw new CarrierError(
-           `Validation error: ${errorCode} (field: ${errorField})`,
-           "Validation",
-           {
-             carrierCode: errorCode,
-             raw: serializeForLog(response) as any
-           }
-         );
-       }
+        throw new CarrierError(
+          `Validation error: ${errorCode} (field: ${errorField})`,
+          "Validation",
+          {
+            carrierCode: errorCode,
+            raw: serializeForLog(response) as any
+          }
+        );
+      }
 
       // Map carrier response array -> CarrierResource[]
       // Check each parcel for individual errors even if response.valid is true
@@ -237,20 +257,20 @@ export class FoxpostAdapter implements CarrierAdapter {
             message: `${err.field ? `Field '${err.field}': ` : ''}${err.message}`,
           }));
 
-           ctx.logger?.warn("Foxpost: Parcel validation errors", {
-             parcelIdx: idx,
-             errorCount: errors.length,
-             errorSummary: errors.map(e => `${e.field || 'unknown'}: ${e.code}`),
-             refCode: p.refCode,
-             errors: serializeForLog(errors),
-           });
+          ctx.logger?.warn("Foxpost: Parcel validation errors", {
+            parcelIdx: idx,
+            errorCount: errors.length,
+            errorSummary: errors.map(e => `${e.field || 'unknown'}: ${e.code}`),
+            refCode: p.refCode,
+            errors: serializeForLog(errors),
+          });
 
-           return {
-             carrierId: null as any,
-             status: "failed",
-             raw: serializeForLog(p) as any,
-             errors,
-           };
+          return {
+            carrierId: null as any,
+            status: "failed",
+            raw: serializeForLog(p) as any,
+            errors,
+          };
         }
 
         // Check for successful barcode assignment
@@ -261,16 +281,16 @@ export class FoxpostAdapter implements CarrierAdapter {
             parcelIdx: idx,
             refCode: p.refCode,
           });
-           return {
-             carrierId: null as any,
-             status: "failed",
-             raw: serializeForLog(p) as any,
-             errors: [{
-               field: "clFoxId",
-               message: "No barcode assigned by carrier",
-               code: "NO_BARCODE_ASSIGNED",
-             }],
-           };
+          return {
+            carrierId: null as any,
+            status: "failed",
+            raw: serializeForLog(p) as any,
+            errors: [{
+              field: "clFoxId",
+              message: "No barcode assigned by carrier",
+              code: "NO_BARCODE_ASSIGNED",
+            }],
+          };
         }
         // - Old barcode tracking is deprecated, prefer clFoxId in any case
         // const barcode = p?.barcode || p?.barcodeTof || p?.clFoxId;
@@ -284,22 +304,53 @@ export class FoxpostAdapter implements CarrierAdapter {
         // }
 
 
-         // Success - parcel was created with barcode
-         return { carrierId, status: "created", raw: serializeForLog(p) as any };
-      });
+       // Success - parcel was created with barcode
+       return { carrierId, status: "created", raw: serializeForLog(p) as any };
+     });
 
-      ctx.logger?.info("Foxpost: Parcels created", { count: results.length, testMode: useTestApi });
+     // Calculate summary statistics
+     const successCount = results.filter(r => r.status === 'created').length;
+     const failureCount = results.filter(r => r.status === 'failed').length;
+     const totalCount = results.length;
 
-      return results;
-     } catch (error) {
-       ctx.logger?.error("Foxpost: Error creating parcels batch", {
-         error: errorToLog(error),
-       });
-       if (error instanceof CarrierError) {
-         throw error;
-       }
-       throw translateFoxpostError(error);
+     // Determine summary text
+     let summary: string;
+     if (failureCount === 0) {
+       summary = `All ${totalCount} parcels created successfully`;
+     } else if (successCount === 0) {
+       summary = `All ${totalCount} parcels failed`;
+     } else {
+       summary = `Mixed results: ${successCount} succeeded, ${failureCount} failed`;
      }
+
+     ctx.logger?.info("Foxpost: Parcels created", { 
+       count: results.length, 
+       testMode: useTestApi,
+       summary,
+       successCount,
+       failureCount,
+     });
+
+     // Return strongly-typed response
+     return {
+       results,
+       successCount,
+       failureCount,
+       totalCount,
+       allSucceeded: failureCount === 0 && totalCount > 0,
+       allFailed: successCount === 0 && totalCount > 0,
+       someFailed: successCount > 0 && failureCount > 0,
+       summary,
+     };
+    } catch (error) {
+      ctx.logger?.error("Foxpost: Error creating parcels batch", {
+        error: errorToLog(error),
+      });
+      if (error instanceof CarrierError) {
+        throw error;
+      }
+      throw translateFoxpostError(error);
+    }
   }
 
 
@@ -362,14 +413,14 @@ export class FoxpostAdapter implements CarrierAdapter {
           labelUrl,
           raw: { barcode: parcelCarrierId, format: "PDF", pageSize: "A7" },
         };
-       } catch (labelError) {
-         // If PDF generation fails, return success with placeholder
-         // This allows shipment to proceed; label can be generated later
-         ctx.logger?.warn("Foxpost: Could not generate PDF label, returning placeholder", {
-           barcode: parcelCarrierId,
-           testMode: useTestApi,
-           error: errorToLog(labelError),
-         });
+      } catch (labelError) {
+        // If PDF generation fails, return success with placeholder
+        // This allows shipment to proceed; label can be generated later
+        ctx.logger?.warn("Foxpost: Could not generate PDF label, returning placeholder", {
+          barcode: parcelCarrierId,
+          testMode: useTestApi,
+          error: errorToLog(labelError),
+        });
 
         return {
           carrierId: parcelCarrierId,
@@ -377,18 +428,18 @@ export class FoxpostAdapter implements CarrierAdapter {
           labelUrl: null,
           raw: { barcode: parcelCarrierId, format: "PDF", pageSize: "A7", note: "PDF generation pending" },
         };
-       }
-     } catch (error) {
-       if (error instanceof CarrierError) {
-         throw error;
-       }
-       ctx.logger?.error("Foxpost: Error creating label", {
-         parcelCarrierId,
-         error: errorToLog(error),
-       });
-       throw translateFoxpostError(error);
-     }
-   }
+      }
+    } catch (error) {
+      if (error instanceof CarrierError) {
+        throw error;
+      }
+      ctx.logger?.error("Foxpost: Error creating label", {
+        parcelCarrierId,
+        error: errorToLog(error),
+      });
+      throw translateFoxpostError(error);
+    }
+  }
 
   /**
    * NOT IMPLEMENTED: Foxpost doesn't support voiding labels
@@ -459,23 +510,23 @@ export class FoxpostAdapter implements CarrierAdapter {
         testMode: useTestApi,
       });
 
-       return {
-         trackingNumber,
-         events,
-         status: currentStatus,
-         lastUpdate: events[events.length - 1]?.timestamp || new Date(),
-         raw: serializeForLog(tracks) as any,
-       };
-     } catch (error) {
-       if (error instanceof CarrierError) {
-         throw error;
-       }
-       ctx.logger?.error("Foxpost: Error tracking parcel", {
-         trackingNumber,
-         error: errorToLog(error),
-       });
-       throw translateFoxpostError(error);
-     }
+      return {
+        trackingNumber,
+        events,
+        status: currentStatus,
+        lastUpdate: events[events.length - 1]?.timestamp || new Date(),
+        raw: serializeForLog(tracks) as any,
+      };
+    } catch (error) {
+      if (error instanceof CarrierError) {
+        throw error;
+      }
+      ctx.logger?.error("Foxpost: Error tracking parcel", {
+        trackingNumber,
+        error: errorToLog(error),
+      });
+      throw translateFoxpostError(error);
+    }
   }
 
   /**

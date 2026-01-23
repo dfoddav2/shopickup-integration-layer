@@ -7,3 +7,4 @@ export * from './parcel.js';
 export * from './label.js';
 export * from './tracking.js';
 export * from './rate.js';
+export * from './responses.js';

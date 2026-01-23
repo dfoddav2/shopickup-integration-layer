@@ -1,7 +1,7 @@
 import type { Capability } from './capabilities.js';
 import type { AdapterContext } from './adapter-context.js';
 import type { CarrierResource } from './carrier-resource.js';
-import type { Parcel, RatesResponse, TrackingUpdate } from '../types/index.js';
+import type { Parcel, RatesResponse, TrackingUpdate, CreateParcelsResponse } from '../types/index.js';
 
 /**
  * Request options
@@ -160,12 +160,17 @@ export interface CarrierAdapter {
     /**
      * Create multiple parcels in one call
      * Capability: CREATE_PARCELS
-     * Note: Returns per-item CarrierResource so callers can handle partial failures.
+     * 
+     * Can return either:
+     * 1. CreateParcelsResponse (recommended) - strongly-typed with summary stats
+     * 2. CarrierResource[] (legacy) - just the per-item results
+     * 
+     * Both allow callers to handle partial failures appropriately.
      */
     createParcels?(
       req: CreateParcelsRequest,
       ctx: AdapterContext
-    ): Promise<CarrierResource[]>;
+    ): Promise<CreateParcelsResponse | CarrierResource[]>;
 
   /**
    * Close/finalize a shipment

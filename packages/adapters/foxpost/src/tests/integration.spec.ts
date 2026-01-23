@@ -580,9 +580,9 @@ describe("FoxpostAdapter Integration", () => {
         ctx
       );
 
-      expect(result).toHaveLength(2);
-      expect(result[0].carrierId).toBe("CLFOX0000000001");
-      expect(result[1].carrierId).toBe("CLFOX0000000002");
+      expect(result.results).toHaveLength(2);
+      expect(result.results[0].carrierId).toBe("CLFOX0000000001");
+      expect(result.results[1].carrierId).toBe("CLFOX0000000002");
       
       // Verify that the mock was called with correct data structure
       expect(mockHttp.lastPostData).toBeDefined();
