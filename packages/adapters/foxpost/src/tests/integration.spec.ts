@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import type { AdapterContext, Parcel, HttpClient } from "@shopickup/core";
+import type { AdapterContext, Parcel, HttpClient, TrackingRequest } from "@shopickup/core";
 import { FoxpostAdapter } from '../index.js';
 import type { Statuses } from '../types/generated.js';
 
@@ -42,28 +42,38 @@ class MockHttpClient implements HttpClient {
     this.lastUrl = url;
     this.lastMethod = 'GET';
     
-    // Mock tracking response
-    if (url.includes("/api/tracking/tracks/")) {
-      return [
-        {
-          trackId: 1,
-          status: "CREATE",
-          statusDate: "2024-01-17T10:00:00Z",
-          longName: "Parcel created",
-        },
-        {
-          trackId: 2,
-          status: "OPERIN",
-          statusDate: "2024-01-17T15:00:00Z",
-          longName: "In transit",
-        },
-        {
-          trackId: 3,
-          status: "RECEIVE",
-          statusDate: "2024-01-18T10:00:00Z",
-          longName: "Delivered",
-        },
-      ] as unknown as T;
+    // Mock tracking response using new /api/tracking/{barcode} endpoint format
+    // Response includes: clFox, estimatedDelivery, parcelType, sendType, traces[]
+    if (url.includes("/api/tracking/")) {
+      return {
+        clFox: "CLFOX0000000001",
+        estimatedDelivery: "2024-01-20",
+        parcelType: "NORMAL",
+        sendType: "HD",
+        traces: [
+          {
+            status: "RECEIVE",
+            shortName: "RECEIVE",
+            longName: "Delivered",
+            statusDate: "2024-01-18T10:00:00Z",
+            statusStatidionId: "bp-main",
+          },
+          {
+            status: "HDINTRANSIT",
+            shortName: "INTRAN",
+            longName: "In transit",
+            statusDate: "2024-01-17T15:00:00Z",
+            statusStatidionId: "bp-courier",
+          },
+          {
+            status: "CREATE",
+            shortName: "CREATE",
+            longName: "Parcel created",
+            statusDate: "2024-01-17T10:00:00Z",
+            statusStatidionId: "bp-main",
+          },
+        ],
+      } as unknown as T;
     }
 
     // Mock label generation
@@ -189,10 +199,11 @@ describe("FoxpostAdapter Integration", () => {
     });
 
     it("tracks the parcel", async () => {
-      const result = await adapter.track!(
-        "CLFOX0000000001",
-        context
-      );
+      const trackReq: TrackingRequest = {
+        trackingNumber: "CLFOX0000000001",
+        credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+      };
+      const result = await adapter.track!(trackReq, context);
 
       expect(result).toBeDefined();
       expect(result.trackingNumber).toBe("CLFOX0000000001");
@@ -386,44 +397,46 @@ describe("FoxpostAdapter Integration", () => {
       expect(mockHttp.lastUrl).toContain("https://webapi-test.foxpost.hu");
     });
 
-    it("uses test base URL when options.useTestApi=true for track via context", async () => {
-      const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
-      const mockHttp = new MockHttpClient();
-      const ctx: AdapterContext = {
-        http: mockHttp,
-        logger: console,
-        options: { useTestApi: true },
-      } as any;
+     it("uses test base URL when options.useTestApi=true for track", async () => {
+       const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+       const mockHttp = new MockHttpClient();
+       const ctx: AdapterContext = { http: mockHttp, logger: console };
 
-      await productionAdapter.track!("CLFOX0000000001", ctx);
+       const trackReq: TrackingRequest = {
+         trackingNumber: "CLFOX0000000001",
+         credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+         options: { useTestApi: true },
+       };
+       await productionAdapter.track!(trackReq, ctx);
 
-      expect(mockHttp.lastUrl).toContain("https://webapi-test.foxpost.hu");
-    });
+       expect(mockHttp.lastUrl).toContain("https://webapi-test.foxpost.hu");
+     });
 
     it("uses production base URL for track when useTestApi is not set", async () => {
       const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
       const mockHttp = new MockHttpClient();
       const ctx: AdapterContext = { http: mockHttp, logger: console };
 
-      await productionAdapter.track!("CLFOX0000000001", ctx);
+      const trackReq: TrackingRequest = {
+        trackingNumber: "CLFOX0000000001",
+        credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+      };
+      await productionAdapter.track!(trackReq, ctx);
 
       expect(mockHttp.lastUrl).toContain("https://webapi.foxpost.hu");
       expect(mockHttp.lastUrl).not.toContain("webapi-test");
     });
 
-    it("uses test base URL when options.useTestApi=true for createLabel via context", async () => {
-      const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
-      const mockHttp = new MockHttpClient();
-      const ctx: AdapterContext = {
-        http: mockHttp,
-        logger: console,
-        options: { useTestApi: true },
-      } as any;
+     it("uses test base URL when options.useTestApi=true for createLabel", async () => {
+       const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+       const mockHttp = new MockHttpClient();
+       const ctx: AdapterContext = { http: mockHttp, logger: console };
 
-      await productionAdapter.createLabel!("CLFOX0000000001", ctx);
+       await productionAdapter.createLabel!("CLFOX0000000001", ctx);
 
-      expect(mockHttp.lastUrl).toContain("https://webapi-test.foxpost.hu");
-    });
+       expect(mockHttp.lastUrl).toContain("https://webapi.foxpost.hu");
+       expect(mockHttp.lastUrl).not.toContain("webapi-test");
+     });
 
     it("uses production base URL for createLabel when useTestApi is not set", async () => {
       const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");

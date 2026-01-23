@@ -308,51 +308,74 @@ describe('Foxpost Mappers', () => {
     });
   });
 
-  describe('mapFoxpostTrackToCanonical', () => {
-    it('maps Foxpost track to canonical TrackingEvent', () => {
-      const foxpostTrack: TrackDTO = {
-        trackId: 1,
-        status: 'CREATE',
-        statusDate: '2024-01-17T10:00:00Z',
-        longName: 'Parcel created',
-      };
+   describe('mapFoxpostTrackToCanonical', () => {
+     it('maps Foxpost track to canonical TrackingEvent', () => {
+       const foxpostTrack: TrackDTO = {
+         trackId: 1,
+         status: 'CREATE',
+         statusDate: '2024-01-17T10:00:00Z',
+         longName: 'Parcel created',
+       };
 
-      const result = mapFoxpostTrackToCanonical(foxpostTrack);
+       const result = mapFoxpostTrackToCanonical(foxpostTrack);
 
-      expect(result).toBeDefined();
-      expect(result.status).toBe('PENDING');
-      expect(result.description).toBe('Parcel created');
-      expect(result.timestamp).toBeInstanceOf(Date);
-    });
+       expect(result).toBeDefined();
+       expect(result.status).toBe('PENDING');
+       expect(result.description).toBe('Parcel created');
+       expect(result.timestamp).toBeInstanceOf(Date);
+       // Verify carrierStatusCode preserves original Foxpost status
+       expect(result.carrierStatusCode).toBe('CREATE');
+     });
 
-    it('handles multiple status transitions', () => {
-      const tracks: TrackDTO[] = [
-        {
-          trackId: 1,
-          status: 'CREATE',
-          statusDate: '2024-01-17T10:00:00Z',
-          longName: 'Parcel created',
-        },
-        {
-          trackId: 2,
-          status: 'OPERIN',
-          statusDate: '2024-01-17T15:00:00Z',
-          longName: 'In transit',
-        },
-        {
-          trackId: 3,
-          status: 'RECEIVE',
-          statusDate: '2024-01-18T10:00:00Z',
-          longName: 'Delivered',
-        },
-      ];
+     it('handles multiple status transitions', () => {
+       const tracks: TrackDTO[] = [
+         {
+           trackId: 1,
+           status: 'CREATE',
+           statusDate: '2024-01-17T10:00:00Z',
+           longName: 'Parcel created',
+         },
+         {
+           trackId: 2,
+           status: 'OPERIN',
+           statusDate: '2024-01-17T15:00:00Z',
+           longName: 'In transit',
+         },
+         {
+           trackId: 3,
+           status: 'RECEIVE',
+           statusDate: '2024-01-18T10:00:00Z',
+           longName: 'Delivered',
+         },
+       ];
 
-      const results = tracks.map(t => mapFoxpostTrackToCanonical(t));
+       const results = tracks.map(t => mapFoxpostTrackToCanonical(t));
 
-      expect(results).toHaveLength(3);
-      expect(results[0].status).toBe('PENDING');
-      expect(results[1].status).toBe('IN_TRANSIT');
-      expect(results[2].status).toBe('DELIVERED');
-    });
-  });
+       expect(results).toHaveLength(3);
+       expect(results[0].status).toBe('PENDING');
+       expect(results[1].status).toBe('IN_TRANSIT');
+       expect(results[2].status).toBe('DELIVERED');
+       // Verify each event preserves the original carrier status code
+       expect(results[0].carrierStatusCode).toBe('CREATE');
+       expect(results[1].carrierStatusCode).toBe('OPERIN');
+       expect(results[2].carrierStatusCode).toBe('RECEIVE');
+     });
+
+     it('preserves carrierStatusCode even when canonical status is mapped', () => {
+       // Map a Foxpost status that has a non-identity mapping
+       const foxpostTrack: TrackDTO = {
+         trackId: 1,
+         status: 'HDINTRANSIT', // Maps to OUT_FOR_DELIVERY in canonical
+         statusDate: '2024-01-17T12:00:00Z',
+         longName: 'Out for delivery',
+       };
+
+       const result = mapFoxpostTrackToCanonical(foxpostTrack);
+
+       // Canonical status should be mapped
+       expect(result.status).toBe('OUT_FOR_DELIVERY');
+       // But carrierStatusCode should preserve original
+       expect(result.carrierStatusCode).toBe('HDINTRANSIT');
+     });
+   });
 });

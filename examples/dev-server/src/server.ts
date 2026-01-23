@@ -5,7 +5,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
-import { registerFoxpostRoutes } from './foxpost-routes.js';
+import { registerFoxpostRoutes } from './foxpost/index.js';
 
 // Create a Fastify instance
 const isDev = process.env.NODE_ENV !== 'production';

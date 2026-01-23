@@ -1,13 +1,35 @@
 /**
  * TrackingEvent domain type
  * A normalized status update in a parcel's journey
+ * 
+ * Each event represents a single tracking update from the carrier.
+ * The `status` field is canonical (normalized across all carriers for consistent processing),
+ * while `carrierStatusCode` preserves the original carrier-specific code for debugging and
+ * carrier-specific business logic.
+ * 
+ * Example: Foxpost trace with status "CREATE" maps to canonical status "PENDING",
+ * but carrierStatusCode preserves "CREATE" for reference.
  */
 export interface TrackingEvent {
   /** Timestamp of the event (ISO 8601 UTC) */
   timestamp: Date;
 
-  /** Normalized status */
+  /** 
+   * Normalized status (canonical across all carriers)
+   * Used for generic processing, filtering, and UI display.
+   * Examples: "PENDING", "IN_TRANSIT", "DELIVERED"
+   */
   status: TrackingStatus;
+
+  /** 
+   * Original carrier-specific status code (optional)
+   * Preserves the exact code from the carrier API (e.g., "CREATE", "HDINTRANSIT", "RECEIVE").
+   * Useful for:
+   * - Debugging and troubleshooting carrier-specific behavior
+   * - Implementing carrier-specific logic or rules
+   * - Auditing the original carrier state
+   */
+  carrierStatusCode?: string;
 
   /** Location information (optional) */
   location?: {

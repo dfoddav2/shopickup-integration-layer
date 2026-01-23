@@ -11,6 +11,7 @@ import type {
   AdapterContext,
   CreateParcelRequest,
   CreateParcelsRequest,
+  TrackingRequest,
   RatesRequest,
   CreateParcelsResponse,
 } from "@shopickup/core";
@@ -19,11 +20,13 @@ import { FoxpostClient } from './client/index.js';
 import {
   mapParcelToFoxpost,
   mapFoxpostTrackToCanonical,
+  mapFoxpostTraceToCanonical,
   mapParcelToFoxpostCarrierType,
 } from './mappers/index.js';
 import { translateFoxpostError } from './errors.js';
-import { safeValidateCreateParcelRequest, safeValidateCreateParcelsRequest, safeValidateFoxpostParcel } from './validation.js';
+import { safeValidateCreateParcelRequest, safeValidateCreateParcelsRequest, safeValidateFoxpostParcel, safeValidateTrackingRequest } from './validation.js';
 import type { TrackingUpdate } from "@shopickup/core";
+import type { TrackingResponse } from './types/generated.js';
 
 /**
  * FoxpostAdapter
@@ -40,13 +43,14 @@ import type { TrackingUpdate } from "@shopickup/core";
  * Test API:
  * - Production: https://webapi.foxpost.hu
  * - Test/Sandbox: https://webapi-test.foxpost.hu
- * - Use options.useTestApi = true to switch to test endpoint per-call
+ * - Pass options.useTestApi = true in request to switch to test endpoint for that call
+ * - Test API requires separate test credentials
  * 
  * Notes:
  * - Foxpost does NOT have a shipment concept; parcels are created directly
  * - Labels are generated per parcel
  * - Tracking available via barcode (FoxWeb barcode format: CLFOX...)
- * - Test API requires separate test credentials
+ * - createLabel does not support per-call test mode (no request object in interface)
  */
 export class FoxpostAdapter implements CarrierAdapter {
   readonly id = "hu-foxpost";
@@ -197,7 +201,7 @@ export class FoxpostAdapter implements CarrierAdapter {
       }
 
       // For simplicity require uniform test-mode and credentials across the batch
-      const useTestApi = req.options?.useTestApi ?? false;
+      const useTestApi = validated.data.options?.useTestApi ?? false;
       const baseUrl = this.getBaseUrl(useTestApi);
       const isWeb = !useTestApi;
 
@@ -221,10 +225,9 @@ export class FoxpostAdapter implements CarrierAdapter {
         return mapParcelToFoxpost(parcel);
       });
 
-      // Extract credentials from request
-      const apiKey = (req.credentials?.apiKey as string) || "";
-      const basicUsername = (req.credentials?.basicUsername as string) || "";
-      const basicPassword = (req.credentials?.basicPassword as string) || "";
+      // Extract strongly-typed credentials from validated request
+      // Request was already validated upfront, so credentials are guaranteed to be valid
+      const { apiKey, basicUsername, basicPassword } = validated.data.credentials;
 
       ctx.logger?.debug("Foxpost: Creating parcels batch", {
         count: req.parcels.length,
@@ -389,15 +392,16 @@ export class FoxpostAdapter implements CarrierAdapter {
   }
 
 
-  /**
-   * Create a label (generate PDF) for a parcel
-  * 
-  * Takes the parcel's Foxpost barcode and generates a PDF label
-  * Returns base64-encoded PDF in labelUrl field
-  * 
-  * To use test API, pass in context as:
-  * { http: client, logger: console, options?: { useTestApi: true } }
-  */
+   /**
+    * Create a label (generate PDF) for a parcel
+   * 
+   * Takes the parcel's Foxpost barcode and generates a PDF label
+   * Returns base64-encoded PDF in labelUrl field
+   * 
+   * Note: This method does not accept per-call test mode selection.
+   * Labels are generated from the production endpoint by default.
+   * To use test API for label generation, pass credentials from test environment.
+   */
   async createLabel(
     parcelCarrierId: string,
     ctx: AdapterContext
@@ -410,13 +414,12 @@ export class FoxpostAdapter implements CarrierAdapter {
         );
       }
 
-      // Extract useTestApi from context options (if provided via extended context)
-      const useTestApi = (ctx as any)?.options?.useTestApi ?? false;
-      const baseUrl = this.getBaseUrl(useTestApi);
-
+      // Label generation uses production endpoint
+      // Test mode selection is not supported for labels (no per-call request object)
+      const baseUrl = this.prodBaseUrl;
       ctx.logger?.debug("Foxpost: Creating label", {
         barcode: parcelCarrierId,
-        testMode: useTestApi,
+        endpoint: "production",
       });
 
       // Generate label for the barcode
@@ -434,28 +437,28 @@ export class FoxpostAdapter implements CarrierAdapter {
           responseType: "arraybuffer",
         });
 
-        // Convert PDF buffer to base64 for storage
-        const labelUrl = `data:application/pdf;base64,${Buffer.from(pdfBuffer).toString("base64")}`;
+         // Convert PDF buffer to base64 for storage
+         const labelUrl = `data:application/pdf;base64,${Buffer.from(pdfBuffer).toString("base64")}`;
 
-        ctx.logger?.info("Foxpost: Label created", {
-          barcode: parcelCarrierId,
-          testMode: useTestApi,
-        });
+         ctx.logger?.info("Foxpost: Label created", {
+           barcode: parcelCarrierId,
+           endpoint: "production",
+         });
 
-        return {
-          carrierId: parcelCarrierId,
-          status: "created",
-          labelUrl,
-          raw: { barcode: parcelCarrierId, format: "PDF", pageSize: "A7" },
-        };
-      } catch (labelError) {
-        // If PDF generation fails, return success with placeholder
-        // This allows shipment to proceed; label can be generated later
-        ctx.logger?.warn("Foxpost: Could not generate PDF label, returning placeholder", {
-          barcode: parcelCarrierId,
-          testMode: useTestApi,
-          error: errorToLog(labelError),
-        });
+         return {
+           carrierId: parcelCarrierId,
+           status: "created",
+           labelUrl,
+           raw: { barcode: parcelCarrierId, format: "PDF", pageSize: "A7" },
+         };
+       } catch (labelError) {
+         // If PDF generation fails, return success with placeholder
+         // This allows shipment to proceed; label can be generated later
+         ctx.logger?.warn("Foxpost: Could not generate PDF label, returning placeholder", {
+           barcode: parcelCarrierId,
+           endpoint: "production",
+           error: errorToLog(labelError),
+         });
 
         return {
           carrierId: parcelCarrierId,
@@ -487,18 +490,28 @@ export class FoxpostAdapter implements CarrierAdapter {
   }
 
   /**
-   * Track a parcel by barcode
+   * Track a parcel by its clFoxId or uniqueBarcode using the new GET /api/tracking/{barcode} endpoint
    * 
-   * Returns normalized tracking information
+   * Returns normalized tracking information with all available traces in reverse chronological order
    * 
    * To use test API, pass in context as:
    * { http: client, logger: console, options?: { useTestApi: true } }
    */
   async track(
-    trackingNumber: string,
+    req: TrackingRequest,
     ctx: AdapterContext
   ): Promise<TrackingUpdate> {
     try {
+      // Validate request format and credentials
+      const validated = safeValidateTrackingRequest(req);
+      if (!validated.success) {
+        throw new CarrierError(
+          `Invalid request: ${validated.error.message}`,
+          "Validation",
+          { raw: serializeForLog(validated.error) as any }
+        );
+      }
+
       if (!ctx.http) {
         throw new CarrierError(
           "HTTP client not provided in context",
@@ -506,42 +519,66 @@ export class FoxpostAdapter implements CarrierAdapter {
         );
       }
 
-      // Extract useTestApi from context options (if provided via extended context)
-      const useTestApi = (ctx as any)?.options?.useTestApi ?? false;
+      // Extract useTestApi from validated request (per-call test mode selection)
+      const useTestApi = validated.data.options?.useTestApi ?? false;
       const baseUrl = this.getBaseUrl(useTestApi);
+
+      // Extract strongly-typed credentials from validated request
+      // Request was already validated upfront, so credentials are guaranteed to be valid
+      const trackingNumber = validated.data.trackingNumber;
+      const { apiKey, basicUsername, basicPassword } = validated.data.credentials;
 
       ctx.logger?.debug("Foxpost: Tracking parcel", {
         trackingNumber,
         testMode: useTestApi,
       });
 
-      // Get tracking history directly via HTTP
-      const url = `${baseUrl}/api/tracking/tracks/${trackingNumber}`;
-      const tracks = await ctx.http.get<any[]>(url, {
+      // Get tracking history via new /api/tracking/{barcode} endpoint with proper typing
+      const url = `${baseUrl}/api/tracking/${trackingNumber}`;
+      const response = await ctx.http.get<TrackingResponse>(url, {
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Basic ${Buffer.from(`${basicUsername}:${basicPassword}`).toString("base64")}`,
+          ...(apiKey && { "Api-key": apiKey }),
         },
       });
 
-      if (!tracks || tracks.length === 0) {
+      // Validate response
+      // - Validate existing fields
+      if (!response || !response.clFox) {
         throw new CarrierError(
           `No tracking information found for ${trackingNumber}`,
           "Validation"
         );
       }
 
-      // Convert Foxpost tracks to canonical TrackingEvents
-      const events = tracks.map(mapFoxpostTrackToCanonical);
+      // - Validate traces array
+      if (!Array.isArray(response.traces)) {
+        throw new CarrierError(
+          `Invalid tracking response: traces array missing for ${trackingNumber}`,
+          "Transient",
+          { raw: serializeForLog(response) as any }
+        );
+      }
 
-      // Current status is the latest event
-      const currentStatus = events.length > 0
-        ? events[events.length - 1].status
+      // Convert Foxpost traces to canonical TrackingEvents
+      // Traces arrive in reverse chronological order (latest first), but we want them chronological for the response
+      const events = response.traces
+        .map(mapFoxpostTraceToCanonical)
+        .reverse(); // Reverse to get chronological order
+
+      // Current status is from the latest trace (which is first in the API response)
+      const currentStatus = response.traces.length > 0
+        ? mapFoxpostTraceToCanonical(response.traces[0]).status
         : "PENDING";
 
       ctx.logger?.info("Foxpost: Tracking retrieved", {
         trackingNumber,
+        clFox: response.clFox,
         status: currentStatus,
         events: events.length,
+        parcelType: response.parcelType,
+        sendType: response.sendType,
         testMode: useTestApi,
       });
 
@@ -550,14 +587,14 @@ export class FoxpostAdapter implements CarrierAdapter {
         events,
         status: currentStatus,
         lastUpdate: events[events.length - 1]?.timestamp || new Date(),
-        raw: serializeForLog(tracks) as any,
+        raw: response,
       };
     } catch (error) {
       if (error instanceof CarrierError) {
         throw error;
       }
       ctx.logger?.error("Foxpost: Error tracking parcel", {
-        trackingNumber,
+        trackingNumber: req.trackingNumber,
         error: errorToLog(error),
       });
       throw translateFoxpostError(error);

@@ -7,6 +7,7 @@ import type { Parcel, TrackingEvent, Delivery } from "@shopickup/core";
 import type {
   CreateParcelRequest as FoxpostParcelRequest,
   TrackDTO as FoxpostTrackDTO,
+  TraceDTO as FoxpostTraceDTO,
 } from '../types/generated.js';
 import type { FoxpostParcel, FoxpostPackageSize } from '../validation.js';
 
@@ -177,6 +178,9 @@ export function mapFoxpostStatusToCanonical(
 
 /**
  * Map Foxpost TrackDTO to canonical TrackingEvent
+ * 
+ * Normalizes the Foxpost status code to a canonical TrackingStatus while preserving
+ * the original carrier-specific code in `carrierStatusCode` for debugging and carrier-specific logic.
  */
 export function mapFoxpostTrackToCanonical(
   track: FoxpostTrackDTO
@@ -184,8 +188,33 @@ export function mapFoxpostTrackToCanonical(
   return {
     timestamp: new Date(track.statusDate || new Date()),
     status: mapFoxpostStatusToCanonical(track.status || "PENDING"),
+    carrierStatusCode: track.status || undefined,
     description: track.longName || track.status || "Unknown status",
     raw: track,
+  };
+}
+
+/**
+ * Map Foxpost TraceDTO (from new /api/tracking/{barcode} endpoint) to canonical TrackingEvent
+ * TraceDTO is returned in reverse chronological order (latest first) from the API
+ * 
+ * Normalizes the Foxpost status code to a canonical TrackingStatus while preserving
+ * the original carrier-specific code in `carrierStatusCode`.
+ * 
+ * Example mapping:
+ * - Foxpost "CREATE" -> canonical "PENDING" (carrierStatusCode: "CREATE")
+ * - Foxpost "HDINTRANSIT" -> canonical "OUT_FOR_DELIVERY" (carrierStatusCode: "HDINTRANSIT")
+ * - Foxpost "RECEIVE" -> canonical "DELIVERED" (carrierStatusCode: "RECEIVE")
+ */
+export function mapFoxpostTraceToCanonical(
+  trace: FoxpostTraceDTO
+): TrackingEvent {
+  return {
+    timestamp: new Date(trace.statusDate || new Date()),
+    status: mapFoxpostStatusToCanonical(trace.status || "PENDING"),
+    carrierStatusCode: trace.status || undefined,
+    description: trace.longName || trace.shortName || trace.status || "Unknown status",
+    raw: trace,
   };
 }
 

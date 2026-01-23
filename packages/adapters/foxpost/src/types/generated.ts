@@ -141,7 +141,54 @@ export interface TrackDTO {
 }
 
 /**
- * Tracking response for single parcel
+ * Tracking response for single parcel (NEW /api/tracking/{barcode} endpoint)
+ * Based on Foxpost API v1 documentation section 6.3
+ */
+export interface TrackingResponse {
+  /** Tracking number */
+  trackingNumber?: string;
+
+  /** The queried parcel's clFoxId */
+  clFox: string;
+
+  /** Expected delivery date (yyyy-mm-dd) */
+  estimatedDelivery: string | null;
+
+  /** Parcel type: "NORMAL", "RE", "XRE", "IRE", "C2B" */
+  parcelType: "NORMAL" | "RE" | "XRE" | "IRE" | "C2B";
+
+  /** Related (previous) parcel clFox for returns (RE, XRE, IRE only) */
+  relatedParcel: string | null;
+
+  /** Delivery type: "APM", "HD", "COLLECT" */
+  sendType: "APM" | "HD" | "COLLECT";
+
+  /** Array of tracking traces in reverse chronological order (latest first) */
+  traces: TraceDTO[];
+}
+
+/**
+ * Single tracking trace/event from the new tracking endpoint
+ */
+export interface TraceDTO {
+  /** Long human-readable status name */
+  longName?: string;
+
+  /** Short status code/name */
+  shortName?: string;
+
+  /** Status code */
+  status?: string;
+
+  /** When this status occurred */
+  statusDate?: string;
+
+  /** Status station ID reference on foxpost.hu */
+  statusStatidionId?: string;
+}
+
+/**
+ * Tracking response for single parcel (LEGACY /tracking endpoint - keep for backwards compatibility)
  */
 export interface Tracking {
   /** Barcode of the parcel */

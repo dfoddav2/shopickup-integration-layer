@@ -248,11 +248,41 @@ export const CreateParcelsRequestFoxpostSchema = z.object({
 });
 
 /**
+ * Foxpost-specific TrackingRequest (narrowed credentials)
+ */
+export interface TrackingRequestFoxpost {
+  trackingNumber: string;
+  credentials: FoxpostCredentials;
+  options?: {
+    useTestApi?: boolean;
+  };
+}
+
+/**
+ * TrackingRequest Zod schema
+ */
+export const TrackingRequestFoxpostSchema = z.object({
+  trackingNumber: z.string().min(1, 'Tracking number is required'),
+  credentials: FoxpostCredentialsSchema,
+  options: z.object({
+    useTestApi: z.boolean().optional()
+  }).optional()
+});
+
+/**
  * Helper to validate and extract credentials from a request
  * Throws ZodError if validation fails
  */
 export function validateFoxpostCredentials(credentials: unknown): FoxpostCredentials {
   return FoxpostCredentialsSchema.parse(credentials);
+}
+
+/**
+ * Helper to safely validate credentials without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateFoxpostCredentials(credentials: unknown) {
+  return FoxpostCredentialsSchema.safeParse(credentials);
 }
 
 /**
@@ -281,6 +311,14 @@ export function safeValidateCreateParcelRequest(req: unknown) {
 
 export function safeValidateCreateParcelsRequest(req: unknown) {
   return CreateParcelsRequestFoxpostSchema.safeParse(req);
+}
+
+/**
+ * Helper to safely validate a TrackingRequest without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateTrackingRequest(req: unknown) {
+  return TrackingRequestFoxpostSchema.safeParse(req);
 }
 
 /**

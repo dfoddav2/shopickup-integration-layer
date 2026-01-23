@@ -73,26 +73,17 @@ export interface CreateParcelsRequest {
   options?: RequestOptions;
 }
 
-export interface PickupRequest {
+export interface TrackingRequest {
   /**
-   * The parcel for which to request a pickup
-   * Contains complete shipping details
+   * Tracking number of the parcel to track
    */
-  parcel: Parcel;
+  trackingNumber: string;
   /**
-   * Preferred pickup date
+   * Credentials for the carrier API (if required for tracking)
    */
-  preferredDate?: Date;
+  credentials?: Record<string, unknown>;
   /**
-   * Special instructions for the pickup
-   */
-  instructions?: string;
-  /**
-   * Credentials for the carrier API
-   */
-  credentials: Record<string, unknown>;
-  /**
-   * Per-call options
+   * Per-call options (e.g., useTestApi)
    */
   options?: RequestOptions;
 }
@@ -139,40 +130,40 @@ export interface CarrierAdapter {
 
   // ========== Capability Methods ==========
 
-   /**
-    * Fetch available rates for parcels
-    * Capability: RATES
-    */
-   getRates?(
-     req: RatesRequest,
-     ctx: AdapterContext
-   ): Promise<RatesResponse>;
+  /**
+   * Fetch available rates for parcels
+   * Capability: RATES
+   */
+  getRates?(
+    req: RatesRequest,
+    ctx: AdapterContext
+  ): Promise<RatesResponse>;
 
-   /**
-    * Create a parcel
-    * Capability: CREATE_PARCEL
-    */
-   createParcel?(
-     req: CreateParcelRequest,
-     ctx: AdapterContext
-   ): Promise<CarrierResource>;
+  /**
+   * Create a parcel
+   * Capability: CREATE_PARCEL
+   */
+  createParcel?(
+    req: CreateParcelRequest,
+    ctx: AdapterContext
+  ): Promise<CarrierResource>;
 
-    /**
-     * Create multiple parcels in one call
-     * Capability: CREATE_PARCELS
-     * 
-     * Returns strongly-typed CreateParcelsResponse with:
-     * - Per-item results (results: CarrierResource[])
-     * - Summary statistics (successCount, failureCount, totalCount)
-     * - Convenience flags (allSucceeded, allFailed, someFailed)
-     * - Human-readable summary text
-     * 
-     * Allows callers to handle partial failures appropriately.
-     */
-    createParcels?(
-      req: CreateParcelsRequest,
-      ctx: AdapterContext
-    ): Promise<CreateParcelsResponse>;
+  /**
+   * Create multiple parcels in one call
+   * Capability: CREATE_PARCELS
+   * 
+   * Returns strongly-typed CreateParcelsResponse with:
+   * - Per-item results (results: CarrierResource[])
+   * - Summary statistics (successCount, failureCount, totalCount)
+   * - Convenience flags (allSucceeded, allFailed, someFailed)
+   * - Human-readable summary text
+   * 
+   * Allows callers to handle partial failures appropriately.
+   */
+  createParcels?(
+    req: CreateParcelsRequest,
+    ctx: AdapterContext
+  ): Promise<CreateParcelsResponse>;
 
   /**
    * Close/finalize a shipment
@@ -207,16 +198,7 @@ export interface CarrierAdapter {
    * Capability: TRACK
    */
   track?(
-    trackingNumber: string,
+    req: TrackingRequest,
     ctx: AdapterContext
   ): Promise<TrackingUpdate>;
-
-  /**
-   * Request a pickup from the shipper location
-   * Capability: PICKUP
-   */
-  requestPickup?(
-    req: PickupRequest,
-    ctx: AdapterContext
-  ): Promise<CarrierResource>;
 }

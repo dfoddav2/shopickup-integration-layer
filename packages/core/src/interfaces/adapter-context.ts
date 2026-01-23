@@ -39,3 +39,4 @@ export interface TelemetryClient {
     tags?: Record<string, string>
   ): void;
 }
+
