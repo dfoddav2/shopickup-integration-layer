@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { FoxpostAdapter } from '../index.js';
-import type { AdapterContext, CreateParcelsRequest, Parcel } from '@shopickup/core';
+import type { AdapterContext, CreateParcelsRequest, CreateParcelRequest, Parcel } from '@shopickup/core';
 import { CarrierError } from '@shopickup/core';
 
 class MockHttpClient {
@@ -177,7 +177,41 @@ describe('FoxpostAdapter createParcels', () => {
      expect(errors[0].code).toBe('MISSING');
      expect(errors[0].message).toContain('recipientPhone');
      
-     expect(errors[1].field).toBe('recipientZip');
-     expect(errors[1].code).toBe('INVALID_FORMAT');
-   });
+      expect(errors[1].field).toBe('recipientZip');
+      expect(errors[1].code).toBe('INVALID_FORMAT');
+    });
+});
+
+describe('FoxpostAdapter createParcel', () => {
+  let adapter: FoxpostAdapter;
+  let mockHttp: MockHttpClient;
+  let ctx: AdapterContext;
+
+  beforeEach(() => {
+    adapter = new FoxpostAdapter('https://webapi-test.foxpost.hu');
+    mockHttp = new MockHttpClient();
+    ctx = { http: mockHttp as any, logger: console } as AdapterContext;
+  });
+
+  it('returns rawCarrierResponse in result', async () => {
+    const parcel = createTestParcel('p1');
+    const req = {
+      parcel,
+      credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+    };
+    const res = await adapter.createParcel(req, ctx);
+
+    // Should have the per-item result data
+    expect(res.carrierId).toBeDefined();
+    expect(res.status).toBe('created');
+    expect(res.raw).toBeDefined();
+
+    // Should also have rawCarrierResponse from the batch HTTP call
+    const rawCarrierResp = (res as any).rawCarrierResponse;
+    expect(rawCarrierResp).toBeDefined();
+    expect(rawCarrierResp).toHaveProperty('valid');
+    
+    // Log the structure for verification
+    console.log('rawCarrierResponse structure:', JSON.stringify(rawCarrierResp, null, 2));
+  });
 });

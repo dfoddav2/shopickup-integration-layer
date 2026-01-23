@@ -115,14 +115,34 @@ export class FoxpostAdapter implements CarrierAdapter {
       };
       const response = await this.createParcels(batchReq, ctx);
 
-      // Handle both CreateParcelsResponse and legacy CarrierResource[] for compatibility
-      if ('results' in response) {
-        // New CreateParcelsResponse format
-        return response.results[0];
-      } else {
-        // Legacy CarrierResource[] format
-        return response[0];
+      // Expect CreateParcelsResponse. Validate shape and return the first result.
+      if (!response || !Array.isArray((response as CreateParcelsResponse).results)) {
+        // Defensive: unexpected shape from createParcels
+        throw new CarrierError(
+          "Unexpected response shape from createParcels",
+          "Transient",
+          { raw: serializeForLog(response) as any }
+        );
       }
+
+      // Got response from batch create
+      // ctx.logger?.debug("Foxpost: createParcel received batch result from createParcels", { raw: serializeForLog(response) });
+
+      const results = (response as CreateParcelsResponse).results;
+      if (results.length === 0) {
+        throw new CarrierError(
+          "createParcels returned an empty results array",
+          "Transient",
+          { raw: serializeForLog(response) as any }
+        );
+      }
+
+      // Return the first parcel result, but attach rawCarrierResponse for batch-level context
+      const result = results[0];
+      return {
+        ...result,
+        rawCarrierResponse: response.rawCarrierResponse,
+      } as CarrierResource & { rawCarrierResponse?: unknown };
     }
 
     throw new CarrierError(
@@ -211,7 +231,7 @@ export class FoxpostAdapter implements CarrierAdapter {
         testMode: useTestApi,
       });
 
-      const response = await ctx.http.post<any>(
+      const httpResponse = await ctx.http.post<any>(
         `${baseUrl}/api/parcel?isWeb=${isWeb}&isRedirect=false`,
         foxpostRequestsWithValidation,
         {
@@ -223,9 +243,21 @@ export class FoxpostAdapter implements CarrierAdapter {
         }
       );
 
-      if (!response || !Array.isArray(response.parcels)) {
-        throw new CarrierError("Invalid response from Foxpost", "Transient", { raw: serializeForLog(response) as any });
+      // Normalize carrier response body from various HTTP client shapes
+      // Different HTTP clients wrap responses differently (Axios: response.data, Fetch wrapper: response.body, etc.)
+      // Extract the actual carrier body while preserving the full HTTP response for debugging
+      const carrierRespBody =
+        (httpResponse && Array.isArray(httpResponse.parcels)) ? httpResponse :
+          (httpResponse && httpResponse.body && Array.isArray(httpResponse.body.parcels)) ? httpResponse.body :
+            (httpResponse && httpResponse.data && Array.isArray(httpResponse.data.parcels)) ? httpResponse.data :
+              null;
+
+      if (!carrierRespBody || !Array.isArray(carrierRespBody.parcels)) {
+        throw new CarrierError("Invalid response from Foxpost", "Transient", { raw: serializeForLog(httpResponse) as any });
       }
+
+      // Store the full HTTP response (including headers/status if available) for later inspection
+      const response = carrierRespBody;
 
       // Check if response indicates an overall validation failure
       // Foxpost returns HTTP 200 with valid=false when parcels have validation errors
@@ -265,22 +297,17 @@ export class FoxpostAdapter implements CarrierAdapter {
             errors: serializeForLog(errors),
           });
 
-           return {
-             carrierId: null as any,
-             status: "failed",
-             raw: {
-               parcelIndex: idx,
-               refCode: p.refCode,
-               errors: errors,
-               foxpostResponse: {
-                 clFoxId: p.clFoxId,
-                 valid: response.valid,
-                 recipientName: p.recipientName,
-                 destination: p.destination,
-               }
-             },
-             errors,
-           };
+          // Include the full carrier parcel response but ensure errors are the normalized form
+          const rawParcel = serializeForLog(p) as any;
+          rawParcel.errors = errors;
+
+          // Return failed CarrierResource - with null carrierId
+          return {
+            carrierId: null as any,
+            status: "failed",
+            raw: rawParcel,
+            errors,
+          };
         }
 
         // Check for successful barcode assignment
@@ -291,50 +318,28 @@ export class FoxpostAdapter implements CarrierAdapter {
             parcelIdx: idx,
             refCode: p.refCode,
           });
-           return {
-             carrierId: null as any,
-             status: "failed",
-             raw: {
-               parcelIndex: idx,
-               refCode: p.refCode,
-               clFoxId: p.clFoxId,
-               recipientName: p.recipientName,
-               destination: p.destination,
-               issue: "No barcode assigned by carrier",
-             },
-             errors: [{
-               field: "clFoxId",
-               message: "No barcode assigned by carrier",
-               code: "NO_BARCODE_ASSIGNED",
-             }],
-           };
+
+          // Return failed CarrierResource with custom error of not assigned barcode / tracking number
+          return {
+            carrierId: null as any,
+            status: "failed",
+            // Preserve the full carrier response for later inspection
+            raw: serializeForLog(p) as any,
+            errors: [{
+              field: "clFoxId",
+              message: "No barcode assigned by carrier",
+              code: "NO_BARCODE_ASSIGNED",
+            }],
+          };
         }
-        // - Old barcode tracking is deprecated, prefer clFoxId in any case
-        // const barcode = p?.barcode || p?.barcodeTof || p?.clFoxId;
-        // if (!barcode) {
-        //   // No barcode was generated - this is a failure
-        //   ctx.logger?.warn("Foxpost: Parcel created but no barcode assigned", {
-        //     parcelIdx: idx,
-        //     refCode: p.refCode,
-        //   });
-        //   return { carrierId: null as any, status: "failed", raw: p };
-        // }
 
-
-         // Success - parcel was created with barcode
-         return { 
-           carrierId, 
-           status: "created", 
-           raw: {
-             refCode: p.refCode,
-             clFoxId: p.clFoxId,
-             orderId: p.orderId,
-             barcode: p.barcode,
-             barcodeTof: p.barcodeTof,
-             validTo: p.validTo,
-             routeInfo: p.routeInfo,
-           }
-         };
+        // Success - parcel was created with barcode
+        return {
+          carrierId,
+          status: "created",
+          // Keep the original carrier parcel response intact in `raw`
+          raw: serializeForLog(p) as any,
+        };
       });
 
       // Calculate summary statistics
@@ -360,7 +365,7 @@ export class FoxpostAdapter implements CarrierAdapter {
         failureCount,
       });
 
-      // Return strongly-typed response
+      // Return strongly-typed response with full carrier response for debugging
       return {
         results,
         successCount,
@@ -370,6 +375,7 @@ export class FoxpostAdapter implements CarrierAdapter {
         allFailed: successCount === 0 && totalCount > 0,
         someFailed: successCount > 0 && failureCount > 0,
         summary,
+        rawCarrierResponse: serializeForLog(httpResponse),
       };
     } catch (error) {
       ctx.logger?.error("Foxpost: Error creating parcels batch", {

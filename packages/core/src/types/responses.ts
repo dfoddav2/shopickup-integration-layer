@@ -75,14 +75,22 @@ export interface CreateParcelsResponse {
    */
   someFailed: boolean;
 
-  /**
-   * Human-readable summary of the results
-   * Examples:
-   * - "All 5 parcels created successfully"
-   * - "2 created, 3 failed"
-   * - "All 4 parcels failed with validation errors"
-   */
-  summary: string;
+   /**
+    * Human-readable summary of the results
+    * Examples:
+    * - "All 5 parcels created successfully"
+    * - "2 created, 3 failed"
+    * - "All 4 parcels failed with validation errors"
+    */
+   summary: string;
+
+   /**
+    * Full raw carrier response from the HTTP call
+    * Contains status code, headers, and parsed body
+    * Useful for debugging, auditing, and later typing against carrier schemas
+    * Optional: adapters may omit if HTTP client does not support response inspection
+    */
+   rawCarrierResponse?: unknown;
 }
 
 /**

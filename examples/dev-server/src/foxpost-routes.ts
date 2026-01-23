@@ -198,30 +198,62 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
           },
         ],
       },
-      response: {
-        200: {
-          description: 'Successful parcel creation',
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            carrierId: { type: 'string' },
-            status: { type: 'string' },
-            labelUrl: { type: ['string', 'null'] },
-            raw: {
-              type: 'object',
-              additionalProperties: true,  // Allow any properties in raw
-            },
-          },
-        },
-        400: {
-          description: 'Validation error or client error',
-          type: 'object',
-          properties: {
-            message: { type: 'string' },
-            category: { type: 'string' },
-            raw: { type: 'object' },
-          },
-        },
+       response: {
+         200: {
+           description: 'Successful parcel creation',
+           type: 'object',
+           properties: {
+             carrierId: { type: 'string' },
+             status: { type: 'string' },
+             labelUrl: { type: ['string', 'null'] },
+             errors: {
+               type: 'array',
+               items: {
+                 type: 'object',
+                 properties: {
+                   field: { type: 'string' },
+                   code: { type: 'string' },
+                   message: { type: 'string' },
+                 },
+               },
+             },
+             raw: {
+               type: 'object',
+               additionalProperties: true,
+             },
+             rawCarrierResponse: {
+               type: 'object',
+               additionalProperties: true,
+             },
+           },
+         },
+         400: {
+           description: 'Validation error or client error',
+           type: 'object',
+           properties: {
+             carrierId: { type: 'string' },
+             status: { type: 'string', enum: ['failed'] },
+             errors: {
+               type: 'array',
+               items: {
+                 type: 'object',
+                 properties: {
+                   field: { type: 'string' },
+                   code: { type: 'string' },
+                   message: { type: 'string' },
+                 },
+               },
+             },
+             raw: {
+               type: 'object',
+               additionalProperties: true,
+             },
+             rawCarrierResponse: {
+               type: 'object',
+               additionalProperties: true,
+             },
+           },
+         },
         401: {
           description: 'Authentication error - invalid carrier credentials',
           type: 'object',
@@ -284,18 +316,29 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
           logger: wrapPinoLogger(fastify.log),
         };
 
-        // Invoke createParcel method
-        const result = await adapter.createParcel(createReq, ctx);
+         // Invoke createParcel method
+         const result = await adapter.createParcel(createReq, ctx);
 
-        // Determine HTTP status code based on result
-        let statusCode = 200; // Default: success
-        if (result.status === 'failed') {
-          // Single parcel failed - return 400 if validation errors, 500 for other errors
-          const hasValidationErrors = result.errors && result.errors.length > 0;
-          statusCode = hasValidationErrors ? 400 : 500;
-        }
+         // Log the full adapter response for verification
+          fastify.log.info({
+            carrierId: result.carrierId,
+            status: result.status,
+            hasLabelUrl: !!(result as any).labelUrl,
+            hasErrors: result.errors && result.errors.length > 0,
+            hasRaw: !!result.raw,
+            hasRawCarrierResponse: !!(result as any).rawCarrierResponse,
+            resultKeys: Object.keys(result),
+          }, 'Foxpost adapter createParcel response (full):');
 
-        return reply.status(statusCode).send(result);
+         // Determine HTTP status code based on result
+         let statusCode = 200; // Default: success
+         if (result.status === 'failed') {
+           // Single parcel failed - return 400 if validation errors, 500 for other errors
+           const hasValidationErrors = result.errors && result.errors.length > 0;
+           statusCode = hasValidationErrors ? 400 : 500;
+         }
+
+         return reply.status(statusCode).send(result);
       } catch (error) {
         fastify.log.error(error);
 
@@ -356,6 +399,12 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
           type: 'object',
           properties: {
             summary: { type: 'string' },
+            successCount: { type: 'number' },
+            failureCount: { type: 'number' },
+            totalCount: { type: 'number' },
+            allSucceeded: { type: 'boolean' },
+            allFailed: { type: 'boolean' },
+            someFailed: { type: 'boolean' },
             results: {
               type: 'array',
               items: {
@@ -381,6 +430,7 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
                 },
               },
             },
+            rawCarrierResponse: { type: 'object', additionalProperties: true },
           },
         },
         207: {
@@ -388,6 +438,12 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
           type: 'object',
           properties: {
             summary: { type: 'string' },
+            successCount: { type: 'number' },
+            failureCount: { type: 'number' },
+            totalCount: { type: 'number' },
+            allSucceeded: { type: 'boolean' },
+            allFailed: { type: 'boolean' },
+            someFailed: { type: 'boolean' },
             results: {
               type: 'array',
               items: {
@@ -413,6 +469,7 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
                 },
               },
             },
+            rawCarrierResponse: { type: 'object', additionalProperties: true },
           },
         },
         400: {
@@ -420,6 +477,12 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
           type: 'object',
           properties: {
             summary: { type: 'string' },
+            successCount: { type: 'number' },
+            failureCount: { type: 'number' },
+            totalCount: { type: 'number' },
+            allSucceeded: { type: 'boolean' },
+            allFailed: { type: 'boolean' },
+            someFailed: { type: 'boolean' },
             results: {
               type: 'array',
               items: {
@@ -445,6 +508,7 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
                 },
               },
             },
+            rawCarrierResponse: { type: 'object', additionalProperties: true },
           },
         },
         401: {
@@ -492,7 +556,20 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
           logger: wrapPinoLogger(fastify.log),
         };
 
-         const response = await adapter.createParcels!(createReq, ctx);
+         const response = await adapter.createParcels(createReq, ctx);
+
+         // Log the full adapter response for verification before schema filtering
+         fastify.log.info({
+           summary: response.summary,
+           successCount: response.successCount,
+           failureCount: response.failureCount,
+           totalCount: response.totalCount,
+           allSucceeded: response.allSucceeded,
+           allFailed: response.allFailed,
+           someFailed: response.someFailed,
+           resultsCount: response.results.length,
+           hasRawCarrierResponse: !!response.rawCarrierResponse,
+         }, 'Foxpost adapter response (full):');
 
          // Response is now strongly-typed as CreateParcelsResponse
          const statusCode = getHttpStatusForBatchResponse(response);
