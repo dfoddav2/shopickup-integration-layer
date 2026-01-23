@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { FoxpostAdapter } from '@shopickup/adapters-foxpost';
 import { safeValidateCreateParcelRequest, safeValidateCreateParcelsRequest, FoxpostCredentials } from '@shopickup/adapters-foxpost/validation';
 import { CarrierError, type AdapterContext, type CreateParcelRequest, type CreateParcelsRequest, type Parcel, type CarrierResource } from '@shopickup/core';
+import { wrapPinoLogger } from './http-client.js';
 
 /**
  * Analyze batch results and determine appropriate HTTP status code
@@ -269,21 +270,21 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Call adapter
-        const httpClient = (fastify as any).httpClient;
-        if (!httpClient) {
-          return reply.status(500).send({
-            message: 'HTTP client not configured',
-            category: 'Internal',
-          });
-        }
+         // Call adapter
+         const httpClient = (fastify as any).httpClient;
+         if (!httpClient) {
+           return reply.status(500).send({
+             message: 'HTTP client not configured',
+             category: 'Internal',
+           });
+         }
 
-        const ctx: AdapterContext = {
-          http: httpClient,
-          logger: fastify.log,
-        };
+         const ctx: AdapterContext = {
+           http: httpClient,
+           logger: wrapPinoLogger(fastify.log),
+         };
 
-        const result = await adapter.createParcel!(createReq, ctx);
+         const result = await adapter.createParcel!(createReq, ctx);
         return reply.status(200).send(result);
       } catch (error) {
         fastify.log.error(error);
@@ -467,21 +468,21 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Call adapter
-        const httpClient = (fastify as any).httpClient;
-        if (!httpClient) {
-          return reply.status(500).send({
-            message: 'HTTP client not configured',
-            category: 'Internal',
-          });
-        }
+         // Call adapter
+         const httpClient = (fastify as any).httpClient;
+         if (!httpClient) {
+           return reply.status(500).send({
+             message: 'HTTP client not configured',
+             category: 'Internal',
+           });
+         }
 
-        const ctx: AdapterContext = {
-          http: httpClient,
-          logger: fastify.log,
-        };
+         const ctx: AdapterContext = {
+           http: httpClient,
+           logger: wrapPinoLogger(fastify.log),
+         };
 
-        const results = await adapter.createParcels!(createReq, ctx);
+         const results = await adapter.createParcels!(createReq, ctx);
 
         // Analyze results to determine appropriate HTTP status code
         const { statusCode, summary } = determineBatchStatusCode(results);

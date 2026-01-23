@@ -144,8 +144,11 @@ class MockHttpClient implements HttpClient {
  * Pino requires metadata to be in the first parameter as {msg: '...', ...fields},
  * but our Logger interface expects (message, meta) format.
  * This wrapper converts between the two.
+ * 
+ * @param pinoLogger - The Pino logger instance from Fastify
+ * @returns A Logger instance compatible with AdapterContext
  */
-function wrapPinoLogger(pinoLogger: any): Logger {
+export function wrapPinoLogger(pinoLogger: any): Logger {
   return {
     debug: (message: string, meta?: Record<string, unknown>) => {
       pinoLogger.debug({ msg: message, ...meta });
