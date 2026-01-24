@@ -12,7 +12,7 @@ import { CarrierError, serializeForLog, errorToLog } from "@shopickup/core";
 import {
   mapFoxpostTraceToCanonical,
 } from '../mappers/index.js';
-import { translateFoxpostError } from '../errors.js';
+import { translateFoxpostError, sanitizeResponseForLog } from '../errors.js';
 import { safeValidateTrackingRequest } from '../validation.js';
 import { buildFoxpostHeaders } from '../client/index.js';
 import type { TrackingResponse } from '../types/generated.js';
@@ -62,19 +62,22 @@ export async function track(
       testMode: useTestApi,
     });
 
-     // Get tracking history via new /api/tracking/{barcode} endpoint with proper typing
-     const url = `${baseUrl}/api/tracking/${trackingNumber}`;
-     const response = await ctx.http.get<TrackingResponse>(url, {
-       headers: buildFoxpostHeaders(validated.data.credentials),
-     });
+      // Get tracking history via new /api/tracking/{barcode} endpoint with proper typing
+      const url = `${baseUrl}/api/tracking/${trackingNumber}`;
+      const httpResponse = await ctx.http.get<TrackingResponse>(url, {
+        headers: buildFoxpostHeaders(validated.data.credentials),
+      });
 
-    // Validate response
-    if (!response || !response.clFox) {
-      throw new CarrierError(
-        `No tracking information found for ${trackingNumber}`,
-        "Validation"
-      );
-    }
+     // Extract body from normalized HttpResponse
+     const response = httpResponse.body;
+
+     // Validate response
+     if (!response || !response.clFox) {
+       throw new CarrierError(
+         `No tracking information found for ${trackingNumber}`,
+         "Validation"
+       );
+     }
 
     // Validate traces array
     if (!Array.isArray(response.traces)) {

@@ -1,4 +1,4 @@
-import { CarrierError } from "@shopickup/core";
+import { CarrierError, sanitizeHeadersForLog, serializeForLog } from "@shopickup/core";
 
 /**
  * Foxpost-specific error code translations
@@ -155,10 +155,62 @@ export function translateFoxpostError(error: unknown): CarrierError {
     );
   }
 
-  // Unknown error shape
-  return new CarrierError(
-    "Unknown Foxpost error",
-    "Permanent" as any,
-    { raw: anyErr }
-  );
+   // Unknown error shape
+   return new CarrierError(
+     "Unknown Foxpost error",
+     "Permanent" as any,
+     { raw: anyErr }
+   );
+}
+
+/**
+ * Sanitize an HTTP response object for safe logging
+ * Removes sensitive headers (Authorization, Api-key, etc.) before serialization
+ * 
+ * Safely handles various HTTP client response shapes:
+ * - axios: { data, status, headers, config }
+ * - fetch: { status, headers, body }
+ * - undici: { status, headers, body }
+ * - custom: any object with headers property
+ * 
+ * @param response HTTP response object (may be from any HTTP client)
+ * @returns Sanitized copy safe for logging (original not modified)
+ */
+export function sanitizeResponseForLog(response: unknown): unknown {
+  if (!response || typeof response !== 'object') {
+    return response;
+  }
+
+  const resp = response as any;
+  
+  // Create a shallow copy to avoid modifying original
+  const sanitized: Record<string, any> = {};
+  
+  for (const [key, value] of Object.entries(resp)) {
+    // Always skip request body (should not be in response, but be safe)
+    if (key === 'body' && typeof value === 'string' && value.length > 10000) {
+      sanitized[key] = '[Large binary or text body - truncated for logging]';
+      continue;
+    }
+    
+    // Sanitize headers property if present
+    if (key === 'headers' && typeof value === 'object') {
+      sanitized[key] = sanitizeHeadersForLog(value as any);
+      continue;
+    }
+    
+    // Sanitize config.headers (axios pattern)
+    if (key === 'config' && typeof value === 'object') {
+      sanitized[key] = {
+        ...value,
+        headers: sanitizeHeadersForLog((value as any)?.headers),
+      };
+      continue;
+    }
+    
+    // Include all other properties as-is
+    sanitized[key] = value;
+  }
+  
+  return sanitized;
 }

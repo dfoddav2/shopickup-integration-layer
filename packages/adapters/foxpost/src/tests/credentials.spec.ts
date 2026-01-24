@@ -5,11 +5,11 @@ import { CarrierError } from '@shopickup/core';
 
 class MockHttpClient {
   async post<T>(): Promise<T> {
-    return { valid: true, parcels: [{ clFoxId: 'CLFOX0000000002' }] } as unknown as T;
+    return { status: 200, headers: {}, body: { valid: true, parcels: [{ clFoxId: 'CLFOX0000000002' }] } } as unknown as T;
   }
 
   async get<T>(): Promise<T> {
-    return { clFox: 'CLFOX0000000002', traces: [] } as unknown as T;
+    return { status: 200, headers: {}, body: { clFox: 'CLFOX0000000002', traces: [] } } as unknown as T;
   }
 }
 

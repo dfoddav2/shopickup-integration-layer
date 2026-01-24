@@ -12,10 +12,11 @@ This document is for **developers and AI agents** contributing to Shopickup. It 
 2. [Core Implementation Priorities](#core-implementation-priorities)
 3. [Adapter Development Framework](#adapter-development-framework)
 4. [Code Organization & Patterns](#code-organization--patterns)
-5. [Testing Approach](#testing-approach)
-6. [Common Implementation Decisions](#common-implementation-decisions)
-7. [Pitfalls & Anti-Patterns](#pitfalls--anti-patterns)
-8. [Checklist for Completing Tasks](#checklist-for-completing-tasks)
+5. [Runtime Environment & API Expectations](#runtime-environment--api-expectations)
+6. [Testing Approach](#testing-approach)
+7. [Common Implementation Decisions](#common-implementation-decisions)
+8. [Pitfalls & Anti-Patterns](#pitfalls--anti-patterns)
+9. [Checklist for Completing Tasks](#checklist-for-completing-tasks)
 
 ---
 
@@ -506,6 +507,136 @@ The `safeLog()` helper automatically checks `ctx.operationName` and `ctx.logging
 
 ---
 
+## Runtime Environment & API Expectations
+
+Shopickup is designed to run in **Node.js environments** (15+) and assumes certain APIs are available at runtime. This section clarifies what adapters and the core library depend on.
+
+### Node.js APIs Available
+
+1. **`process.env`** — Read-only access to environment variables
+   - Used in HTTP clients for debug mode configuration (`HTTP_DEBUG`, `HTTP_DEBUG_FULL`)
+   - **Never store credentials or secrets in `process.env` accessed from adapters** — pass them via `AdapterContext` at call time
+   - Example: `HTTP_DEBUG=1 npm start` enables debug logging
+
+2. **`Buffer`** — Node.js binary data type
+   - Used for binary label data (PDF, PNG, thermal printer formats)
+   - In `LabelFileResource.byteLength`, `rawCarrierResponse` may contain `Buffer` instances
+   - When sending over HTTP/JSON, convert `Buffer` to base64 or stream
+   - Example: adapter returns `{ rawCarrierResponse: Buffer.from(...) }`, integrator stores/serializes it
+
+3. **Global `fetch`** (Node.js 18+ or polyfilled)
+   - The fetch HTTP client (`createFetchHttpClient`) uses global `fetch`
+   - If using Node.js <18 or non-standard environment, provide `fetchFn` option
+   - Example: `createFetchHttpClient({ fetchFn: customFetchImpl })`
+
+4. **`globalThis`** — Global object
+   - Used for feature detection (e.g., checking if `fetch` is available)
+   - Safe for all environments
+
+### HTTP Client Selection & Availability
+
+Choose the appropriate HTTP client based on your environment:
+
+| Environment | HTTP Client | Availability |
+|-------------|-------------|--------------|
+| **Node.js 15+** | axios (recommended) | `createAxiosHttpClient` — auto-detects `process.env` |
+| **Node.js 18+** | fetch | `createFetchHttpClient` — uses native global `fetch` |
+| **Node.js <18** | fetch (polyfilled) | `createFetchHttpClient({ fetchFn: nodeFetch })` |
+| **Browser (ESM)** | fetch | `createFetchHttpClient` — browser has native `fetch` |
+| **Edge runtime** (Cloudflare Workers, Vercel Edge) | fetch | `createFetchHttpClient({ fetchFn: edge_fetch })` |
+
+**Important:** Do NOT assume `process.env` is available in all environments. Adapters should **never** read credentials from `process.env` directly — pass them via `AdapterContext.credentials` instead.
+
+### What's NOT Available (By Design)
+
+- **No filesystem access** — adapters cannot read/write files
+- **No database connections** — adapters don't persist data
+- **No global state** — each adapter instance is stateless
+- **No `require()` or CommonJS** — library is ESM-only
+- **No dynamic module loading** — all dependencies declared upfront
+
+### For Adapter Developers
+
+1. **Never import Node-specific modules** (like `fs`, `path`, `crypto`):
+   ```typescript
+   // ❌ WRONG: adapter depends on Node.js
+   import { readFileSync } from 'fs';
+   
+   // ✅ CORRECT: pass everything via AdapterContext
+   async createLabel(req, ctx) {
+     const cert = ctx.credentials?.tlsCert; // Passed by integrator
+   }
+   ```
+
+2. **Always use the injected HTTP client**:
+   ```typescript
+   // ✅ CORRECT
+   const res = await ctx.http!.post(...);
+   
+   // ❌ WRONG: assumes Node.js fetch is available
+   const res = await fetch(...);
+   ```
+
+3. **Handle `Buffer` gracefully**:
+   ```typescript
+   // When returning binary data:
+   return {
+     files: [{
+       byteLength: pdfBuffer.length,  // Works with Buffer or Uint8Array
+       contentType: 'application/pdf',
+     }],
+     rawCarrierResponse: pdfBuffer,   // May be Buffer or Uint8Array
+   };
+   ```
+
+### For Integrators
+
+1. **Provide an HTTP client** that works in your environment:
+   ```typescript
+   import { createAxiosHttpClient } from '@shopickup/core/http/axios-client';
+   const httpClient = createAxiosHttpClient({ debug: true });
+   const ctx = { http: httpClient, logger: console };
+   ```
+
+2. **Pass credentials explicitly** (never rely on environment):
+   ```typescript
+   const ctx = {
+     http: httpClient,
+     credentials: {
+       apiKey: process.env.FOXPOST_API_KEY,  // ← Integrator reads from env
+       basicUsername: process.env.FOXPOST_USER,
+       basicPassword: process.env.FOXPOST_PASS,
+     },
+   };
+   ```
+
+3. **Handle binary data appropriately**:
+   ```typescript
+   const response = await adapter.createLabels(req, ctx);
+   const pdfBuffer = response.rawCarrierResponse as Buffer;
+   
+   // Store, upload to S3, return URL, etc.
+   const url = await storage.upload(pdfBuffer, 'labels/batch.pdf');
+   response.files?.forEach(file => { file.url = url; });
+   ```
+
+### Environment Detection (For Conditional Exports)
+
+If you need to detect the runtime environment:
+
+```typescript
+// Detect Node.js
+const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
+
+// Detect browser
+const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
+
+// Detect Edge runtime (Cloudflare, Vercel)
+const isEdge = typeof caches !== 'undefined';  // Cloudflare Workers have caches API
+```
+
+---
+
 ## Testing Approach
 
 ### Contract Testing (Prism)
@@ -679,6 +810,90 @@ async createLabel(...): Promise<CarrierResource> { }
 
 // Never mix sync and async
 // Don't do: createLabelSync(...): CarrierResource { }
+```
+
+### Decision: Binary Label Data Handling
+
+**Question:** Where should adapters return binary label data (PDF bytes)?
+
+**Answer:** **Put raw bytes in `CreateLabelsResponse.rawCarrierResponse`, NOT in `LabelFileResource`.**
+
+This keeps adapters stateless and lightweight; integrators handle storage and URLs.
+
+**Pattern:**
+
+Adapters return metadata + bytes separately:
+```typescript
+// In adapter:
+async createLabels(req, ctx): Promise<CreateLabelsResponse> {
+  const pdfBuffer = await ctx.http!.post('/api/label', {...});
+  
+  return {
+    files: [{
+      id: "uuid-1",
+      contentType: "application/pdf",
+      byteLength: pdfBuffer.length,
+      pages: 3,
+      orientation: "portrait",
+      metadata: { size: "A7", testMode: false }
+      // Note: url and dataUrl are undefined
+    }],
+    results: [
+      { inputId: "CLFOX001", status: "created", fileId: "uuid-1", pageRange: { start: 1, end: 1 } },
+      // ...
+    ],
+    successCount: 3,
+    failureCount: 0,
+    totalCount: 3,
+    allSucceeded: true,
+    summary: "All 3 labels generated successfully",
+    rawCarrierResponse: pdfBuffer  // ← Raw bytes here
+  };
+}
+```
+
+Integrators then:
+```typescript
+const response = await adapter.createLabels(req, ctx);
+
+// 1. Extract bytes
+const pdfBuffer = response.rawCarrierResponse as Buffer;
+
+// 2. Store (S3, database, file system, etc.)
+const url = await storage.upload(pdfBuffer, 'labels/batch-1.pdf');
+
+// 3. Update file URLs
+response.files?.forEach(file => {
+  file.url = url;  // Or generate per-file URL if needed
+});
+
+// 4. Return to client
+return response;
+```
+
+**Why this pattern?**
+
+- **Adapters stay stateless:** No storage logic, no URL generation
+- **Integrators have control:** They choose storage backend (S3, database, CDN, etc.)
+- **Clear separation:** Metadata (files) vs. data (rawCarrierResponse)
+- **Scales to multiple files:** Multi-file carriers populate `rawCarrierResponse: { files: [...] }`
+
+**Multi-file carriers:**
+
+If a carrier returns multiple separate PDFs (one per parcel), adapt the pattern:
+
+```typescript
+// Adapter returns multiple files
+rawCarrierResponse: {
+  files: [pdfBuffer1, pdfBuffer2, pdfBuffer3]
+}
+
+// Integrator uploads each and updates file URLs:
+const buffers = (response.rawCarrierResponse as any).files;
+response.files?.forEach((file, idx) => {
+  const url = await storage.upload(buffers[idx], `labels/file-${idx}.pdf`);
+  file.url = url;
+});
 ```
 
 ### Decision: LIST_PICKUP_POINTS Capability

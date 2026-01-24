@@ -31,14 +31,22 @@ class MockHttpClient implements HttpClient {
           errors: null,
         }));
         return {
-          valid: true,
-          parcels,
+          status: 200,
+          headers: {},
+          body: {
+            valid: true,
+            parcels,
+          },
         } as unknown as T;
       }
 
       // Mock label generation (batch)
       if (url.includes("/api/label")) {
-        return Buffer.from("PDF_CONTENT_HERE") as unknown as T;
+        return {
+          status: 200,
+          headers: {},
+          body: Buffer.from("PDF_CONTENT_HERE"),
+        } as unknown as T;
       }
 
      throw new Error(`Unexpected POST: ${url}`);
@@ -52,39 +60,47 @@ class MockHttpClient implements HttpClient {
     // Response includes: clFox, estimatedDelivery, parcelType, sendType, traces[]
     if (url.includes("/api/tracking/")) {
       return {
-        clFox: "CLFOX0000000001",
-        estimatedDelivery: "2024-01-20",
-        parcelType: "NORMAL",
-        sendType: "HD",
-        traces: [
-          {
-            status: "RECEIVE",
-            shortName: "RECEIVE",
-            longName: "Delivered",
-            statusDate: "2024-01-18T10:00:00Z",
-            statusStatidionId: "bp-main",
-          },
-          {
-            status: "HDINTRANSIT",
-            shortName: "INTRAN",
-            longName: "In transit",
-            statusDate: "2024-01-17T15:00:00Z",
-            statusStatidionId: "bp-courier",
-          },
-          {
-            status: "CREATE",
-            shortName: "CREATE",
-            longName: "Parcel created",
-            statusDate: "2024-01-17T10:00:00Z",
-            statusStatidionId: "bp-main",
-          },
-        ],
+        status: 200,
+        headers: {},
+        body: {
+          clFox: "CLFOX0000000001",
+          estimatedDelivery: "2024-01-20",
+          parcelType: "NORMAL",
+          sendType: "HD",
+          traces: [
+            {
+              status: "RECEIVE",
+              shortName: "RECEIVE",
+              longName: "Delivered",
+              statusDate: "2024-01-18T10:00:00Z",
+              statusStatidionId: "bp-main",
+            },
+            {
+              status: "HDINTRANSIT",
+              shortName: "INTRAN",
+              longName: "In transit",
+              statusDate: "2024-01-17T15:00:00Z",
+              statusStatidionId: "bp-courier",
+            },
+            {
+              status: "CREATE",
+              shortName: "CREATE",
+              longName: "Parcel created",
+              statusDate: "2024-01-17T10:00:00Z",
+              statusStatidionId: "bp-main",
+            },
+          ],
+        },
       } as unknown as T;
     }
 
     // Mock label generation
     if (url.includes("/api/label")) {
-      return Buffer.from("PDF_CONTENT_HERE") as unknown as T;
+      return {
+        status: 200,
+        headers: {},
+        body: Buffer.from("PDF_CONTENT_HERE"),
+      } as unknown as T;
     }
 
     throw new Error(`Unexpected GET: ${url}`);
@@ -240,60 +256,64 @@ describe("FoxpostAdapter Integration", () => {
       ).rejects.toThrow();
     });
 
-    it("handles parcel-level validation errors (HTTP 200 with valid=false)", async () => {
-      // Mock HTTP client that returns validation error response
-      const mockHttp: MockHttpClient = {
-        ...new MockHttpClient(),
-        async post<T>(url: string, data?: any, options?: any): Promise<T> {
-          if (url.includes("/api/parcel")) {
-            // Simulate Foxpost's response for validation error
-            // HTTP 200 but parcels have errors
-            return {
-              valid: false,
-              parcels: [
-                {
-                  recipientName: "John Doe",
-                  recipientPhone: "+36301111111",
-                  recipientEmail: "john@example.hu",
-                  size: "S",
-                  recipientCountry: null,
-                  recipientCity: null,
-                  recipientZip: null,
-                  recipientAddress: null,
-                  cod: 0,
-                  deliveryNote: null,
-                  comment: null,
-                  label: null,
-                  fragile: false,
-                  uniqueBarcode: null,
-                  refCode: "TEST-001",
-                  voucher: null,
-                  clFoxId: null,
-                  validTo: "2026-03-23 13:11",
-                  orderId: null,
-                  barcode: null,
-                  sendCode: null,
-                  barcodeTof: null,
-                  sendType: "APM",
-                  parcelType: "NORMAL",
-                  partnerType: "B2C",
-                  routeInfo: null,
-                  errors: [
-                    {
-                      field: "destination",
-                      message: "INVALID_APM_ID",
-                    },
-                  ],
-                  source: null,
-                  destination: "bp-01",
-                },
-              ],
-              errors: null,
-            } as unknown as T;
-          }
-          throw new Error(`Unexpected POST: ${url}`);
-        },
-      } as any;
+     it("handles parcel-level validation errors (HTTP 200 with valid=false)", async () => {
+       // Mock HTTP client that returns validation error response
+       const mockHttp: MockHttpClient = {
+         ...new MockHttpClient(),
+         async post<T>(url: string, data?: any, options?: any): Promise<T> {
+           if (url.includes("/api/parcel")) {
+             // Simulate Foxpost's response for validation error
+             // HTTP 200 but parcels have errors
+             return {
+               status: 200,
+               headers: {},
+               body: {
+                 valid: false,
+                 parcels: [
+                   {
+                     recipientName: "John Doe",
+                     recipientPhone: "+36301111111",
+                     recipientEmail: "john@example.hu",
+                     size: "S",
+                     recipientCountry: null,
+                     recipientCity: null,
+                     recipientZip: null,
+                     recipientAddress: null,
+                     cod: 0,
+                     deliveryNote: null,
+                     comment: null,
+                     label: null,
+                     fragile: false,
+                     uniqueBarcode: null,
+                     refCode: "TEST-001",
+                     voucher: null,
+                     clFoxId: null,
+                     validTo: "2026-03-23 13:11",
+                     orderId: null,
+                     barcode: null,
+                     sendCode: null,
+                     barcodeTof: null,
+                     sendType: "APM",
+                     parcelType: "NORMAL",
+                     partnerType: "B2C",
+                     routeInfo: null,
+                     errors: [
+                       {
+                         field: "destination",
+                         message: "INVALID_APM_ID",
+                       },
+                     ],
+                     source: null,
+                     destination: "bp-01",
+                   },
+                 ],
+                 errors: null,
+               },
+             } as unknown as T;
+           }
+           throw new Error(`Unexpected POST: ${url}`);
+         },
+       } as any;
 
       const ctx: AdapterContext = { http: mockHttp, logger: console };
       const result = await adapter.createParcel!(
@@ -313,27 +333,31 @@ describe("FoxpostAdapter Integration", () => {
        expect(rawData.errors[0].code).toBe("INVALID_APM_ID");
     });
 
-    it("throws error when response.valid is false with top-level errors", async () => {
-      // Mock HTTP client that returns validation error response with valid=false
-      const mockHttp: MockHttpClient = {
-        ...new MockHttpClient(),
-        async post<T>(url: string, data?: any, options?: any): Promise<T> {
-          if (url.includes("/api/parcel")) {
-            // Simulate response with top-level validation error
-            return {
-              valid: false,
-              parcels: [],
-              errors: [
-                {
-                  field: "shipperId",
-                  message: "INVALID_SHIPPER",
-                },
-              ],
-            } as unknown as T;
-          }
-          throw new Error(`Unexpected POST: ${url}`);
-        },
-      } as any;
+     it("throws error when response.valid is false with top-level errors", async () => {
+       // Mock HTTP client that returns validation error response with valid=false
+       const mockHttp: MockHttpClient = {
+         ...new MockHttpClient(),
+         async post<T>(url: string, data?: any, options?: any): Promise<T> {
+           if (url.includes("/api/parcel")) {
+             // Simulate response with top-level validation error
+             return {
+               status: 200,
+               headers: {},
+               body: {
+                 valid: false,
+                 parcels: [],
+                 errors: [
+                   {
+                     field: "shipperId",
+                     message: "INVALID_SHIPPER",
+                   },
+                 ],
+               },
+             } as unknown as T;
+           }
+           throw new Error(`Unexpected POST: ${url}`);
+         },
+       } as any;
 
       const ctx: AdapterContext = { http: mockHttp, logger: console };
 

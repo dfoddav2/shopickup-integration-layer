@@ -11,18 +11,26 @@ class MockHttpClient {
     // If payload contains two parcels, simulate mixed response
     if (Array.isArray(data) && data.length === 2) {
       return {
-        valid: true,
-        parcels: [
-          { clFoxId: 'CLFOXOK1', refCode: data[0].refCode, errors: null },
-          { errors: [{ field: 'recipientPhone', message: 'MISSING' }] },
-        ],
+        status: 200,
+        headers: {},
+        body: {
+          valid: true,
+          parcels: [
+            { clFoxId: 'CLFOXOK1', refCode: data[0].refCode, errors: null },
+            { errors: [{ field: 'recipientPhone', message: 'MISSING' }] },
+          ],
+        },
       } as unknown as T;
     }
 
     // Default single item
     return {
-      valid: true,
-      parcels: [{ clFoxId: 'CLFOX0000000002', errors: null }],
+      status: 200,
+      headers: {},
+      body: {
+        valid: true,
+        parcels: [{ clFoxId: 'CLFOX0000000002', errors: null }],
+      },
     } as unknown as T;
   }
 }
@@ -127,29 +135,33 @@ describe('FoxpostAdapter createParcels', () => {
      expect(res.results[0].carrierId).toBe('CLFOX0000000002');
    });
 
-  it('returns validation errors array for failed parcels', async () => {
-    const mockHttp: any = {
-      async post<T>(url: string, data?: any): Promise<T> {
-        return {
-          valid: true,
-          parcels: [
-            {
-              clFoxId: 'CLFOX0000000001',
-              refCode: 'p1',
-              errors: null,
-            },
-            {
-              clFoxId: null,
-              refCode: 'p2',
-              errors: [
-                { field: 'recipientPhone', message: 'MISSING' },
-                { field: 'recipientZip', message: 'INVALID_FORMAT' },
-              ],
-            },
-          ],
-        } as unknown as T;
-      },
-    };
+   it('returns validation errors array for failed parcels', async () => {
+     const mockHttp: any = {
+       async post<T>(url: string, data?: any): Promise<T> {
+         return {
+           status: 200,
+           headers: {},
+           body: {
+             valid: true,
+             parcels: [
+               {
+                 clFoxId: 'CLFOX0000000001',
+                 refCode: 'p1',
+                 errors: null,
+               },
+               {
+                 clFoxId: null,
+                 refCode: 'p2',
+                 errors: [
+                   { field: 'recipientPhone', message: 'MISSING' },
+                   { field: 'recipientZip', message: 'INVALID_FORMAT' },
+                 ],
+               },
+             ],
+           },
+         } as unknown as T;
+       },
+     };
 
     const contextWithMock: AdapterContext = { http: mockHttp, logger: console };
     const req: CreateParcelsRequest = {
@@ -193,25 +205,26 @@ describe('FoxpostAdapter createParcel', () => {
     ctx = { http: mockHttp as any, logger: console } as AdapterContext;
   });
 
-  it('returns rawCarrierResponse in result', async () => {
-    const parcel = createTestParcel('p1');
-    const req = {
-      parcel,
-      credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
-    };
-    const res = await adapter.createParcel(req, ctx);
+   it('returns rawCarrierResponse in result', async () => {
+     const parcel = createTestParcel('p1');
+     const req = {
+       parcel,
+       credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+     };
+     const res = await adapter.createParcel(req, ctx);
 
-    // Should have the per-item result data
-    expect(res.carrierId).toBeDefined();
-    expect(res.status).toBe('created');
-    expect(res.raw).toBeDefined();
+     // Should have the per-item result data
+     expect(res.carrierId).toBeDefined();
+     expect(res.status).toBe('created');
+     expect(res.raw).toBeDefined();
 
-    // Should also have rawCarrierResponse from the batch HTTP call
-    const rawCarrierResp = (res as any).rawCarrierResponse;
-    expect(rawCarrierResp).toBeDefined();
-    expect(rawCarrierResp).toHaveProperty('valid');
-    
-    // Log the structure for verification
-    console.log('rawCarrierResponse structure:', JSON.stringify(rawCarrierResp, null, 2));
-  });
+     // Should also have rawCarrierResponse from the batch HTTP call
+     const rawCarrierResp = (res as any).rawCarrierResponse;
+     expect(rawCarrierResp).toBeDefined();
+     // rawCarrierResponse now contains the serialized HttpResponse with body property
+     expect(rawCarrierResp.body || rawCarrierResp).toHaveProperty('valid');
+     
+     // Log the structure for verification
+     console.log('rawCarrierResponse structure:', JSON.stringify(rawCarrierResp, null, 2));
+   });
 });

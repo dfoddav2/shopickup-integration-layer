@@ -31,3 +31,8 @@ export {
   safeLog,
   createLogEntry,
 } from './utils/logging-helpers.js';
+export {
+  withOperationName,
+  withCallTracing,
+  composeAdapterWrappers,
+} from './utils/adapter-wrapper.js';

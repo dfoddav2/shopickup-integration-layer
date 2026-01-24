@@ -15,7 +15,7 @@ import { CarrierError, serializeForLog, errorToLog } from "@shopickup/core";
 import {
   mapParcelToFoxpost,
 } from '../mappers/index.js';
-import { translateFoxpostError } from '../errors.js';
+import { translateFoxpostError, sanitizeResponseForLog } from '../errors.js';
 import { safeValidateCreateParcelRequest, safeValidateCreateParcelsRequest } from '../validation.js';
 import { buildFoxpostHeaders } from '../client/index.js';
 import type { ResolveBaseUrl } from '../utils/resolveBaseUrl.js';
@@ -166,24 +166,20 @@ export async function createParcels(
       testMode: useTestApi,
     });
 
-     const httpResponse = await ctx.http.post<any>(
-       `${baseUrl}/api/parcel?isWeb=${isWeb}&isRedirect=false`,
-       foxpostRequestsWithValidation,
-       {
-         headers: buildFoxpostHeaders(validated.data.credentials),
-       }
-     );
+      const httpResponse = await ctx.http.post<any>(
+        `${baseUrl}/api/parcel?isWeb=${isWeb}&isRedirect=false`,
+        foxpostRequestsWithValidation,
+        {
+          headers: buildFoxpostHeaders(validated.data.credentials),
+        }
+      );
 
-    // Normalize carrier response body from various HTTP client shapes
-    const carrierRespBody =
-      (httpResponse && Array.isArray(httpResponse.parcels)) ? httpResponse :
-        (httpResponse && httpResponse.body && Array.isArray(httpResponse.body.parcels)) ? httpResponse.body :
-          (httpResponse && httpResponse.data && Array.isArray(httpResponse.data.parcels)) ? httpResponse.data :
-            null;
+     // Extract body from normalized HttpResponse
+     const carrierRespBody = httpResponse.body;
 
-    if (!carrierRespBody || !Array.isArray(carrierRespBody.parcels)) {
-      throw new CarrierError("Invalid response from Foxpost", "Transient", { raw: serializeForLog(httpResponse) as any });
-    }
+     if (!carrierRespBody || !Array.isArray(carrierRespBody.parcels)) {
+       throw new CarrierError("Invalid response from Foxpost", "Transient", { raw: serializeForLog(sanitizeResponseForLog(httpResponse)) as any });
+     }
 
     const response = carrierRespBody;
 
@@ -283,18 +279,18 @@ export async function createParcels(
       failureCount,
     });
 
-    // Return strongly-typed response with full carrier response for debugging
-    return {
-      results,
-      successCount,
-      failureCount,
-      totalCount,
-      allSucceeded: failureCount === 0 && totalCount > 0,
-      allFailed: successCount === 0 && totalCount > 0,
-      someFailed: successCount > 0 && failureCount > 0,
-      summary,
-      rawCarrierResponse: serializeForLog(httpResponse),
-    };
+     // Return strongly-typed response with full carrier response for debugging
+     return {
+       results,
+       successCount,
+       failureCount,
+       totalCount,
+       allSucceeded: failureCount === 0 && totalCount > 0,
+       allFailed: successCount === 0 && totalCount > 0,
+       someFailed: successCount > 0 && failureCount > 0,
+       summary,
+       rawCarrierResponse: serializeForLog(sanitizeResponseForLog(httpResponse)),
+     };
   } catch (error) {
     ctx.logger?.error("Foxpost: Error creating parcels batch", {
       error: errorToLog(error),

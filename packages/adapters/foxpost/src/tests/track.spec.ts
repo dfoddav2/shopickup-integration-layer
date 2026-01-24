@@ -19,6 +19,7 @@ class MockHttpClientTrack {
         estimatedDelivery: "2024-01-20",
         parcelType: "NORMAL",
         sendType: "HD",
+        relatedParcel: null,
         traces: [
           {
             status: "RECEIVE",
@@ -50,7 +51,7 @@ class MockHttpClientTrack {
           },
         ],
       };
-      return response as unknown as T;
+      return { status: 200, headers: {}, body: response } as unknown as T;
     }
 
     throw new Error(`Unexpected GET: ${url}`);
@@ -170,37 +171,37 @@ describe('FoxpostAdapter track', () => {
      expect(mockHttp.lastUrl).toContain('webapi-test.foxpost.hu');
    });
 
-  it('throws error when response has no clFox', async () => {
-    const mockHttpBad = new (class extends MockHttpClientTrack {
-      async get<T>(): Promise<T> {
-        return { traces: [] } as unknown as T;
-      }
-    })();
+   it('throws error when response has no clFox', async () => {
+     const mockHttpBad = new (class extends MockHttpClientTrack {
+       async get<T>(): Promise<T> {
+         return { status: 200, headers: {}, body: { traces: [] } } as unknown as T;
+       }
+     })();
 
-    ctx.http = mockHttpBad as any;
-    const req: TrackingRequest = {
-      trackingNumber: 'INVALID',
-      credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
-    };
+     ctx.http = mockHttpBad as any;
+     const req: TrackingRequest = {
+       trackingNumber: 'INVALID',
+       credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+     };
 
-    await expect(adapter.track!(req, ctx)).rejects.toThrow('No tracking information found');
-  });
+     await expect(adapter.track!(req, ctx)).rejects.toThrow('No tracking information found');
+   });
 
-  it('throws error when traces array is missing', async () => {
-    const mockHttpBad = new (class extends MockHttpClientTrack {
-      async get<T>(): Promise<T> {
-        return { clFox: 'CLFOX123' } as unknown as T;
-      }
-    })();
+   it('throws error when traces array is missing', async () => {
+     const mockHttpBad = new (class extends MockHttpClientTrack {
+       async get<T>(): Promise<T> {
+         return { status: 200, headers: {}, body: { clFox: 'CLFOX123' } } as unknown as T;
+       }
+     })();
 
-    ctx.http = mockHttpBad as any;
-    const req: TrackingRequest = {
-      trackingNumber: 'CLFOX123',
-      credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
-    };
+     ctx.http = mockHttpBad as any;
+     const req: TrackingRequest = {
+       trackingNumber: 'CLFOX123',
+       credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+     };
 
-    await expect(adapter.track!(req, ctx)).rejects.toThrow('Invalid tracking response');
-  });
+     await expect(adapter.track!(req, ctx)).rejects.toThrow('Invalid tracking response');
+   });
 
   it('throws error when HTTP client is not provided', async () => {
     const ctxNoHttp = { logger: console };

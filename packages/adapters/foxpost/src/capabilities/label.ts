@@ -24,7 +24,7 @@ import { randomUUID } from "node:crypto";
  * Create a label (generate PDF) for a single parcel
  * Delegates to createLabels to reuse batching logic
  * 
- * Returns a LabelResult with file mapping
+ * Returns Promise<LabelResult> with file mapping and metadata
  */
 export async function createLabel(
   req: CreateLabelRequest,
@@ -143,36 +143,44 @@ export async function createLabels(
       isPortrait,
     });
 
-     try {
-       // Make request to Foxpost label API
-       // Response is PDF binary data
-       const pdfBuffer = await ctx.http.post<Buffer>(
-         url,
-         validated.data.parcelCarrierIds,
-         {
-           headers: buildFoxpostBinaryHeaders(validated.data.credentials),
-           responseType: "arraybuffer",
-         }
-       );
+      try {
+        // Make request to Foxpost label API
+        // Response is PDF binary data
+        const httpResponse = await ctx.http.post<Buffer>(
+          url,
+          validated.data.parcelCarrierIds,
+          {
+            headers: buildFoxpostBinaryHeaders(validated.data.credentials),
+            responseType: "arraybuffer",
+          }
+        );
 
-       if (!pdfBuffer || pdfBuffer.byteLength === 0) {
-         throw new CarrierError(
-           "Empty PDF response from Foxpost label endpoint",
-           "Transient"
-         );
-       }
+        // Extract buffer from normalized HttpResponse
+        const pdfBuffer = httpResponse.body;
 
-       // Create file resource for the single PDF
-       const fileId = randomUUID();
-       const file: LabelFileResource = {
-         id: fileId,
-         contentType: "application/pdf",
-         byteLength: pdfBuffer.byteLength,
-         pages: req.parcelCarrierIds.length, // One page per label (Foxpost behavior)
-         orientation: isPortrait === false ? 'landscape' : 'portrait',
-         metadata: {
-           size,
-           isPortrait,
+        if (!pdfBuffer || (pdfBuffer instanceof Buffer && pdfBuffer.byteLength === 0)) {
+          throw new CarrierError(
+            "Empty PDF response from Foxpost label endpoint",
+            "Transient"
+          );
+        }
+
+        // Get byte length (works for Buffer and Uint8Array)
+        const byteLength = pdfBuffer instanceof Buffer ? pdfBuffer.byteLength : 
+                          pdfBuffer instanceof Uint8Array ? pdfBuffer.byteLength : 
+                          0;
+
+        // Create file resource for the single PDF
+        const fileId = randomUUID();
+        const file: LabelFileResource = {
+          id: fileId,
+          contentType: "application/pdf",
+          byteLength,
+          pages: req.parcelCarrierIds.length, // One page per label (Foxpost behavior)
+          orientation: isPortrait === false ? 'landscape' : 'portrait',
+          metadata: {
+            size,
+            isPortrait,
            barcodeCount: req.parcelCarrierIds.length,
            combined: true, // All labels in one file
          },
