@@ -14,6 +14,7 @@ import { CarrierError, errorToLog, serializeForLog } from "@shopickup/core";
 import { translateFoxpostError } from '../errors.js';
 import { safeValidateCreateLabelRequest, safeValidateCreateLabelsRequest } from "../validation.js";
 import type { ResolveBaseUrl } from "../utils/resolveBaseUrl.js";
+import { URLSearchParams } from "node:url";
 
 /**
  * Create a label (generate PDF) for a single parcel
@@ -36,9 +37,9 @@ export async function createLabel(
 
   // Convert single label request to batch request
   const batchReq: CreateLabelsRequest = {
-    parcelCarrierIds: [req.parcelCarrierId],
+    parcelCarrierIds: [validated.data.parcelCarrierId],
     credentials: req.credentials,
-    options: req.options as any,
+    options: req.options,
   };
 
   // Delegate to batch implementation
@@ -116,39 +117,40 @@ export async function createLabels(
       };
     }
 
-    // Extract options with defaults
+    // Unwrap variables from validated request
+    const { apiKey, basicUsername, basicPassword } = validated.data.credentials;
     const useTestApi = validated.data.options?.useTestApi ?? false;
     const size = validated.data.options?.size ?? "A7";
-    const startPos = validated.data.options?.startPos;
     const baseUrl = resolveBaseUrl(validated.data.options);
+    const startPos = validated.data.options?.startPos;
+    const isPortrait = validated.data.options?.isPortrait;
+
+    // Construct URL with page size and optional params
+    const params = new URLSearchParams();
+    if (startPos !== undefined && startPos !== null) params.set('startPos', String(startPos));
+    if (isPortrait !== undefined && isPortrait !== null) params.set('isPortrait', String(isPortrait));
+    let url = `${baseUrl}/api/label/${size}${params.toString() ? `?${params.toString()}` : ''}`;
 
     ctx.logger?.debug("Foxpost: Creating labels batch", {
+      testMode: useTestApi,
       count: req.parcelCarrierIds.length,
       size,
       startPos,
-      testMode: useTestApi,
+      isPortrait,
     });
-
-    // Construct URL with page size and optional startPos parameter
-    let url = `${baseUrl}/api/label/${size}`;
-    if (startPos && size === "A7") {
-      url += `?startPos=${startPos}`;
-    }
-
-    // Foxpost expects array of barcode strings in the request body
-    const requestBody = req.parcelCarrierIds;
 
     try {
       // Make request to Foxpost label API
       // Response is PDF binary data
       const pdfBuffer = await ctx.http.post<Buffer>(
         url,
-        requestBody,
+        validated.data.parcelCarrierIds,
         {
           headers: {
-            "Accept-Encoding": "application/pdf",
-            "Content-Type": "application/json",
-            "Api-key": validated.data.credentials.apiKey || "",
+            "Accept-Type": "application/pdf",
+            // "Content-Type": "application/json",
+            "Authorization": `Basic ${Buffer.from(`${basicUsername}:${basicPassword}`).toString("base64")}`,
+            ...(apiKey && { "Api-key": apiKey }),
           },
           responseType: "arraybuffer",
         }
@@ -163,7 +165,6 @@ export async function createLabels(
 
       // Convert PDF buffer to base64
       const labelData = `data:application/pdf;base64,${Buffer.from(pdfBuffer).toString("base64")}`;
-
       ctx.logger?.info("Foxpost: Labels created successfully", {
         count: req.parcelCarrierIds.length,
         size,

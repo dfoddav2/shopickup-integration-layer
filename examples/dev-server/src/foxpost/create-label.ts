@@ -31,7 +31,6 @@ export async function registerCreateLabelRoute(
           parcelCarrierId: {
             type: 'string',
             description: 'The Foxpost parcel ID (clFoxId) to create a label for',
-            example: 'CLFOX0000000001',
           },
           credentials: FOXPOST_CREDENTIALS_SCHEMA,
           options: {

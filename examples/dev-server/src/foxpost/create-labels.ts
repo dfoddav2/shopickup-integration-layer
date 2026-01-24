@@ -32,7 +32,6 @@ export async function registerCreateLabelsRoute(
             items: { type: 'string' },
             minItems: 1,
             description: 'Array of Foxpost parcel IDs (clFoxId) to create labels for',
-            example: ['CLFOX0000000001', 'CLFOX0000000002', 'CLFOX0000000003'],
           },
           credentials: FOXPOST_CREDENTIALS_SCHEMA,
           options: {

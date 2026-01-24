@@ -90,14 +90,24 @@ export interface CreateLabelRequest {
      * Label size/format (carrier-specific)
      * Examples: "A6", "A7", "4x6", "85x85"
      * Default depends on carrier (typically "A7" for Foxpost)
+     * 
+     * - Used by: Foxpost
      */
     size?: string;
     /**
      * Starting position on page (carrier-specific)
      * For A7 labels on A4 page: 1-7
      * Ignored for other sizes
+     * 
+     * - Used by: Foxpost
      */
     startPos?: number;
+    /**
+     * Direction of label printing on page
+     * 
+     * - Used by: Foxpost
+     */
+    isPortrait?: boolean;
   };
 }
 
@@ -121,12 +131,22 @@ export interface CreateLabelsRequest {
     /**
      * Label size/format (carrier-specific)
      * Examples: "A6", "A7", "4x6", "85x85"
+     * 
+     * - Used by: Foxpost
      */
     size?: string;
     /**
      * Starting position on page (carrier-specific, e.g., 1-7 for A7)
+     * 
+     * - Used by: Foxpost
      */
     startPos?: number;
+    /**
+     * Direction of label printing on page
+     * 
+     * - Used by: Foxpost
+     */
+    isPortrait?: boolean;
   };
 }
 
@@ -232,36 +252,36 @@ export interface CarrierAdapter {
     ctx: AdapterContext
   ): Promise<CarrierResource>;
 
-   /**
-    * Generate a label for a parcel
-    * Capability: CREATE_LABEL
-    * 
-    * Can accept either:
-    * - Original CreateLabelRequest (for backward compatibility)
-    * - New extended request with size and startPos options
-    */
-   createLabel?(
-     req: CreateLabelRequest,
-     ctx: AdapterContext
-   ): Promise<CarrierResource & { labelUrl?: string | null }>;
+  /**
+   * Generate a label for a parcel
+   * Capability: CREATE_LABEL
+   * 
+   * Can accept either:
+   * - Original CreateLabelRequest (for backward compatibility)
+   * - New extended request with size and startPos options
+   */
+  createLabel?(
+    req: CreateLabelRequest,
+    ctx: AdapterContext
+  ): Promise<CarrierResource & { labelUrl?: string | null }>;
 
-   /**
-    * Generate labels for multiple parcels in one call
-    * Capability: CREATE_LABEL (same as singular, but batch)
-    * 
-    * Returns strongly-typed CreateLabelsResponse with:
-    * - Per-item results (results: CarrierResource[])
-    * - Summary statistics (successCount, failureCount, totalCount)
-    * - Convenience flags (allSucceeded, allFailed, someFailed)
-    * - Raw PDF or batch response data
-    * 
-    * Some carriers (like Foxpost) return a single PDF with all labels.
-    * Adapters handle the parsing and should return per-label results.
-    */
-   createLabels?(
-     req: CreateLabelsRequest,
-     ctx: AdapterContext
-   ): Promise<CreateLabelsResponse>;
+  /**
+   * Generate labels for multiple parcels in one call
+   * Capability: CREATE_LABEL (same as singular, but batch)
+   * 
+   * Returns strongly-typed CreateLabelsResponse with:
+   * - Per-item results (results: CarrierResource[])
+   * - Summary statistics (successCount, failureCount, totalCount)
+   * - Convenience flags (allSucceeded, allFailed, someFailed)
+   * - Raw PDF or batch response data
+   * 
+   * Some carriers (like Foxpost) return a single PDF with all labels.
+   * Adapters handle the parsing and should return per-label results.
+   */
+  createLabels?(
+    req: CreateLabelsRequest,
+    ctx: AdapterContext
+  ): Promise<CreateLabelsResponse>;
 
   /**
    * Void/cancel a label
