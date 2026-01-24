@@ -216,21 +216,24 @@ export async function fetchPickupPoints(
 
     const response = await ctx.http.get(feedUrl);
 
+    // Extract body from normalized HttpResponse
+    const apmData = response.body;
+
     // Validate response is an array
-    if (!Array.isArray(response)) {
-      throw new Error("Expected array of APMs from Foxpost feed, got: " + typeof response);
+    if (!Array.isArray(apmData)) {
+      throw new Error("Expected array of APMs from Foxpost feed, got: " + typeof apmData);
     }
 
     safeLog(
       ctx.logger,
       'debug',
       'Fetched Foxpost APM feed',
-      createLogEntry({ url: feedUrl }, response, ctx),
+      createLogEntry({ url: feedUrl }, apmData, ctx),
       ctx
     );
 
     // Map each entry to PickupPoint
-    const points: PickupPoint[] = response.map((apm: FoxpostApmEntry) => {
+    const points: PickupPoint[] = apmData.map((apm: FoxpostApmEntry) => {
       try {
         return mapFoxpostApmToPickupPoint(apm);
       } catch (err) {
@@ -247,7 +250,7 @@ export async function fetchPickupPoints(
       {
         count: points.length,
         succeeded: points.length,
-        failed: response.length - points.length,
+        failed: apmData.length - points.length,
       },
       ctx
     );
@@ -258,7 +261,7 @@ export async function fetchPickupPoints(
         totalCount: points.length,
         updatedAt: new Date().toISOString(),
       },
-      rawCarrierResponse: response,
+      rawCarrierResponse: apmData,
     };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);

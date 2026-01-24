@@ -123,8 +123,12 @@ describe("Foxpost Pickup Points", () => {
 
   describe("fetchPickupPoints", () => {
     it("should fetch and normalize Foxpost APM data", async () => {
-      // Mock HTTP response
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      // Mock HTTP response with normalized HttpResponse structure
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
 
@@ -136,7 +140,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should use operator_id as primary id when present", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const firstPoint = result.points[0];
@@ -146,7 +154,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should fall back to place_id when operator_id is empty", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const thirdPoint = result.points[2];
@@ -156,7 +168,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should normalize address fields", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const firstPoint = result.points[0];
@@ -168,7 +184,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should parse coordinates correctly", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const firstPoint = result.points[0];
@@ -178,7 +198,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should map allowed2 'ALL' to both pickup and dropoff", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const firstPoint = result.points[0];
@@ -188,7 +212,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should map allowed2 'C2C' to dropoff only", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const thirdPoint = result.points[2];
@@ -198,7 +226,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should collect payment options from multiple sources", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const firstPoint = result.points[0];
@@ -209,7 +241,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should collect both card and cash payment options", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const thirdPoint = result.points[2];
@@ -219,7 +255,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should include opening hours", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const firstPoint = result.points[0];
@@ -229,7 +269,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should preserve isOutdoor flag", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
 
@@ -238,7 +282,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should collect carrier-specific metadata", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const firstPoint = result.points[0];
@@ -250,7 +298,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should include full raw entry", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const firstPoint = result.points[0];
@@ -259,7 +311,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should normalize country code to lowercase", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const firstPoint = result.points[0];
@@ -278,7 +334,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should handle invalid response (not array)", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce({ data: "not an array" });
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: { data: "not an array" },
+      });
 
       await expect(fetchPickupPoints({}, mockContext)).rejects.toThrow(CarrierError);
     });
@@ -300,7 +360,11 @@ describe("Foxpost Pickup Points", () => {
         },
       ];
 
-      (mockHttpClient.get as any).mockResolvedValueOnce(dataWithStringCoords);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: dataWithStringCoords,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const point = result.points[0];
@@ -320,7 +384,11 @@ describe("Foxpost Pickup Points", () => {
         },
       ];
 
-      (mockHttpClient.get as any).mockResolvedValueOnce(dataWithInvalidCoords);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: dataWithInvalidCoords,
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
       const point = result.points[0];
@@ -330,7 +398,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should call HTTP client with correct URL", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce([]);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: [],
+      });
 
       await fetchPickupPoints({}, mockContext);
 
@@ -338,7 +410,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should log debug info", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce(SAMPLE_APM_DATA);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: SAMPLE_APM_DATA,
+      });
 
       // Disable silent mode to verify logging works
       await fetchPickupPoints({}, { ...mockContext, loggingOptions: { silentOperations: [] } });
@@ -347,7 +423,11 @@ describe("Foxpost Pickup Points", () => {
     });
 
     it("should handle empty response array", async () => {
-      (mockHttpClient.get as any).mockResolvedValueOnce([]);
+      (mockHttpClient.get as any).mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        body: [],
+      });
 
       const result = await fetchPickupPoints({}, mockContext);
 
