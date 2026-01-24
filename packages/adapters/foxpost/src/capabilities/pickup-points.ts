@@ -18,6 +18,29 @@ import type {
 import { CarrierError, safeLog, createLogEntry } from "@shopickup/core";
 
 /**
+ * Foxpost-specific metadata for pickup points
+ * Contains carrier-specific fields not part of the canonical PickupPoint type
+ */
+interface FoxpostApmMetadata {
+  /** Depot code associated with the APM */
+  depot?: string;
+  /** Load status of the APM (how full it is) */
+  load?: "normal loaded" | "medium loaded" | "overloaded";
+  /** Manufacturer/type of the APM hardware */
+  apmType?: "Cleveron" | "Keba" | "Rollkon" | "Rotte";
+  /** List of substitute APM IDs in case this APM is full or out of order */
+  substitutes?: string[];
+  /** Variant/model of the APM */
+  variant?: "FOXPOST A-BOX" | "FOXPOST Z-BOX" | "Packeta Z-BOX" | "Packeta Z-Pont";
+  /** Schedule of emptying and filling operations */
+  fillEmptyList?: Array<{ emptying: string; filling: string }>;
+  /** Service access points (ssapt field) */
+  ssapt?: string;
+  /** Service dispatch points (sdapt field) */
+  sdapt?: string;
+}
+
+/**
  * Raw Foxpost APM entry from the foxplus.json feed
  */
 interface FoxpostApmEntry {
@@ -122,7 +145,7 @@ function mapFoxpostApmToPickupPoint(apm: FoxpostApmEntry): PickupPoint {
   }
 
   // Collect all carrier-specific fields in metadata
-  const metadata: Record<string, any> = {
+  const metadata: FoxpostApmMetadata = {
     depot: apm.depot,
     load: apm.load,
     apmType: apm.apmType,
@@ -134,11 +157,9 @@ function mapFoxpostApmToPickupPoint(apm: FoxpostApmEntry): PickupPoint {
   };
 
   // Remove undefined keys from metadata
-  Object.keys(metadata).forEach(key => {
-    if (metadata[key] === undefined) {
-      delete metadata[key];
-    }
-  });
+  const cleanedMetadata = Object.fromEntries(
+    Object.entries(metadata).filter(([, value]) => value !== undefined)
+  ) as FoxpostApmMetadata;
 
   return {
     id,
@@ -158,7 +179,7 @@ function mapFoxpostApmToPickupPoint(apm: FoxpostApmEntry): PickupPoint {
     isOutdoor: apm.isOutdoor,
     paymentOptions: paymentOptions.length > 0 ? paymentOptions : undefined,
     contact: undefined, // Foxpost doesn't provide contact info in feed
-    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+    metadata: Object.keys(cleanedMetadata).length > 0 ? cleanedMetadata : undefined,
     raw: apm,
   };
 }

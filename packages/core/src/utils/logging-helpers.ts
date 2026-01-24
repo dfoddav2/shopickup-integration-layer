@@ -53,10 +53,10 @@ export function getLoggingOptions(ctx: AdapterContext): Required<LoggingOptions>
  * Respects maxDepth and maxArrayItems
  */
 export function truncateForLogging(
-  obj: any,
+  obj: unknown,
   options: Required<LoggingOptions>,
   currentDepth: number = 0
-): any {
+): unknown {
   // Check depth limit
   if (currentDepth >= options.maxDepth) {
     if (obj === null || obj === undefined) return obj;
@@ -92,11 +92,11 @@ export function truncateForLogging(
 
   // Handle objects
   if (obj !== null && typeof obj === 'object') {
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       // Skip metadata unless explicitly requested
       if (key === 'metadata' && !options.logMetadata) {
-        result[key] = `[Object: metadata (${Object.keys(value as any).length} keys, omitted)]`;
+        result[key] = `[Object: metadata (${Object.keys(value as Record<string, unknown>).length} keys, omitted)]`;
         continue;
       }
 
@@ -112,7 +112,7 @@ export function truncateForLogging(
  * Create a summary of raw carrier response
  * Returns summary info without the full payload
  */
-export function summarizeRawResponse(raw: any): Record<string, any> {
+export function summarizeRawResponse(raw: unknown): Record<string, unknown> {
   if (!raw) return { message: 'No raw response' };
 
   if (Array.isArray(raw)) {
@@ -149,7 +149,7 @@ export function safeLog(
   logger: Logger | undefined,
   level: 'debug' | 'info' | 'warn' | 'error',
   message: string,
-  data: Record<string, any>,
+  data: Record<string, unknown>,
   ctx: AdapterContext,
   silentOperationNames: string[] = ['fetchPickupPoints']
 ): void {
@@ -215,11 +215,11 @@ export function safeLog(
  * Useful for adapter implementations
  */
 export function createLogEntry(
-  baseInfo: Record<string, any>,
-  response: any,
+  baseInfo: Record<string, unknown>,
+  response: unknown,
   ctx: AdapterContext,
   silentOperationNames: string[] = []
-): Record<string, any> {
+): Record<string, unknown> {
   const options = getLoggingOptions(ctx);
 
   if (isSilentOperation(ctx, silentOperationNames)) {
