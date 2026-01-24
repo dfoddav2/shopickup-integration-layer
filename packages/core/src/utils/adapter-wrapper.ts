@@ -4,6 +4,7 @@
  */
 
 import type { CarrierAdapter, AdapterContext } from '../interfaces/index.js';
+import type { Logger } from '../interfaces/logger.js';
 
 /**
  * Operation name to method name mapping for CarrierAdapter
@@ -64,20 +65,20 @@ export function withOperationName(
 
       const operationName = operationNames[methodName as string];
 
-      // Return a wrapped function that injects operationName into context
-      return function wrappedAdapterMethod(
-        request: any,
-        context: AdapterContext
-      ): Promise<any> {
-        // Create a new context with operationName set (allow override)
-        const contextWithOperation: AdapterContext = {
-          ...context,
-          operationName: context.operationName || operationName,
-        };
+       // Return a wrapped function that injects operationName into context
+       return function wrappedAdapterMethod(
+         request: unknown,
+         context: AdapterContext
+       ): Promise<unknown> {
+         // Create a new context with operationName set (allow override)
+         const contextWithOperation: AdapterContext = {
+           ...context,
+           operationName: context.operationName || operationName,
+         };
 
-        // Call the original method with the enhanced context
-        return (method as any).call(target, request, contextWithOperation);
-      };
+         // Call the original method with the enhanced context
+         return (method as any).call(target, request, contextWithOperation);
+       };
     },
   });
 }
@@ -102,7 +103,7 @@ export function withOperationName(
  */
 export function withCallTracing(
   adapter: CarrierAdapter,
-  logger?: any
+  logger?: Logger
 ): CarrierAdapter {
   return new Proxy(adapter, {
     get(target, methodName: string | symbol) {
@@ -112,36 +113,36 @@ export function withCallTracing(
         return method;
       }
 
-      return async function tracedMethod(request: any, context: AdapterContext): Promise<any> {
-        const startTime = Date.now();
-        const opName = context.operationName || (methodName as string);
+      return async function tracedMethod(request: unknown, context: AdapterContext): Promise<unknown> {
+         const startTime = Date.now();
+         const opName = context.operationName || (methodName as string);
 
-        try {
-          logger?.debug(`[${adapter.id}] ${opName} started`, {
-            method: methodName,
-          });
+         try {
+           logger?.debug(`[${adapter.id}] ${opName} started`, {
+             method: methodName,
+           });
 
-          const result = await (method as any).call(target, request, context);
+           const result = await (method as any).call(target, request, context);
 
-          const duration = Date.now() - startTime;
-          logger?.info(`[${adapter.id}] ${opName} completed in ${duration}ms`, {
-            method: methodName,
-            duration,
-            status: 'success',
-          });
+           const duration = Date.now() - startTime;
+           logger?.info(`[${adapter.id}] ${opName} completed in ${duration}ms`, {
+             method: methodName,
+             duration,
+             status: 'success',
+           });
 
-          return result;
-        } catch (error) {
-          const duration = Date.now() - startTime;
-          logger?.error(`[${adapter.id}] ${opName} failed after ${duration}ms`, {
-            method: methodName,
-            duration,
-            error: (error as any)?.message,
-          });
+           return result;
+         } catch (error) {
+           const duration = Date.now() - startTime;
+           logger?.error(`[${adapter.id}] ${opName} failed after ${duration}ms`, {
+             method: methodName,
+             duration,
+             error: (error as any)?.message,
+           });
 
-          throw error;
-        }
-      };
+           throw error;
+         }
+       };
     },
   });
 }

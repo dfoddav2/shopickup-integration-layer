@@ -134,7 +134,7 @@ export function mapFoxpostStatusToCanonical(
   foxpostStatus: string
 ): "PENDING" | "IN_TRANSIT" | "OUT_FOR_DELIVERY" | "DELIVERED" | "EXCEPTION" | "RETURNED" | "CANCELLED" {
   // Foxpost status codes from OpenAPI
-  const statusMapping: Record<string, any> = {
+  const statusMapping: Record<string, "PENDING" | "IN_TRANSIT" | "OUT_FOR_DELIVERY" | "DELIVERED" | "EXCEPTION" | "RETURNED" | "CANCELLED"> = {
     CREATE: "PENDING",
     OPERIN: "IN_TRANSIT",
     OPEROUT: "IN_TRANSIT",

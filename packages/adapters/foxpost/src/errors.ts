@@ -111,56 +111,56 @@ export function translateFoxpostError(error: unknown): CarrierError {
     raw: responseBody ?? anyErr,
   };
 
-  // Route by HTTP status code
-  if (typeof status === 'number') {
-    if (status === 400) {
-      return new CarrierError(
-        `Validation error: ${errorMapping?.message || (responseBody as any)?.error || "Bad request"}`,
-        "Validation" as any,
-        meta
-      );
-    }
-    
-    if (status === 401 || status === 403) {
-      return new CarrierError(
-        "Foxpost credentials invalid",
-        "Auth" as any,
-        meta
-      );
-    }
-    
-    if (status === 429) {
-      return new CarrierError(
-        "Foxpost rate limit exceeded",
-        "RateLimit" as any,
-        { ...meta, retryAfterMs: 60000 }
-      );
-    }
-    
-    if (status >= 500) {
-      return new CarrierError(
-        "Foxpost server error",
-        "Transient" as any,
-        meta
-      );
-    }
-  }
+   // Route by HTTP status code
+   if (typeof status === 'number') {
+     if (status === 400) {
+       return new CarrierError(
+         `Validation error: ${errorMapping?.message || (responseBody as any)?.error || "Bad request"}`,
+         "Validation",
+         meta
+       );
+     }
+     
+     if (status === 401 || status === 403) {
+       return new CarrierError(
+         "Foxpost credentials invalid",
+         "Auth",
+         meta
+       );
+     }
+     
+     if (status === 429) {
+       return new CarrierError(
+         "Foxpost rate limit exceeded",
+         "RateLimit",
+         { ...meta, retryAfterMs: 60000 }
+       );
+     }
+     
+     if (status >= 500) {
+       return new CarrierError(
+         "Foxpost server error",
+         "Transient",
+         meta
+       );
+     }
+   }
 
-  // Network error (Error instance with no HTTP status)
-  if (error instanceof Error) {
+   // Network error (Error instance with no HTTP status)
+   if (error instanceof Error) {
+     return new CarrierError(
+       `Foxpost connection error: ${error.message}`,
+       "Transient",
+       { raw: anyErr }
+     );
+   }
+
+    // Unknown error shape
     return new CarrierError(
-      `Foxpost connection error: ${error.message}`,
-      "Transient" as any,
+      "Unknown Foxpost error",
+      "Permanent",
       { raw: anyErr }
     );
-  }
-
-   // Unknown error shape
-   return new CarrierError(
-     "Unknown Foxpost error",
-     "Permanent" as any,
-     { raw: anyErr }
-   );
 }
 
 /**

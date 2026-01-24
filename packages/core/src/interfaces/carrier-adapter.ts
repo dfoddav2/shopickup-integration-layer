@@ -48,7 +48,19 @@ export interface CreateParcelRequest {
    */
   parcel: Parcel;
   /**
-   * Credentials for the carrier API (e.g., { apiKey, username, password })
+   * Credentials for the carrier API
+   * 
+   * Structure varies by carrier:
+   * - Foxpost: { apiKey: string, basicUsername?: string, basicPassword?: string }
+   * - DHL: { consignmentNumber: string, password: string }
+   * - Etc.
+   * 
+   * Note: Different adapters require different credential fields.
+   * Each adapter should validate credentials at runtime and throw CarrierError("Auth")
+   * if required fields are missing.
+   * 
+   * Never store credentials in environment variables accessed from adapters —
+   * integrators should read from process.env/secrets and pass via context.
    */
   credentials: Record<string, unknown>;
   /**
@@ -65,6 +77,9 @@ export interface CreateParcelsRequest {
   parcels: Parcel[];
   /**
    * Shared credentials for the entire batch
+   * 
+   * Structure varies by carrier - see CreateParcelRequest.credentials for details.
+   * Adapters validate at runtime and throw CarrierError("Auth") if invalid.
    */
   credentials: Record<string, unknown>;
   /**
@@ -80,6 +95,9 @@ export interface CreateLabelRequest {
   parcelCarrierId: string;
   /**
    * Credentials for the carrier API (if required for labeling)
+   * 
+   * Structure varies by carrier - see CreateParcelRequest.credentials for details.
+   * Adapters validate at runtime and throw CarrierError("Auth") if invalid.
    */
   credentials: Record<string, unknown>;
   /**
@@ -122,6 +140,9 @@ export interface CreateLabelsRequest {
   parcelCarrierIds: string[];
   /**
    * Shared credentials for the entire batch
+   * 
+   * Structure varies by carrier - see CreateParcelRequest.credentials for details.
+   * Adapters validate at runtime and throw CarrierError("Auth") if invalid.
    */
   credentials: Record<string, unknown>;
   /**
@@ -157,6 +178,9 @@ export interface TrackingRequest {
   trackingNumber: string;
   /**
    * Credentials for the carrier API (if required for tracking)
+   * 
+   * Structure varies by carrier - see CreateParcelRequest.credentials for details.
+   * Optional for some carriers (e.g., public tracking endpoints).
    */
   credentials?: Record<string, unknown>;
   /**
