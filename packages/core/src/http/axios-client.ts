@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from "axios";
 import type { HttpClient, HttpClientConfig, HttpResponse } from "../interfaces/http-client.js";
 
 import type { Logger } from '../interfaces/logger.js';
+import { HttpError } from './errors.js';
 
 export interface AxiosHttpClientOptions {
   axiosInstance?: AxiosInstance;
@@ -65,21 +66,21 @@ export function createAxiosHttpClient(opts: AxiosHttpClientOptions = {}): HttpCl
   }
 
 
-  async function handleError(err: unknown): Promise<never> {
+  function handleError(err: unknown): never {
     if ((err as AxiosError).isAxiosError) {
       const aerr = err as AxiosError;
-      const e = new Error(aerr.message);
-      (e as any).isAxiosError = true;
-      (e as any).status = aerr.response?.status;
-      (e as any).response = aerr.response
-        ? {
-            status: aerr.response.status,
-            statusText: aerr.response.statusText,
-            data: aerr.response.data,
-            headers: aerr.response.headers,
-          }
-        : undefined;
-      throw e;
+      throw new HttpError(aerr.message, {
+        isAxiosError: true,
+        status: aerr.response?.status,
+        response: aerr.response
+          ? {
+              status: aerr.response.status,
+              statusText: aerr.response.statusText,
+              data: aerr.response.data,
+              headers: aerr.response.headers as Record<string, string | string[]>,
+            }
+          : undefined,
+      });
     }
 
     // Non-axios error, rethrow as-is
@@ -121,23 +122,23 @@ export function createAxiosHttpClient(opts: AxiosHttpClientOptions = {}): HttpCl
            body: res.data as T,
            ...(config?.captureRequest && { request: { method: 'GET', url } })
          };
-       } catch (err) {
-         if (resolvedDebug) {
-           const logObj: any = {
-             status: (err as any).response?.status,
-             statusText: (err as any).response?.statusText,
-             error: (err as any).message
-           };
-           if (resolvedFull && (err as any).response?.data) {
-             logObj.body = (err as any).response.data;
-           }
-           log.debug('error', logObj);
-         }
-         return handleError(err) as unknown as Promise<HttpResponse<T>>;
-       }
-     },
+        } catch (err) {
+          if (resolvedDebug) {
+            const logObj: any = {
+              status: (err as any).response?.status,
+              statusText: (err as any).response?.statusText,
+              error: (err as any).message
+            };
+            if (resolvedFull && (err as any).response?.data) {
+              logObj.body = (err as any).response.data;
+            }
+            log.debug('error', logObj);
+          }
+          handleError(err);
+        }
+      },
 
-    async post<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
+     async post<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
        const ac = toAxiosConfig(config);
        if (resolvedDebug) {
          const logObj: any = {
@@ -173,23 +174,23 @@ export function createAxiosHttpClient(opts: AxiosHttpClientOptions = {}): HttpCl
            body: res.data as T,
            ...(config?.captureRequest && { request: { method: 'POST', url } })
          };
-       } catch (err) {
-         if (resolvedDebug) {
-           const logObj: any = {
-             status: (err as any).response?.status,
-             statusText: (err as any).response?.statusText,
-             error: (err as any).message
-           };
-           if (resolvedFull && (err as any).response?.data) {
-             logObj.body = (err as any).response.data;
-           }
-           log.debug('error', logObj);
-         }
-         return handleError(err) as unknown as Promise<HttpResponse<T>>;
-       }
-     },
+        } catch (err) {
+          if (resolvedDebug) {
+            const logObj: any = {
+              status: (err as any).response?.status,
+              statusText: (err as any).response?.statusText,
+              error: (err as any).message
+            };
+            if (resolvedFull && (err as any).response?.data) {
+              logObj.body = (err as any).response.data;
+            }
+            log.debug('error', logObj);
+          }
+          handleError(err);
+        }
+      },
 
-    async put<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
+     async put<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
        const ac = toAxiosConfig(config);
        if (resolvedDebug) {
          const logObj: any = {
@@ -225,23 +226,23 @@ export function createAxiosHttpClient(opts: AxiosHttpClientOptions = {}): HttpCl
            body: res.data as T,
            ...(config?.captureRequest && { request: { method: 'PUT', url } })
          };
-       } catch (err) {
-         if (resolvedDebug) {
-           const logObj: any = {
-             status: (err as any).response?.status,
-             statusText: (err as any).response?.statusText,
-             error: (err as any).message
-           };
-           if (resolvedFull && (err as any).response?.data) {
-             logObj.body = (err as any).response.data;
-           }
-           log.debug('error', logObj);
-         }
-         return handleError(err) as unknown as Promise<HttpResponse<T>>;
-       }
-     },
+        } catch (err) {
+          if (resolvedDebug) {
+            const logObj: any = {
+              status: (err as any).response?.status,
+              statusText: (err as any).response?.statusText,
+              error: (err as any).message
+            };
+            if (resolvedFull && (err as any).response?.data) {
+              logObj.body = (err as any).response.data;
+            }
+            log.debug('error', logObj);
+          }
+          handleError(err);
+        }
+      },
 
-    async patch<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
+     async patch<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
        const ac = toAxiosConfig(config);
        if (resolvedDebug) {
          const logObj: any = {
@@ -277,23 +278,23 @@ export function createAxiosHttpClient(opts: AxiosHttpClientOptions = {}): HttpCl
            body: res.data as T,
            ...(config?.captureRequest && { request: { method: 'PATCH', url } })
          };
-       } catch (err) {
-         if (resolvedDebug) {
-           const logObj: any = {
-             status: (err as any).response?.status,
-             statusText: (err as any).response?.statusText,
-             error: (err as any).message
-           };
-           if (resolvedFull && (err as any).response?.data) {
-             logObj.body = (err as any).response.data;
-           }
-           log.debug('error', logObj);
-         }
-         return handleError(err) as unknown as Promise<HttpResponse<T>>;
-       }
-     },
+        } catch (err) {
+          if (resolvedDebug) {
+            const logObj: any = {
+              status: (err as any).response?.status,
+              statusText: (err as any).response?.statusText,
+              error: (err as any).message
+            };
+            if (resolvedFull && (err as any).response?.data) {
+              logObj.body = (err as any).response.data;
+            }
+            log.debug('error', logObj);
+          }
+          handleError(err);
+        }
+      },
 
-     async delete<T = unknown>(url: string, config?: HttpClientConfig): Promise<HttpResponse<T>> {
+      async delete<T = unknown>(url: string, config?: HttpClientConfig): Promise<HttpResponse<T>> {
         const ac = toAxiosConfig(config);
         if (resolvedDebug) {
           log.debug('request', {
@@ -323,21 +324,21 @@ export function createAxiosHttpClient(opts: AxiosHttpClientOptions = {}): HttpCl
             body: res.data as T,
             ...(config?.captureRequest && { request: { method: 'DELETE', url } })
           };
-        } catch (err) {
-          if (resolvedDebug) {
-            const logObj: any = {
-              status: (err as any).response?.status,
-              statusText: (err as any).response?.statusText,
-              error: (err as any).message
-            };
-            if (resolvedFull && (err as any).response?.data) {
-              logObj.body = (err as any).response.data;
-            }
-            log.debug('error', logObj);
-          }
-          return handleError(err) as unknown as Promise<HttpResponse<T>>;
-        }
-      },
+         } catch (err) {
+           if (resolvedDebug) {
+             const logObj: any = {
+               status: (err as any).response?.status,
+               statusText: (err as any).response?.statusText,
+               error: (err as any).message
+             };
+             if (resolvedFull && (err as any).response?.data) {
+               logObj.body = (err as any).response.data;
+             }
+             log.debug('error', logObj);
+           }
+           handleError(err);
+         }
+       },
   };
 
   return client;

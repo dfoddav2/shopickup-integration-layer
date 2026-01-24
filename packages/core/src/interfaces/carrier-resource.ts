@@ -48,3 +48,45 @@ export interface CarrierResource {
    */
   meta?: Record<string, unknown>;
 }
+
+/**
+ * LabelCarrierResource
+ * Extended CarrierResource for storing label-specific mapping information
+ * Used to preserve file and page range information when storing labels via Store interface
+ */
+export interface LabelCarrierResource extends CarrierResource {
+  /**
+   * Reference to the label file ID (from LabelFileResource.id)
+   */
+  fileId?: string;
+
+  /**
+   * Page range in the file where this label resides
+   */
+  pageRange?: {
+    start: number;
+    end: number;
+  };
+}
+
+/**
+ * FailedCarrierResource
+ * A CarrierResource that explicitly represents a failed operation
+ * Used when status is "failed" to ensure carrierId is undefined
+ */
+export interface FailedCarrierResource extends CarrierResource {
+  /**
+   * Always undefined for failed resources
+   */
+  carrierId: undefined;
+
+  /**
+   * Always "failed" for failed resources
+   */
+  status: "failed";
+
+  /**
+   * Must contain validation or operation errors
+   */
+  errors: ParcelValidationError[];
+}

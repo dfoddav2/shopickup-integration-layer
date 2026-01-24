@@ -2,6 +2,7 @@ import type {
   CarrierAdapter,
   AdapterContext,
   CarrierResource,
+  LabelCarrierResource,
   Store,
   DomainEvent,
   CreateLabelRequest,
@@ -20,7 +21,7 @@ export interface CreateLabelFlowResult {
   labelResults: LabelResult[];
 
   /** Any errors that occurred during the flow */
-  errors: Array<{ step: string; error: unknown }>;
+  errors: Array<{ step: string; error: Error | CarrierResource }>;
 }
 
 /**
@@ -112,22 +113,23 @@ export async function executeCreateLabelFlow(opts: {
 
          result.labelResults.push(labelRes);
 
-         if (store && labelRes.status === "created" && labelRes.fileId) {
-           // Store the label result with file mapping
-           await store.saveCarrierResource(parcel.id, "label", {
-             carrierId: labelRes.inputId,
-             status: labelRes.status,
-             fileId: labelRes.fileId,
-             pageRange: labelRes.pageRange,
-             raw: labelRes.raw,
-           } as any);
-           await store.appendEvent(parcel.id, {
-             type: "LABEL_GENERATED",
-             internalId: parcel.id,
-             carrierId: adapter.id,
-             resource: labelRes,
-           });
-         }
+          if (store && labelRes.status === "created" && labelRes.fileId) {
+            // Store the label result with file mapping
+            const labelResource: LabelCarrierResource = {
+              carrierId: labelRes.inputId,
+              status: labelRes.status,
+              fileId: labelRes.fileId,
+              pageRange: labelRes.pageRange,
+              raw: labelRes.raw,
+            };
+            await store.saveCarrierResource(parcel.id, "label", labelResource);
+            await store.appendEvent(parcel.id, {
+              type: "LABEL_GENERATED",
+              internalId: parcel.id,
+              carrierId: adapter.id,
+              resource: labelResource,
+            });
+          }
 
          context.logger?.info("Flow: Label created", {
            inputId: labelRes.inputId,
@@ -139,11 +141,14 @@ export async function executeCreateLabelFlow(opts: {
 
     return result;
   } catch (error) {
-    context.logger?.error("Flow: Error occurred", { error, step: "unknown" });
+    // Convert unknown to a properly typed error
+    const typedError = error instanceof Error ? error : new Error(String(error));
+    
+    context.logger?.error("Flow: Error occurred", { error: typedError.message, step: "unknown" });
 
     result.errors.push({
       step: "unknown",
-      error,
+      error: typedError,
     });
 
     if (store) {
@@ -151,7 +156,7 @@ export async function executeCreateLabelFlow(opts: {
         type: "ERROR_OCCURRED",
         internalId: parcels[0]?.id || "unknown",
         carrierId: adapter.id,
-        details: { error: error instanceof Error ? error.message : String(error) },
+        details: { errorMessage: typedError.message },
       });
     }
 

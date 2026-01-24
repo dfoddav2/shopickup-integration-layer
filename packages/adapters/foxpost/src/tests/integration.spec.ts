@@ -326,7 +326,7 @@ describe("FoxpostAdapter Integration", () => {
 
        // Should return failed status with error details in raw field
        expect(result.status).toBe("failed");
-       expect(result.carrierId).toBeNull();
+       expect(result.carrierId).toBeUndefined();
        expect(result.raw).toBeDefined();
        const rawData = result.raw as any;
        expect(rawData.errors).toBeDefined();

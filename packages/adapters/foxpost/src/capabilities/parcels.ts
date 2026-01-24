@@ -5,6 +5,7 @@
 
 import type {
   CarrierResource,
+  FailedCarrierResource,
   ParcelValidationError,
   AdapterContext,
   CreateParcelRequest,
@@ -217,35 +218,39 @@ export async function createParcels(
           errors: serializeForLog(errors),
         });
 
-        const rawParcel = serializeForLog(p) as any;
-        rawParcel.errors = errors;
+         const rawParcel = serializeForLog(p) as any;
+         rawParcel.errors = errors;
 
-        return {
-          carrierId: null as any,
-          status: "failed",
-          raw: rawParcel,
-          errors,
-        };
+         const failedResource: FailedCarrierResource = {
+           carrierId: undefined,
+           status: "failed",
+           raw: rawParcel,
+           errors,
+         };
+
+         return failedResource;
       }
 
       // Check for successful barcode assignment
       const carrierId = p.clFoxId;
       if (!carrierId) {
-        ctx.logger?.warn("Foxpost: Parcel created returned no clFoxId", {
-          parcelIdx: idx,
-          refCode: p.refCode,
-        });
+         ctx.logger?.warn("Foxpost: Parcel created returned no clFoxId", {
+           parcelIdx: idx,
+           refCode: p.refCode,
+         });
 
-        return {
-          carrierId: null as any,
-          status: "failed",
-          raw: serializeForLog(p) as any,
-          errors: [{
-            field: "clFoxId",
-            message: "No barcode assigned by carrier",
-            code: "NO_BARCODE_ASSIGNED",
-          }],
-        };
+         const failedResource: FailedCarrierResource = {
+           carrierId: undefined,
+           status: "failed",
+           raw: serializeForLog(p) as any,
+           errors: [{
+             field: "clFoxId",
+             message: "No barcode assigned by carrier",
+             code: "NO_BARCODE_ASSIGNED",
+           }],
+         };
+
+         return failedResource;
       }
 
       // Success - parcel was created with barcode

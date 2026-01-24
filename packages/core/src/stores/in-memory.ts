@@ -43,13 +43,13 @@ export class InMemoryStore implements Store {
     this.carrierResources.set(key, resource);
   }
 
-  async getCarrierResource(
-    internalId: string,
-    resourceType: string
-  ): Promise<CarrierResource | null> {
-    const key = `${resourceType}:${internalId}`;
-    return this.carrierResources.get(key) ?? null;
-  }
+   async getCarrierResource(
+     internalId: string,
+     resourceType: "shipment" | "parcel" | "label"
+   ): Promise<CarrierResource | null> {
+     const key = `${resourceType}:${internalId}`;
+     return this.carrierResources.get(key) ?? null;
+   }
 
   async appendEvent(internalId: string, event: DomainEvent): Promise<void> {
     if (!this.events.has(internalId)) {

@@ -1,4 +1,4 @@
-import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelsRequest, CreateLabelsResponse, LabelResult } from '@shopickup/core';
+import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelsRequest, CreateLabelsResponse, LabelResult, CreateParcelRequest, CreateParcelsRequest, TrackingRequest, TrackingUpdate } from '@shopickup/core';
 
 /**
  * MPLAdapter
@@ -64,54 +64,54 @@ export class MPLAdapter implements CarrierAdapter {
      * These methods are declared in capabilities but will throw NotImplementedError if called
      * without a proper implementation.
      */
-    async createParcel(
-        _req: any,
-        _ctx: AdapterContext
-    ): Promise<CarrierResource> {
-        throw new CarrierError(
-            "createParcel not yet implemented for MPL adapter",
-            "Permanent"
-        );
-    }
-
-    async createParcels(
-        _req: any,
-        _ctx: AdapterContext
-    ): Promise<any> {
-        throw new CarrierError(
-            "createParcels not yet implemented for MPL adapter",
-            "Permanent"
-        );
-    }
-
-      async createLabel(
-          _req: CreateLabelRequest,
-          _ctx: AdapterContext
-      ): Promise<LabelResult> {
-          throw new CarrierError(
-              "createLabel not yet implemented for MPL adapter",
-              "Permanent"
-          );
-      }
-
-     async createLabels(
-         _req: CreateLabelsRequest,
+     async createParcel(
+         _req: CreateParcelRequest,
          _ctx: AdapterContext
-     ): Promise<CreateLabelsResponse> {
+     ): Promise<CarrierResource> {
          throw new CarrierError(
-             "createLabels not yet implemented for MPL adapter",
+             "createParcel not yet implemented for MPL adapter",
              "Permanent"
          );
      }
 
-    async track(
-        _req: any,
-        _ctx: AdapterContext
-    ): Promise<any> {
-        throw new CarrierError(
-            "track not yet implemented for MPL adapter",
-            "Permanent"
-        );
-    }
+     async createParcels(
+         _req: CreateParcelsRequest,
+         _ctx: AdapterContext
+     ): Promise<any> {
+         throw new CarrierError(
+             "createParcels not yet implemented for MPL adapter",
+             "Permanent"
+         );
+     }
+
+       async createLabel(
+           _req: CreateLabelRequest,
+           _ctx: AdapterContext
+       ): Promise<LabelResult> {
+           throw new CarrierError(
+               "createLabel not yet implemented for MPL adapter",
+               "Permanent"
+           );
+       }
+
+      async createLabels(
+          _req: CreateLabelsRequest,
+          _ctx: AdapterContext
+      ): Promise<CreateLabelsResponse> {
+          throw new CarrierError(
+              "createLabels not yet implemented for MPL adapter",
+              "Permanent"
+          );
+      }
+
+     async track(
+         _req: TrackingRequest,
+         _ctx: AdapterContext
+     ): Promise<TrackingUpdate> {
+         throw new CarrierError(
+             "track not yet implemented for MPL adapter",
+             "Permanent"
+         );
+     }
 
 }

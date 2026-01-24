@@ -177,11 +177,11 @@ describe('FoxpostAdapter createParcels', () => {
      expect(res.results[0].carrierId).toBe('CLFOX0000000001');
      expect(res.results[0].errors).toBeUndefined();
      
-     // Second parcel failed with multiple errors
-     expect(res.results[1].status).toBe('failed');
-     expect(res.results[1].carrierId).toBeNull();
-     expect(res.results[1].errors).toBeDefined();
-     expect(res.results[1].errors).toHaveLength(2);
+      // Second parcel failed with multiple errors
+      expect(res.results[1].status).toBe('failed');
+      expect(res.results[1].carrierId).toBeUndefined();
+      expect(res.results[1].errors).toBeDefined();
+      expect(res.results[1].errors).toHaveLength(2);
      
      // Check error details
      const errors = res.results[1].errors!;

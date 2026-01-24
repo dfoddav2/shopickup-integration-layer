@@ -1,5 +1,6 @@
 import type { HttpClient, HttpClientConfig, HttpResponse } from '../interfaces/http-client.js';
 import type { Logger } from '../interfaces/logger.js';
+import { HttpError } from './errors.js';
 
 export interface FetchHttpClientOptions {
   defaultTimeoutMs?: number;
@@ -18,11 +19,11 @@ function parseResponseText(text: string) {
   }
 }
 
-function makeError(status: number, statusText: string, data: unknown, headers: Record<string, string> | undefined) {
-  const e = new Error(`${status} ${statusText}`);
-  (e as any).status = status;
-  (e as any).response = { status, statusText, data, headers };
-  return e;
+function makeError(status: number, statusText: string, data: unknown, headers: Record<string, string> | undefined): HttpError {
+  return new HttpError(`${status} ${statusText}`, {
+    status,
+    response: { status, statusText, data, headers },
+  });
 }
 
 function defaultLogger(): Logger {

@@ -2,6 +2,15 @@ import type { Shipment, Parcel } from '../types/index.js';
 import type { CarrierResource } from '../interfaces/index.js';
 
 /**
+ * Event details for different domain event types
+ * Discriminated union to provide type-safe event detail access
+ */
+export type DomainEventDetails =
+  | { errorMessage: string; carrierCode?: string; errorCategory?: string }
+  | { parcelIdx: number; errorCount: number }
+  | Record<string, unknown>;
+
+/**
  * DomainEvent
  * Immutable domain event for audit logging
  */
@@ -31,8 +40,8 @@ export interface DomainEvent {
   /** Associated resource */
   resource?: CarrierResource;
 
-  /** Event details */
-  details?: Record<string, unknown>;
+  /** Event details - typed details for error and parcel events */
+  details?: DomainEventDetails;
 }
 
 /**
@@ -74,13 +83,13 @@ export interface Store {
     resource: CarrierResource
   ): Promise<void>;
 
-  /**
-   * Retrieve a carrier resource by internal ID
-   */
-  getCarrierResource(
-    internalId: string,
-    resourceType: string
-  ): Promise<CarrierResource | null>;
+   /**
+    * Retrieve a carrier resource by internal ID
+    */
+   getCarrierResource(
+     internalId: string,
+     resourceType: "shipment" | "parcel" | "label"
+   ): Promise<CarrierResource | null>;
 
   /**
    * Append an immutable domain event to the audit log
