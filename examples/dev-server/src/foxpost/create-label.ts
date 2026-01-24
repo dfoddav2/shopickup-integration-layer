@@ -101,10 +101,17 @@ export async function registerCreateLabelRoute(
           });
         }
 
-        const ctx: AdapterContext = {
-          http: httpClient,
-          logger: wrapPinoLogger(fastify.log),
-        };
+         const ctx: AdapterContext = {
+           http: httpClient,
+           logger: wrapPinoLogger(fastify.log),
+           operationName: 'createLabel',
+           loggingOptions: {
+             maxArrayItems: 5,
+             maxDepth: 2,
+             logRawResponse: 'summary',
+             logMetadata: false,
+           },
+         };
 
         // Convert to batch request and call createLabels
         // This ensures we get the full CreateLabelsResponse with files[] array

@@ -130,41 +130,35 @@ export interface FetchPickupPointsRequest {
    */
   credentials?: Record<string, unknown>;
 
-  /**
-   * Optional filters and query parameters
-   */
-  options?: {
-    /**
-     * Filter by country code (ISO 3166-1 alpha-2)
-     * Example: "hu" for Hungary
-     */
-    country?: string;
+   /**
+    * Optional filters and query parameters
+    */
+   options?: {
+     /**
+      * Filter by geographic bounding box
+      */
+     bbox?: {
+       north: number;
+       south: number;
+       east: number;
+       west: number;
+     };
 
-    /**
-     * Filter by geographic bounding box
-     */
-    bbox?: {
-      north: number;
-      south: number;
-      east: number;
-      west: number;
-    };
+     /**
+      * Return only pickup points updated since this date
+      */
+     updatedSince?: string | Date;
 
-    /**
-     * Return only pickup points updated since this date
-     */
-    updatedSince?: string | Date;
+     /**
+      * Use test/sandbox API endpoint
+      */
+     testMode?: boolean;
 
-    /**
-     * Use test/sandbox API endpoint
-     */
-    testMode?: boolean;
-
-    /**
-     * Custom options for extensibility
-     */
-    [key: string]: unknown;
-  };
+     /**
+      * Custom options for extensibility
+      */
+     [key: string]: unknown;
+   };
 }
 
 /**

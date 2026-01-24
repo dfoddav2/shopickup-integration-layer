@@ -8,8 +8,6 @@ import { FoxpostAdapter } from '@shopickup/adapters-foxpost';
 import { CarrierError, type AdapterContext } from '@shopickup/core';
 import { wrapPinoLogger } from '../http-client.js';
 import {
-  FOXPOST_CREDENTIALS_SCHEMA,
-  FOXPOST_OPTIONS_SCHEMA,
   PICKUP_POINTS_RESPONSE_SCHEMA,
 } from './common.js';
 
@@ -22,25 +20,13 @@ export async function registerPickupPointsRoute(
       description: 'Fetch list of Foxpost pickup points (APMs)',
       tags: ['Foxpost', 'Dev'],
       summary: 'Fetch pickup points',
-      querystring: {
-        type: 'object',
-        properties: {
-          country: {
-            type: 'string',
-            description: 'Filter by country code (ISO 3166-1 alpha-2)',
-          },
-        },
-      },
       response: PICKUP_POINTS_RESPONSE_SCHEMA,
     },
     async handler(request: any, reply: any) {
       try {
-        const { country } = request.query as any;
-
         // Build pickup points request
         const req = {
           credentials: undefined, // Public feed, no authentication needed
-          options: country ? { country } : undefined,
         };
 
         // Prepare adapter context
@@ -54,6 +40,15 @@ export async function registerPickupPointsRoute(
         const ctx: AdapterContext = {
           http: httpClient,
           logger: wrapPinoLogger(fastify.log),
+          operationName: 'fetchPickupPoints',
+          loggingOptions: {
+            // Silent by default to prevent verbose APM list logging
+            silentOperations: ['fetchPickupPoints'],
+            maxArrayItems: 10,
+            maxDepth: 2,
+            logRawResponse: 'summary',
+            logMetadata: false,
+          },
         };
 
         // Call adapter

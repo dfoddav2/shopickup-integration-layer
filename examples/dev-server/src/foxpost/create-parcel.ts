@@ -82,10 +82,17 @@ export async function registerCreateParcelRoute(
           });
         }
 
-        const ctx: AdapterContext = {
-          http: httpClient,
-          logger: wrapPinoLogger(fastify.log),
-        };
+         const ctx: AdapterContext = {
+           http: httpClient,
+           logger: wrapPinoLogger(fastify.log),
+           operationName: 'createParcel',
+           loggingOptions: {
+             maxArrayItems: 5,
+             maxDepth: 2,
+             logRawResponse: 'summary',
+             logMetadata: false,
+           },
+         };
 
         // Invoke createParcel method
         const result = await adapter.createParcel(createReq, ctx);

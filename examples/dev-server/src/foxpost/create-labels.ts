@@ -102,10 +102,17 @@ export async function registerCreateLabelsRoute(
           });
         }
 
-        const ctx: AdapterContext = {
-          http: httpClient,
-          logger: wrapPinoLogger(fastify.log),
-        };
+         const ctx: AdapterContext = {
+           http: httpClient,
+           logger: wrapPinoLogger(fastify.log),
+           operationName: 'createLabels',
+           loggingOptions: {
+             maxArrayItems: 5,
+             maxDepth: 2,
+             logRawResponse: 'summary',
+             logMetadata: false,
+           },
+         };
 
         // Invoke createLabels method
         const result = await adapter.createLabels(createReq, ctx);

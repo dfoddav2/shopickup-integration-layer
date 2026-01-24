@@ -63,10 +63,17 @@ export async function registerTrackRoute(
             category: 'Internal',
           });
         }
-        const ctx: AdapterContext = {
-          http: httpClient,
-          logger: wrapPinoLogger(fastify.log),
-        };
+         const ctx: AdapterContext = {
+           http: httpClient,
+           logger: wrapPinoLogger(fastify.log),
+           operationName: 'track',
+           loggingOptions: {
+             maxArrayItems: 5,
+             maxDepth: 2,
+             logRawResponse: 'summary',
+             logMetadata: false,
+           },
+         };
 
         // Call adapter
         const trackingResponse = await adapter.track(req, ctx);

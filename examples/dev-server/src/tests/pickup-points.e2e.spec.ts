@@ -10,9 +10,8 @@ import axios from 'axios';
  * 1. Server starts successfully
  * 2. Pickup points endpoint returns valid data
  * 3. Responses include correct HTTP status codes
- * 4. Filtering by country works correctly
- * 5. Response structure matches schema
- * 6. Error handling works properly
+ * 4. Response structure matches schema
+ * 5. Error handling works properly
  */
 
 const API_URL = 'http://localhost:3000';
@@ -23,7 +22,7 @@ describe('Dev-Server Integration - Foxpost Pickup Points', () => {
   // In a real setup, you'd spawn the server in beforeAll()
 
   describe('Successful requests (HTTP 200)', () => {
-    it('should fetch pickup points without filters', async () => {
+    it('should fetch pickup points', async () => {
       try {
         const response = await axios.get(PICKUP_POINTS_ENDPOINT);
 
@@ -53,53 +52,9 @@ describe('Dev-Server Integration - Foxpost Pickup Points', () => {
       }
     });
 
-    it('should fetch pickup points with country filter (HU)', async () => {
-      try {
-        const response = await axios.get(PICKUP_POINTS_ENDPOINT, {
-          params: { country: 'HU' },
-        });
-
-        expect(response.status).toBe(200);
-        expect(response.data).toHaveProperty('points');
-        expect(Array.isArray(response.data.points)).toBe(true);
-
-        // Verify all returned points are from Hungary
-        response.data.points.forEach((point: any) => {
-          expect(point.country.toLowerCase()).toBe('hu');
-        });
-      } catch (error: unknown) {
-        if (axios.isAxiosError(error) && error.code === 'ECONNREFUSED') {
-          console.warn('Dev-server not running. Skipping test.');
-        } else {
-          throw error;
-        }
-      }
-    });
-
-    it('should return empty array for non-existent country', async () => {
-      try {
-        const response = await axios.get(PICKUP_POINTS_ENDPOINT, {
-          params: { country: 'ZZ' },
-        });
-
-        expect(response.status).toBe(200);
-        expect(response.data).toHaveProperty('points');
-        expect(Array.isArray(response.data.points)).toBe(true);
-        expect(response.data.points.length).toBe(0);
-      } catch (error: unknown) {
-        if (axios.isAxiosError(error) && error.code === 'ECONNREFUSED') {
-          console.warn('Dev-server not running. Skipping test.');
-        } else {
-          throw error;
-        }
-      }
-    });
-
     it('should include pickup point details', async () => {
       try {
-        const response = await axios.get(PICKUP_POINTS_ENDPOINT, {
-          params: { country: 'HU' },
-        });
+        const response = await axios.get(PICKUP_POINTS_ENDPOINT);
 
         expect(response.status).toBe(200);
         const point = response.data.points[0];
@@ -158,9 +113,7 @@ describe('Dev-Server Integration - Foxpost Pickup Points', () => {
 
     it('should preserve raw carrier data', async () => {
       try {
-        const response = await axios.get(PICKUP_POINTS_ENDPOINT, {
-          params: { country: 'HU' },
-        });
+        const response = await axios.get(PICKUP_POINTS_ENDPOINT);
 
         expect(response.status).toBe(200);
         const point = response.data.points[0];
@@ -185,9 +138,7 @@ describe('Dev-Server Integration - Foxpost Pickup Points', () => {
   describe('Response format validation', () => {
     it('should return valid pickup point structure', async () => {
       try {
-        const response = await axios.get(PICKUP_POINTS_ENDPOINT, {
-          params: { country: 'HU' },
-        });
+        const response = await axios.get(PICKUP_POINTS_ENDPOINT);
 
         expect(response.status).toBe(200);
         expect(response.data).toHaveProperty('points');
@@ -246,31 +197,8 @@ describe('Dev-Server Integration - Foxpost Pickup Points', () => {
     });
   });
 
-  describe('Filtering and query parameters', () => {
-    it('should accept country parameter as lowercase', async () => {
-      try {
-        const responseUpper = await axios.get(PICKUP_POINTS_ENDPOINT, {
-          params: { country: 'HU' },
-        });
-
-        const responseLower = await axios.get(PICKUP_POINTS_ENDPOINT, {
-          params: { country: 'hu' },
-        });
-
-        // Both should return same number of results
-        expect(responseUpper.data.points.length).toBe(
-          responseLower.data.points.length
-        );
-      } catch (error: unknown) {
-        if (axios.isAxiosError(error) && error.code === 'ECONNREFUSED') {
-          console.warn('Dev-server not running. Skipping test.');
-        } else {
-          throw error;
-        }
-      }
-    });
-
-    it('should handle undefined country parameter', async () => {
+  describe('Query parameters', () => {
+    it('should handle requests without query parameters', async () => {
       try {
         const response = await axios.get(PICKUP_POINTS_ENDPOINT);
 
