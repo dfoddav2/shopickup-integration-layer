@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added CHANGELOG.md (this file)
 - Updated README.md with new Parcel structure documentation
 - Foxpost adapter JSDoc clarified that shipper is required in core but not sent to API
+ - Dev-server default logging level changed to `info` to reduce verbose output from pickup-point feeds; documented in examples/dev-server/README.md
 
 ### Test Results
 

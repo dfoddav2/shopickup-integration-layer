@@ -2,7 +2,7 @@
 
 > **Status:** Phase 1 & 2 Active. Shopickup is a TypeScript-first, ESM-native, npm-publishable **adapter library** for shipping carriers. Not a microservice — a set of importable packages that handle carrier API complexity.
 >
-> **Latest Update:** January 2025. Core library finalized. Foxpost adapter fully implemented with 22 passing tests (Vitest + v8 coverage). ESM/NodeNext monorepo build-first workflow established.
+> **Latest Update:** Jan 2026. Dev-server logging defaults changed to `info` to reduce noisy output; pickup-points (APM) logs are silent by default. Core library finalized. Foxpost adapter fully implemented with extensive tests.
 
 ## 1. Project Overview & Philosophy
 

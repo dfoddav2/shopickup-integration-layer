@@ -31,8 +31,9 @@ Edit `.env` to customize logging and server settings (all settings have sensible
 
 ```env
 NODE_ENV=development
-LOG_LEVEL=debug
-HTTP_DEBUG=1
+# Default: use `info` for cleaner logs; set to `debug` for verbose HTTP & adapter debugging
+LOG_LEVEL=info
+HTTP_DEBUG=0
 HTTP_TIMEOUT_MS=30000
 SERVER_PORT=3000
 ```
@@ -94,6 +95,17 @@ HTTP_DEBUG_FULL=1
 Then restart: `pnpm run dev`
 
 You'll see logs with request/response details, which is useful for understanding adapter-to-carrier communication.
+
+### Silencing Pickup-Points (APM) Logs
+
+The Foxpost adapter's `fetchPickupPoints` operation returns large APM feeds and is silent by default to avoid polluting logs. To enable adapter-level logs for pickup points, set the adapter context `loggingOptions` or run the server with `LOG_LEVEL=debug` and `HTTP_DEBUG=1`.
+
+Example (enable adapter logging):
+
+```js
+// In your gateway/server when building AdapterContext
+loggingOptions: { silentOperations: [] } // empty = enable logging
+```
 
 ## Understanding the `raw` Field
 
