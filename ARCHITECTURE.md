@@ -595,25 +595,7 @@ export class InMemoryStore implements Store {
 
 ### Integrator Examples
 
-#### SQLite + Drizzle (see `examples/dev-server`)
-
-```typescript
-// Integrator implements Store for their Drizzle schema
-export class SqliteStore implements Store {
-  constructor(private db: Database) {}
-
-  async saveShipment(shipment: Shipment): Promise<void> {
-    await this.db
-      .insert(shipmentsTable)
-      .values(shipment)
-      .onConflictDoUpdate({ target: shipmentsTable.id, set: shipment });
-  }
-
-  // ... other methods
-}
-```
-
-#### Postgres
+#### Postgres (Example)
 
 ```typescript
 // Integrator implements Store for their Postgres pool
@@ -625,6 +607,25 @@ export class PostgresStore implements Store {
       `INSERT INTO shipments (...) VALUES (...)
        ON CONFLICT (id) DO UPDATE SET ...`,
       [shipment.id, /* ... */]
+    );
+  }
+
+  // ... other methods
+}
+```
+
+#### MongoDB (Example)
+
+```typescript
+// Integrator implements Store for their MongoDB collection
+export class MongoStore implements Store {
+  constructor(private db: MongoClient) {}
+
+  async saveShipment(shipment: Shipment): Promise<void> {
+    await this.db.collection('shipments').updateOne(
+      { _id: shipment.id },
+      { $set: shipment },
+      { upsert: true }
     );
   }
 

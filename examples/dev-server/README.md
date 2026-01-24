@@ -2,6 +2,8 @@
 
 A Fastify-based development server that demonstrates how to use Shopickup adapters. Includes Swagger UI for interactive testing and configurable environment-based logging.
 
+**Important:** This dev server is for testing and iteration only. It does not persist data. For production, implement your own `Store` interface with the database of your choice (PostgreSQL, MongoDB, DynamoDB, etc.).
+
 ## Features
 
 - Health check endpoint
@@ -592,11 +594,10 @@ Tips:
 ## Next Steps
 
 1. Read [RAW_FIELD.md](./RAW_FIELD.md) for a deep dive into the `raw` field and debugging strategies
-2. Add more dev endpoints for other adapter methods (`track`, `createLabel`, etc.)
-3. Add database persistence (SQLite + Drizzle ORM)
-4. Add store implementation for tracking carrier resources
-5. Add webhook receiver for carrier events
-6. Deploy to staging/production environment
+2. Add more dev endpoints for other adapter methods (already present: `track`, `createLabel`, etc.)
+3. Implement your own `Store` interface for your database of choice (Postgres, MongoDB, DynamoDB, etc.)
+4. Add webhook receiver for carrier events (scaffold is available)
+5. Deploy to staging/production environment
 
 ## Support & Resources
 

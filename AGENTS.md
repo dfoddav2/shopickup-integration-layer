@@ -73,12 +73,14 @@ This document is for **developers and AI agents** contributing to Shopickup. It 
 
 ### Phase 3: Dev Server & Examples
 
-**Lightweight Express/Fastify server** for testing:
+**Lightweight Fastify dev server** for testing and iteration (not a production template):
 
-1. SQLite + Drizzle ORM schema for shipments/parcels/labels
-2. Example store implementation
-3. `/label` endpoint wiring core + Foxpost adapter
-4. Webhook receiver stub
+1. Example endpoints wiring core + Foxpost adapter (create-label, track, pickup-points)
+2. OpenAPI/Swagger documentation auto-generated from endpoint schemas
+3. Webhook receiver stub for carrier events
+4. Admin logging control for development convenience
+
+Note: The dev-server does not persist data. Integrators should implement their own `Store` interface (using their choice of database: PostgreSQL, MongoDB, DynamoDB, etc.). See "Store Interface" section below.
 
 ### Phase 4: Extensibility Tooling (Future)
 
@@ -814,21 +816,19 @@ await store.saveCarrierResource(parcelId, { raw: res });
 
 ### Implementing the Dev Server
 
-- [ ] Create `examples/dev-server/` with Express/Fastify
-- [ ] Create SQLite schema with `shipments`, `parcels`, `labels`, `carrier_resources` tables
-- [ ] Implement `Store` interface for SQLite
-- [ ] Create `/label` endpoint wiring core + Foxpost adapter
-- [ ] Create `/webhook` endpoint (stub)
-- [ ] Add `docker-compose.dev.yml` (optional)
+- [ ] Create `examples/dev-server/` with Fastify
+- [ ] Create example endpoints wiring core + adapters (create-label, track, pickup-points)
+- [ ] Create webhook receiver stub for carrier events
+- [ ] Add OpenAPI/Swagger documentation
 - [ ] Document how to run locally
-- [ ] Provide example payload in README
+- [ ] Provide example payloads and cURL commands in README
+- [ ] Document that dev-server is for testing only; integrators implement their own Store
 
 ### Adding a New Capability to Core
 
 - [ ] Define the new capability in `Capability` enum
 - [ ] Add corresponding method to `CarrierAdapter` interface
 - [ ] Add flow helper in `executeCreateLabelFlow` (or new helper)
-- [ ] Update `Store` interface if persistence is needed
 - [ ] Write tests for the new flow
 - [ ] Update README and ARCHITECTURE.md
 

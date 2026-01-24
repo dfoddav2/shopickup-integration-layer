@@ -68,13 +68,13 @@ Shopickup solves the **carrier API heterogeneity problem** by providing:
 │       └── create-adapter-cli/    # Generator: pnpm create-adapter --name=dhl
 │
 ├── examples/
-│   └── dev-server/               # Lightweight example server (Express/Fastify)
+│   └── dev-server/               # Lightweight example server (Fastify)
 │       ├── src/
-│       │   ├── index.ts          # Main server
-│       │   ├── db.ts             # SQLite + Drizzle ORM (optional example)
-│       │   └── routes/           # Example endpoints: POST /label, POST /webhook
+│       │   ├── index.ts          # Main server with OpenAPI registration
+│       │   ├── routes/           # Example endpoints: label, track, webhook
+│       │   └── ...
 │       ├── package.json
-│       └── sqlite.db             # (gitignored)
+│       └── README.md             # How to run and API usage examples
 │
 └── scripts/
     ├── codegen.sh                # Runs openapi-typescript to gen types
@@ -416,12 +416,32 @@ console.log(result.label.trackingNumber);
 console.log(result.label.pdfUrl);
 ```
 
-### With Persistence (SQLite Example)
+### With Persistence (Your Store Implementation)
 
-See `examples/dev-server/` for a complete example using SQLite + Drizzle ORM:
+Implement the optional `Store` interface for your database of choice (Postgres, MongoDB, DynamoDB, etc.):
 
 ```typescript
-const store = new SqliteStore(db);
+// Your implementation
+class YourStore implements Store {
+  async saveShipment(shipment: Shipment): Promise<void> {
+    // Insert/upsert into your database
+    await yourDb.shipments.upsert(shipment);
+  }
+  
+  async saveCarrierResource(
+    internalId: string, 
+    resourceType: string,
+    resource: CarrierResource
+  ): Promise<void> {
+    // Save the mapping between your internal ID and carrier ID
+    await yourDb.carrierResources.upsert({ internalId, resourceType, ...resource });
+  }
+  
+  // ... implement other Store methods
+}
+
+// Use it with the flow
+const store = new YourStore();
 const shipment = await store.getShipment(shipmentId);
 
 const result = await executeCreateLabelFlow({
@@ -430,10 +450,10 @@ const result = await executeCreateLabelFlow({
   parcels,
   credentials,
   context: { http: httpClient, logger: console },
+  store, // Pass your store
 });
 
-// Save carrier resource mapping
-await store.saveCarrierResource(shipmentId, result.carrierResource);
+// The flow will automatically save carrier resource mappings
 ```
 
 ## 5. Development Workflow
@@ -547,7 +567,7 @@ pnpm run dev  # Runs tsx for hot reload (development only)
 | **Test Runner** | Vitest (v8 coverage) | Fast, ESM-native, Jest-compatible, better DX |
 | **OpenAPI specs** | In `carrier-docs/` | Single source of truth for carrier APIs, drives codegen |
 | **Errors** | Structured types | Integrators can decide retry/fallback logic cleanly |
-| **Example server** | SQLite + Drizzle | Lightweight, self-contained, not opinionated |
+| **Example server** | Lightweight Fastify | Testing & iteration; implement your own Store for production |
 
 ## 7. Non-Functional Goals
 
