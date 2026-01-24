@@ -9,22 +9,27 @@ import type {
   CreateLabelRequest,
   CreateLabelsRequest,
   CreateLabelsResponse,
+  LabelResult,
+  LabelFileResource,
 } from "@shopickup/core";
 import { CarrierError, errorToLog, serializeForLog } from "@shopickup/core";
 import { translateFoxpostError } from '../errors.js';
 import { safeValidateCreateLabelRequest, safeValidateCreateLabelsRequest } from "../validation.js";
 import type { ResolveBaseUrl } from "../utils/resolveBaseUrl.js";
 import { URLSearchParams } from "node:url";
+import { randomUUID } from "node:crypto";
 
 /**
  * Create a label (generate PDF) for a single parcel
  * Delegates to createLabels to reuse batching logic
+ * 
+ * Returns a LabelResult with file mapping
  */
 export async function createLabel(
   req: CreateLabelRequest,
   ctx: AdapterContext,
   resolveBaseUrl: ResolveBaseUrl,
-): Promise<CarrierResource & { labelUrl?: string | null }> {
+): Promise<LabelResult> {
   // Validate request format and credentials
   const validated = safeValidateCreateLabelRequest(req);
   if (!validated.success) {
@@ -64,11 +69,7 @@ export async function createLabel(
   }
 
   // Return the first (only) label result
-  const result = results[0];
-  return {
-    ...result,
-    rawCarrierResponse: response.rawCarrierResponse,
-  } as CarrierResource & { labelUrl?: string | null };
+  return results[0];
 }
 
 /**
@@ -79,7 +80,8 @@ export async function createLabel(
  * - Returns PDF with all labels (optionally concatenated based on pageSize)
  * - For A7 size on A4 page, supports startPos parameter (1-7)
  * 
- * Returns per-item results so callers can track which labels succeeded/failed
+ * Returns structured response with files array and per-item results
+ * Foxpost returns one PDF (combined), so all results reference the same file
  */
 export async function createLabels(
   req: CreateLabelsRequest,
@@ -107,6 +109,7 @@ export async function createLabels(
     if (!Array.isArray(req.parcelCarrierIds) || req.parcelCarrierIds.length === 0) {
       return {
         results: [],
+        files: [],
         successCount: 0,
         failureCount: 0,
         totalCount: 0,
@@ -123,13 +126,13 @@ export async function createLabels(
     const size = validated.data.options?.size ?? "A7";
     const baseUrl = resolveBaseUrl(validated.data.options);
     const startPos = validated.data.options?.startPos;
-    const isPortrait = validated.data.options?.isPortrait;
+    const isPortrait = (validated.data.options as any)?.isPortrait;
 
     // Construct URL with page size and optional params
     const params = new URLSearchParams();
     if (startPos !== undefined && startPos !== null) params.set('startPos', String(startPos));
     if (isPortrait !== undefined && isPortrait !== null) params.set('isPortrait', String(isPortrait));
-    let url = `${baseUrl}/api/label/${size}${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `${baseUrl}/api/label/${size}${params.toString() ? `?${params.toString()}` : ''}`;
 
     ctx.logger?.debug("Foxpost: Creating labels batch", {
       testMode: useTestApi,
@@ -148,7 +151,6 @@ export async function createLabels(
         {
           headers: {
             "Accept-Type": "application/pdf",
-            // "Content-Type": "application/json",
             "Authorization": `Basic ${Buffer.from(`${basicUsername}:${basicPassword}`).toString("base64")}`,
             ...(apiKey && { "Api-key": apiKey }),
           },
@@ -163,25 +165,42 @@ export async function createLabels(
         );
       }
 
-      // Convert PDF buffer to base64
-      const labelData = `data:application/pdf;base64,${Buffer.from(pdfBuffer).toString("base64")}`;
+      // Create file resource for the single PDF
+      const fileId = randomUUID();
+      const dataUrl = `data:application/pdf;base64,${Buffer.from(pdfBuffer).toString("base64")}`;
+      const file: LabelFileResource = {
+        id: fileId,
+        dataUrl,
+        contentType: "application/pdf",
+        byteLength: pdfBuffer.byteLength,
+        pages: req.parcelCarrierIds.length, // One page per label (Foxpost behavior)
+        orientation: isPortrait === false ? 'landscape' : 'portrait',
+        metadata: {
+          size,
+          isPortrait,
+          barcodeCount: req.parcelCarrierIds.length,
+          combined: true, // All labels in one file
+        },
+      };
+
       ctx.logger?.info("Foxpost: Labels created successfully", {
         count: req.parcelCarrierIds.length,
         size,
         testMode: useTestApi,
       });
 
-      // Return per-item results
-      // All labels in the batch succeeded (Foxpost returns one PDF for all)
-      const results = req.parcelCarrierIds.map((barcode) => ({
-        carrierId: barcode,
+      // Create per-item results, all referencing the same file
+      const results: LabelResult[] = req.parcelCarrierIds.map((barcode, idx) => ({
+        inputId: barcode,
         status: "created" as const,
-        labelUrl: labelData,
-        raw: { barcode, format: "PDF", pageSize: size, startPos, combined: true },
+        fileId,
+        pageRange: { start: idx + 1, end: idx + 1 }, // One page per label
+        raw: { barcode, format: "PDF", pageSize: size, startPos, pageNumber: idx + 1 },
       }));
 
       return {
         results,
+        files: [file],
         successCount: results.length,
         failureCount: 0,
         totalCount: results.length,
@@ -200,8 +219,8 @@ export async function createLabels(
       });
 
       // Return failed results for all parcels
-      const results = req.parcelCarrierIds.map((barcode) => ({
-        carrierId: barcode,
+      const results: LabelResult[] = req.parcelCarrierIds.map((barcode) => ({
+        inputId: barcode,
         status: "failed" as const,
         errors: [
           {
@@ -214,6 +233,7 @@ export async function createLabels(
 
       return {
         results,
+        files: [],
         successCount: 0,
         failureCount: results.length,
         totalCount: results.length,

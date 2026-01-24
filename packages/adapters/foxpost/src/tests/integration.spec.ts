@@ -203,9 +203,12 @@ describe("FoxpostAdapter Integration", () => {
        );
 
        expect(result).toBeDefined();
-       expect(result.carrierId).toBe("CLFOX0000000001");
+       expect(result.inputId).toBe("CLFOX0000000001");
        expect(result.status).toBe("created");
-       expect(result.labelUrl).toBeDefined();
+       expect(result.fileId).toBeDefined();
+       expect(result.pageRange).toBeDefined();
+       expect(result.pageRange?.start).toBe(1);
+       expect(result.pageRange?.end).toBe(1);
      });
 
     it("tracks the parcel", async () => {
@@ -657,12 +660,20 @@ describe("FoxpostAdapter Integration", () => {
        expect(result.allSucceeded).toBe(true);
        expect(result.summary).toContain("3");
        
-       // All results should have status "created" and base64 labelUrl
-       result.results.forEach(res => {
-         expect(res.status).toBe("created");
-         expect((res as any).labelUrl).toBeDefined();
-         expect((res as any).labelUrl).toMatch(/^data:application\/pdf;base64,/);
-       });
+        // All results should have status "created" and reference the file
+        result.results.forEach((res, idx) => {
+          expect(res.status).toBe("created");
+          expect(res.fileId).toBeDefined();
+          expect(res.pageRange).toBeDefined();
+          expect(res.pageRange?.start).toBe(idx + 1);
+          expect(res.pageRange?.end).toBe(idx + 1);
+        });
+        
+        // Files array should contain the actual PDF
+        expect(result.files).toBeDefined();
+        expect(result.files).toHaveLength(1);
+        expect(result.files![0].dataUrl).toBeDefined();
+        expect(result.files![0].dataUrl).toMatch(/^data:application\/pdf;base64,/);
      });
 
      it("creates labels with custom size (A6)", async () => {
@@ -686,25 +697,25 @@ describe("FoxpostAdapter Integration", () => {
        expect(mockHttp.lastUrl).toContain("/api/label/A6");
      });
 
-     it("creates labels with custom size (85x85)", async () => {
-       const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
-       const mockHttp = new MockHttpClient();
-       const ctx: AdapterContext = { http: mockHttp, logger: console };
+      it("creates labels with custom size (85x85)", async () => {
+        const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+        const mockHttp = new MockHttpClient();
+        const ctx: AdapterContext = { http: mockHttp, logger: console };
 
-       const result = await adapter.createLabels!(
-         {
-           parcelCarrierIds: ["CLFOX0000000001"],
-           credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
-           options: { size: "85x85" },
-         },
-         ctx
-       );
+        const result = await adapter.createLabels!(
+          {
+            parcelCarrierIds: ["CLFOX0000000001"],
+            credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+            options: { size: "_85X85" },
+          },
+          ctx
+        );
 
-       expect(result).toBeDefined();
-       expect(result.results).toHaveLength(1);
-       expect(result.successCount).toBe(1);
-       expect(mockHttp.lastUrl).toContain("/api/label/85x85");
-     });
+        expect(result).toBeDefined();
+        expect(result.results).toHaveLength(1);
+        expect(result.successCount).toBe(1);
+        expect(mockHttp.lastUrl).toContain("/api/label/_85X85");
+      });
 
      it("creates A7 labels with startPos parameter", async () => {
        const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
@@ -788,11 +799,11 @@ describe("FoxpostAdapter Integration", () => {
          ctx
        );
 
-       expect(result).toBeDefined();
-       expect(result.carrierId).toBe("CLFOX0000000001");
-       expect(result.status).toBe("created");
-       expect(result.labelUrl).toBeDefined();
-       expect(mockHttp.lastUrl).toContain("/api/label/A6");
+        expect(result).toBeDefined();
+        expect(result.inputId).toBe("CLFOX0000000001");
+        expect(result.status).toBe("created");
+        expect(result.fileId).toBeDefined();
+        expect(mockHttp.lastUrl).toContain("/api/label/A6");
      });
    });
 });

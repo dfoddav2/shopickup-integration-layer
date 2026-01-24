@@ -1,7 +1,7 @@
 import type { Capability } from './capabilities.js';
 import type { AdapterContext } from './adapter-context.js';
 import type { CarrierResource } from './carrier-resource.js';
-import type { Parcel, RatesResponse, TrackingUpdate, CreateParcelsResponse, CreateLabelsResponse } from '../types/index.js';
+import type { Parcel, RatesResponse, TrackingUpdate, CreateParcelsResponse, CreateLabelsResponse, LabelResult } from '../types/index.js';
 
 /**
  * Request options
@@ -260,10 +260,17 @@ export interface CarrierAdapter {
    * - Original CreateLabelRequest (for backward compatibility)
    * - New extended request with size and startPos options
    */
+  /**
+   * Generate a label for a single parcel
+   * Capability: CREATE_LABEL
+   * 
+   * Returns LabelResult with file mapping and metadata
+   * Delegates to createLabels for batch-first implementation
+   */
   createLabel?(
     req: CreateLabelRequest,
     ctx: AdapterContext
-  ): Promise<CarrierResource & { labelUrl?: string | null }>;
+  ): Promise<LabelResult>;
 
   /**
    * Generate labels for multiple parcels in one call

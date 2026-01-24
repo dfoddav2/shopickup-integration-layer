@@ -4,6 +4,8 @@
  */
 
 import type { CarrierResource } from '../interfaces/carrier-resource.js';
+import type { CreateLabelsResponse } from './label.js';
+export type { CreateLabelsResponse, LabelFileResource, LabelResult } from './label.js';
 
 /**
  * Response from batch parcel creation operations
@@ -91,69 +93,6 @@ export interface CreateParcelsResponse {
      * Optional: adapters may omit if HTTP client does not support response inspection
      */
     rawCarrierResponse?: unknown;
-}
-
-/**
- * Response from batch label creation operations
- * Provides per-item results and an overall summary
- * 
- * Similar structure to CreateParcelsResponse but for labels
- * Handles partial success (some labels generated, some failed)
- */
-export interface CreateLabelsResponse {
-  /**
-   * Per-item results from the batch operation
-   * One CarrierResource per input parcel ID, in the same order
-   */
-  results: CarrierResource[];
-
-  /**
-   * Number of labels that succeeded (status === 'created')
-   */
-  successCount: number;
-
-  /**
-   * Number of labels that failed (status === 'failed')
-   */
-  failureCount: number;
-
-  /**
-   * Total number of labels processed
-   */
-  totalCount: number;
-
-  /**
-   * Whether all labels succeeded
-   * True only if failureCount === 0 && totalCount > 0
-   */
-  allSucceeded: boolean;
-
-  /**
-   * Whether all labels failed
-   * True only if successCount === 0 && totalCount > 0
-   */
-  allFailed: boolean;
-
-  /**
-   * Whether operation had mixed results (some succeeded, some failed)
-   * True only if successCount > 0 && failureCount > 0
-   */
-  someFailed: boolean;
-
-  /**
-   * Human-readable summary of the results
-   * Examples:
-   * - "All 5 labels generated successfully"
-   * - "3 labels generated, 2 failed"
-   * - "All labels failed"
-   */
-  summary: string;
-
-  /**
-   * Full raw carrier response from the HTTP call
-   * For batch label endpoints, this is typically the PDF file or a reference to it
-   */
-  rawCarrierResponse?: unknown;
 }
 
 /**

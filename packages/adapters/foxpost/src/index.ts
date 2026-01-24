@@ -17,6 +17,7 @@ import type {
   CreateLabelsResponse,
   CarrierResource,
   TrackingUpdate,
+  LabelResult,
 } from "@shopickup/core";
 import { Capabilities, CarrierError, NotImplementedError } from "@shopickup/core";
 import { FoxpostClient } from './client/index.js';
@@ -121,12 +122,12 @@ export class FoxpostAdapter implements CarrierAdapter {
    * 
    * @param req CreateLabelRequest with parcelCarrierId (Foxpost barcode)
    * @param ctx AdapterContext with HTTP client and logger
-   * @returns CarrierResource with base64-encoded PDF in labelUrl field
+   * @returns LabelResult with file mapping and page range
    */
   async createLabel(
     req: CreateLabelRequest,
     ctx: AdapterContext
-  ): Promise<CarrierResource & { labelUrl?: string | null }> {
+  ): Promise<LabelResult> {
     return createLabelImpl(req, ctx, this.resolveBaseUrl);
   }
 

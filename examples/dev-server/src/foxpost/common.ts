@@ -426,15 +426,34 @@ export const SINGLE_LABEL_RESPONSE_SCHEMA = {
     description: 'Successful label creation',
     type: 'object',
     properties: {
-      carrierId: { type: 'string' },
-      status: { type: 'string' },
-      labelUrl: { type: ['string', 'null'], description: 'Base64-encoded PDF data URL' },
+      inputId: { 
+        type: 'string',
+        description: 'The parcel carrier ID that was requested',
+        example: 'CLFOX0000000001'
+      },
+      status: { 
+        type: 'string',
+        enum: ['created', 'failed', 'skipped'],
+        example: 'created'
+      },
+      fileId: { 
+        type: 'string',
+        description: 'UUID reference to the file in files array',
+        example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479'
+      },
+      pageRange: {
+        type: 'object',
+        description: 'Page range in the PDF (for multi-label PDFs)',
+        properties: {
+          start: { type: 'integer', example: 1 },
+          end: { type: 'integer', example: 1 }
+        }
+      },
       errors: {
         type: 'array',
         items: {
           type: 'object',
           properties: {
-            field: { type: 'string' },
             code: { type: 'string' },
             message: { type: 'string' },
           },
@@ -443,6 +462,7 @@ export const SINGLE_LABEL_RESPONSE_SCHEMA = {
       raw: {
         type: 'object',
         additionalProperties: true,
+        description: 'Raw carrier API response'
       },
     },
   },
@@ -450,14 +470,13 @@ export const SINGLE_LABEL_RESPONSE_SCHEMA = {
     description: 'Validation error or client error',
     type: 'object',
     properties: {
-      carrierId: { type: 'string' },
+      inputId: { type: 'string' },
       status: { type: 'string', enum: ['failed'] },
       errors: {
         type: 'array',
         items: {
           type: 'object',
           properties: {
-            field: { type: 'string' },
             code: { type: 'string' },
             message: { type: 'string' },
           },
@@ -480,29 +499,106 @@ export const BATCH_LABEL_RESPONSE_SCHEMA = {
     description: 'All labels created successfully',
     type: 'object',
     properties: {
-      summary: { type: 'string' },
-      successCount: { type: 'number' },
-      failureCount: { type: 'number' },
-      totalCount: { type: 'number' },
-      allSucceeded: { type: 'boolean' },
-      allFailed: { type: 'boolean' },
-      someFailed: { type: 'boolean' },
+      summary: { 
+        type: 'string',
+        example: 'All 3 labels created successfully'
+      },
+      successCount: { type: 'number', example: 3 },
+      failureCount: { type: 'number', example: 0 },
+      totalCount: { type: 'number', example: 3 },
+      allSucceeded: { type: 'boolean', example: true },
+      allFailed: { type: 'boolean', example: false },
+      someFailed: { type: 'boolean', example: false },
       results: {
         type: 'array',
         items: {
           type: 'object',
           properties: {
-            carrierId: { type: 'string' },
-            status: { type: 'string' },
-            labelUrl: { type: ['string', 'null'] },
-            errors: { type: 'array', items: { type: 'object' } },
-            raw: { type: 'object', additionalProperties: true },
+            inputId: { 
+              type: 'string',
+              description: 'The parcel carrier ID that was requested',
+              example: 'CLFOX0000000001'
+            },
+            status: { 
+              type: 'string',
+              enum: ['created', 'failed', 'skipped'],
+              example: 'created'
+            },
+            fileId: { 
+              type: 'string',
+              description: 'UUID reference to the file in files array',
+              example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479'
+            },
+            pageRange: {
+              type: 'object',
+              description: 'Page range in the PDF',
+              properties: {
+                start: { type: 'integer' },
+                end: { type: 'integer' }
+              }
+            },
+            errors: { 
+              type: 'array', 
+              items: { type: 'object' },
+              description: 'Error details if status is failed'
+            },
+            raw: { 
+              type: 'object', 
+              additionalProperties: true,
+              description: 'Raw carrier response for this result'
+            },
           },
         },
+      },
+      files: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            id: { 
+              type: 'string',
+              description: 'UUID for this file',
+              example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479'
+            },
+            dataUrl: {
+              type: 'string',
+              description: 'Base64-encoded PDF data URL (remove for production CDN upload)',
+              example: 'data:application/pdf;base64,JVBERi0xLjQK...'
+            },
+            contentType: { 
+              type: 'string',
+              example: 'application/pdf'
+            },
+            byteLength: { 
+              type: 'integer',
+              description: 'File size in bytes',
+              example: 45678
+            },
+            pages: { 
+              type: 'integer',
+              description: 'Number of pages in PDF',
+              example: 3
+            },
+            orientation: {
+              type: 'string',
+              enum: ['portrait', 'landscape'],
+              description: 'Page orientation',
+              example: 'portrait'
+            },
+            metadata: {
+              type: 'object',
+              description: 'Carrier-specific metadata',
+              additionalProperties: true,
+              example: { carrier: 'foxpost', size: 'A7', isPortrait: true }
+            },
+          },
+        },
+        description: 'File artifacts - each file may be referenced by multiple results'
       },
       rawCarrierResponse: {
         type: 'object',
         additionalProperties: true,
+        description: 'Raw carrier API response'
       },
     },
   },
@@ -510,7 +606,10 @@ export const BATCH_LABEL_RESPONSE_SCHEMA = {
     description: 'Partial success - some labels created, some failed',
     type: 'object',
     properties: {
-      summary: { type: 'string' },
+      summary: { 
+        type: 'string',
+        example: 'Mixed results: 2 succeeded, 1 failed'
+      },
       successCount: { type: 'number' },
       failureCount: { type: 'number' },
       totalCount: { type: 'number' },
@@ -522,31 +621,51 @@ export const BATCH_LABEL_RESPONSE_SCHEMA = {
         items: {
           type: 'object',
           properties: {
-            carrierId: { type: 'string' },
-            status: { type: 'string' },
-            labelUrl: { type: ['string', 'null'] },
+            inputId: { type: 'string' },
+            status: { type: 'string', enum: ['created', 'failed'] },
+            fileId: { type: 'string' },
+            pageRange: { type: 'object' },
             errors: { type: 'array', items: { type: 'object' } },
             raw: { type: 'object', additionalProperties: true },
+          },
+        },
+      },
+      files: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            dataUrl: { type: 'string' },
+            contentType: { type: 'string' },
+            byteLength: { type: 'integer' },
+            pages: { type: 'integer' },
+            metadata: { type: 'object', additionalProperties: true },
           },
         },
       },
     },
   },
   400: {
-    description: 'All labels failed',
+    description: 'All labels failed or validation error',
     type: 'object',
     properties: {
-      summary: { type: 'string' },
-      successCount: { type: 'number' },
-      failureCount: { type: 'number' },
-      totalCount: { type: 'number' },
+      summary: { 
+        type: 'string',
+        example: 'All 3 labels failed'
+      },
+      successCount: { type: 'number', example: 0 },
+      failureCount: { type: 'number', example: 3 },
+      totalCount: { type: 'number', example: 3 },
       allFailed: { type: 'boolean', enum: [true] },
+      allSucceeded: { type: 'boolean', enum: [false] },
+      someFailed: { type: 'boolean', enum: [true] },
       results: {
         type: 'array',
         items: {
           type: 'object',
           properties: {
-            carrierId: { type: 'string' },
+            inputId: { type: 'string' },
             status: { type: 'string', enum: ['failed'] },
             errors: { type: 'array', items: { type: 'object' } },
             raw: { type: 'object', additionalProperties: true },

@@ -1,4 +1,4 @@
-import type { Shipment, Parcel, Label } from '../types/index.js';
+import type { Shipment, Parcel } from '../types/index.js';
 import type { CarrierResource } from '../interfaces/index.js';
 
 /**
@@ -91,19 +91,4 @@ export interface Store {
    * Retrieve events for an entity (useful for debugging and compliance)
    */
   getEvents(internalId: string): Promise<DomainEvent[]>;
-
-  /**
-   * Save a label record
-   */
-  saveLabel(label: Label): Promise<void>;
-
-  /**
-   * Retrieve a label by ID
-   */
-  getLabel(id: string): Promise<Label | null>;
-
-  /**
-   * Retrieve a label by tracking number
-   */
-  getLabelByTrackingNumber(trackingNumber: string): Promise<Label | null>;
 }

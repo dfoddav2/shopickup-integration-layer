@@ -6,7 +6,7 @@ import type {
   DomainEvent,
   CreateLabelRequest,
 } from '../interfaces/index.js';
-import type { Parcel } from '../types/index.js';
+import type { Parcel, LabelResult } from '../types/index.js';
 import { Capabilities } from '../interfaces/capabilities.js';
 
 /**
@@ -16,8 +16,8 @@ export interface CreateLabelFlowResult {
   /** Resources created for each parcel */
   parcelResources: CarrierResource[];
 
-  /** Resources created for each label */
-  labelResources: CarrierResource[];
+  /** Results (with file mapping) for each label */
+  labelResults: LabelResult[];
 
   /** Any errors that occurred during the flow */
   errors: Array<{ step: string; error: unknown }>;
@@ -47,7 +47,7 @@ export async function executeCreateLabelFlow(opts: {
 
   const result: CreateLabelFlowResult = {
     parcelResources: [],
-    labelResources: [],
+    labelResults: [],
     errors: [],
   };
 
@@ -105,27 +105,35 @@ export async function executeCreateLabelFlow(opts: {
            credentials,
          };
 
-         const labelRes = await adapter.createLabel!(
-           labelReq,
-           context
-         );
+          const labelRes = await adapter.createLabel!(
+            labelReq,
+            context
+          );
 
-        result.labelResources.push(labelRes);
+         result.labelResults.push(labelRes);
 
-        if (store && labelRes.carrierId) {
-          await store.saveCarrierResource(parcel.id, "label", labelRes);
-          await store.appendEvent(parcel.id, {
-            type: "LABEL_GENERATED",
-            internalId: parcel.id,
-            carrierId: adapter.id,
-            resource: labelRes,
-          });
-        }
+         if (store && labelRes.status === "created" && labelRes.fileId) {
+           // Store the label result with file mapping
+           await store.saveCarrierResource(parcel.id, "label", {
+             carrierId: labelRes.inputId,
+             status: labelRes.status,
+             fileId: labelRes.fileId,
+             pageRange: labelRes.pageRange,
+             raw: labelRes.raw,
+           } as any);
+           await store.appendEvent(parcel.id, {
+             type: "LABEL_GENERATED",
+             internalId: parcel.id,
+             carrierId: adapter.id,
+             resource: labelRes,
+           });
+         }
 
-        context.logger?.info("Flow: Label created", {
-          trackingNumber: labelRes.carrierId,
-          labelUrl: (labelRes as any).labelUrl,
-        });
+         context.logger?.info("Flow: Label created", {
+           inputId: labelRes.inputId,
+           status: labelRes.status,
+           fileId: labelRes.fileId,
+         });
       }
     }
 

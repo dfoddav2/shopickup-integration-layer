@@ -253,8 +253,8 @@ export const CreateLabelRequestFoxpostSchema = z.object({
   credentials: FoxpostCredentialsSchema.optional(),
   options: z.object({
     useTestApi: z.boolean().optional(),
-    size: z.enum(['A6', 'A7', '_85x85']).default('A7'),
-    startPos: z.number().int().min(1).max(7).optional().default(0),
+    size: z.enum(['A6', 'A7', '_85X85']).default('A7'),
+    startPos: z.number().int().min(1).max(7).optional(),
     isPortrait: z.boolean().optional().default(false),
   }).optional()
 });
@@ -269,7 +269,7 @@ export const CreateLabelsRequestFoxpostSchema = z.object({
   options: z.object({
     useTestApi: z.boolean().optional(),
     size: z.enum(['A6', 'A7', '_85X85']).default('A7'),
-    startPos: z.number().int().min(1).max(7).optional().default(0),
+    startPos: z.number().int().min(1).max(7).optional(),
     isPortrait: z.boolean().optional().default(false),
   }).optional()
 });
