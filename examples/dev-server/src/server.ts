@@ -11,7 +11,9 @@ import { registerFoxpostRoutes } from './foxpost/index.js';
 const isDev = process.env.NODE_ENV !== 'production';
 const fastify = Fastify({
     logger: {
-        level: process.env.LOG_LEVEL ?? (isDev ? 'debug' : 'info'),
+        // Default to 'info' level (cleaner logs). Override with LOG_LEVEL env var.
+        // Set LOG_LEVEL=debug for verbose HTTP client debugging
+        level: process.env.LOG_LEVEL ?? (isDev ? 'info' : 'info'),
         transport: isDev ? {
             target: 'pino-pretty',
             options: {
