@@ -417,3 +417,143 @@ export const TRACKING_RESPONSE_SCHEMA = {
   },
   401: FOXPOST_AUTHENTICATION_ERROR_SCHEMA,
 };
+
+/**
+ * Common response schema properties for single label creation
+ */
+export const SINGLE_LABEL_RESPONSE_SCHEMA = {
+  200: {
+    description: 'Successful label creation',
+    type: 'object',
+    properties: {
+      carrierId: { type: 'string' },
+      status: { type: 'string' },
+      labelUrl: { type: ['string', 'null'], description: 'Base64-encoded PDF data URL' },
+      errors: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            field: { type: 'string' },
+            code: { type: 'string' },
+            message: { type: 'string' },
+          },
+        },
+      },
+      raw: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+  },
+  400: {
+    description: 'Validation error or client error',
+    type: 'object',
+    properties: {
+      carrierId: { type: 'string' },
+      status: { type: 'string', enum: ['failed'] },
+      errors: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            field: { type: 'string' },
+            code: { type: 'string' },
+            message: { type: 'string' },
+          },
+        },
+      },
+      raw: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+  },
+  401: FOXPOST_AUTHENTICATION_ERROR_SCHEMA,
+};
+
+/**
+ * Common response schema properties for batch label creation
+ */
+export const BATCH_LABEL_RESPONSE_SCHEMA = {
+  200: {
+    description: 'All labels created successfully',
+    type: 'object',
+    properties: {
+      summary: { type: 'string' },
+      successCount: { type: 'number' },
+      failureCount: { type: 'number' },
+      totalCount: { type: 'number' },
+      allSucceeded: { type: 'boolean' },
+      allFailed: { type: 'boolean' },
+      someFailed: { type: 'boolean' },
+      results: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            carrierId: { type: 'string' },
+            status: { type: 'string' },
+            labelUrl: { type: ['string', 'null'] },
+            errors: { type: 'array', items: { type: 'object' } },
+            raw: { type: 'object', additionalProperties: true },
+          },
+        },
+      },
+      rawCarrierResponse: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+  },
+  207: {
+    description: 'Partial success - some labels created, some failed',
+    type: 'object',
+    properties: {
+      summary: { type: 'string' },
+      successCount: { type: 'number' },
+      failureCount: { type: 'number' },
+      totalCount: { type: 'number' },
+      allSucceeded: { type: 'boolean', enum: [false] },
+      allFailed: { type: 'boolean', enum: [false] },
+      someFailed: { type: 'boolean', enum: [true] },
+      results: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            carrierId: { type: 'string' },
+            status: { type: 'string' },
+            labelUrl: { type: ['string', 'null'] },
+            errors: { type: 'array', items: { type: 'object' } },
+            raw: { type: 'object', additionalProperties: true },
+          },
+        },
+      },
+    },
+  },
+  400: {
+    description: 'All labels failed',
+    type: 'object',
+    properties: {
+      summary: { type: 'string' },
+      successCount: { type: 'number' },
+      failureCount: { type: 'number' },
+      totalCount: { type: 'number' },
+      allFailed: { type: 'boolean', enum: [true] },
+      results: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            carrierId: { type: 'string' },
+            status: { type: 'string', enum: ['failed'] },
+            errors: { type: 'array', items: { type: 'object' } },
+            raw: { type: 'object', additionalProperties: true },
+          },
+        },
+      },
+    },
+  },
+  401: FOXPOST_AUTHENTICATION_ERROR_SCHEMA,
+};

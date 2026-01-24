@@ -7,6 +7,8 @@ import { FastifyInstance } from 'fastify';
 import { FoxpostAdapter } from '@shopickup/adapters-foxpost';
 import { registerCreateParcelRoute } from './create-parcel.js';
 import { registerCreateParcelsRoute } from './create-parcels.js';
+import { registerCreateLabelRoute } from './create-label.js';
+import { registerCreateLabelsRoute } from './create-labels.js';
 import { registerTrackRoute } from './track.js';
 
 /**
@@ -15,6 +17,8 @@ import { registerTrackRoute } from './track.js';
  * Routes registered:
  * - POST /api/dev/foxpost/create-parcel (single parcel)
  * - POST /api/dev/foxpost/create-parcels (batch)
+ * - POST /api/dev/foxpost/create-label (single label)
+ * - POST /api/dev/foxpost/create-labels (batch labels)
  * - POST /api/dev/foxpost/track (tracking)
  */
 export async function registerFoxpostRoutes(fastify: FastifyInstance) {
@@ -23,6 +27,8 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
   // Register individual route handlers
   await registerCreateParcelRoute(fastify, adapter);
   await registerCreateParcelsRoute(fastify, adapter);
+  await registerCreateLabelRoute(fastify, adapter);
+  await registerCreateLabelsRoute(fastify, adapter);
   await registerTrackRoute(fastify, adapter);
 }
 
