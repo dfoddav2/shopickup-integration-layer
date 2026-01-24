@@ -8,3 +8,4 @@ export * from './label.js';
 export * from './tracking.js';
 export * from './rate.js';
 export * from './responses.js';
+export * from './pickup-point.js';

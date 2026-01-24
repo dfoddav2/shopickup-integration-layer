@@ -133,6 +133,7 @@ export class <CarrierAdapter> implements CarrierAdapter {
     // "CREATE_LABEL",
     // "VOID_LABEL",
     // "TRACK",
+    // "LIST_PICKUP_POINTS",
     // "PICKUP",
     // "WEBHOOKS",
   ];
@@ -587,6 +588,90 @@ async createLabel(...): Promise<CarrierResource> { }
 
 // Never mix sync and async
 // Don't do: createLabelSync(...): CarrierResource { }
+```
+
+### Decision: LIST_PICKUP_POINTS Capability
+
+**Question:** How should adapters fetch and return pickup point/APM data?
+
+**Answer:** **Return normalized `PickupPoint` array in `FetchPickupPointsResponse`.** This:
+
+- Abstracts carrier-specific data structure (APM, parcel locker, pickup point, etc.)
+- Supports optional filtering by country/region
+- Preserves carrier-specific data in `metadata` and `raw` fields
+- Supports silent logging for large feeds to avoid verbose logs
+
+```typescript
+// In adapter: implement fetchPickupPoints if LIST_PICKUP_POINTS capability is declared
+export class <CarrierAdapter> implements CarrierAdapter {
+  capabilities = ["LIST_PICKUP_POINTS"];
+
+  async fetchPickupPoints(
+    req: FetchPickupPointsRequest,
+    ctx: AdapterContext
+  ): Promise<FetchPickupPointsResponse> {
+    // 1. Optional: handle request filtering (country, bounds, etc.)
+    // 2. Fetch from carrier (usually public/unauthenticated)
+    // 3. Map each carrier point to canonical PickupPoint
+    // 4. Filter by country if requested
+    // 5. Use safeLog() for verbose response logging
+
+    const carrierPoints = await ctx.http!.get("/apm/list");
+    const normalized = carrierPoints.map(point => mapToPickupPoint(point));
+    const filtered = req.options?.country 
+      ? normalized.filter(p => p.country.toLowerCase() === req.options.country.toLowerCase())
+      : normalized;
+
+    return {
+      points: filtered,
+      summary: { totalCount: filtered.length },
+      raw: carrierPoints,
+    };
+  }
+}
+
+// Example: map carrier APM to canonical PickupPoint
+function mapToPickupPoint(carrierApm: any): PickupPoint {
+  return {
+    id: carrierApm.id,
+    name: carrierApm.name,
+    latitude: parseFloat(carrierApm.lat),
+    longitude: parseFloat(carrierApm.lng),
+    address: {
+      street: carrierApm.street,
+      city: carrierApm.city,
+      postalCode: carrierApm.zip,
+      country: carrierApm.country.toLowerCase(),
+    },
+    pickupAllowed: carrierApm.allowsPickup ?? true,
+    dropoffAllowed: carrierApm.allowsDropoff ?? true,
+    paymentOptions: carrierApm.payments || [],
+    metadata: {
+      carrierSpecificField1: carrierApm.field1,
+      carrierSpecificField2: carrierApm.field2,
+    },
+    raw: carrierApm,
+  };
+}
+```
+
+**Logging Considerations:**
+
+APM/pickup-point feeds can be large (1000+ locations). By default, `fetchPickupPoints` is in the silent operations list to prevent verbose logging:
+
+```typescript
+// Default: no logging for large feeds
+const response = await adapter.fetchPickupPoints(req, ctx);
+
+// Enable logging if needed
+const response = await adapter.fetchPickupPoints(req, {
+  ...ctx,
+  loggingOptions: {
+    silentOperations: [], // Disable silent mode
+    logRawResponse: 'summary', // Show count + keys only
+    maxArrayItems: 10, // Limit array items in logs
+  }
+});
 ```
 
 ---

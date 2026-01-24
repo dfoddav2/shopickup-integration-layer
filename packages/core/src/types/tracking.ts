@@ -73,5 +73,5 @@ export interface TrackingUpdate {
   lastUpdate: Date;
 
   /** Raw carrier response for debugging */
-  raw?: unknown;
+  rawCarrierResponse?: unknown;
 }

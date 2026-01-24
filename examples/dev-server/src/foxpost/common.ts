@@ -670,9 +670,133 @@ export const BATCH_LABEL_RESPONSE_SCHEMA = {
             errors: { type: 'array', items: { type: 'object' } },
             raw: { type: 'object', additionalProperties: true },
           },
-        },
-      },
-    },
-  },
-  401: FOXPOST_AUTHENTICATION_ERROR_SCHEMA,
-};
+         },
+       },
+     },
+   },
+   401: FOXPOST_AUTHENTICATION_ERROR_SCHEMA,
+ };
+ 
+ /**
+  * Common response schema properties for pickup points list
+  */
+ export const PICKUP_POINTS_RESPONSE_SCHEMA = {
+   200: {
+     description: 'Successfully fetched pickup points',
+     type: 'object',
+     properties: {
+       points: {
+         type: 'array',
+         items: {
+           type: 'object',
+           properties: {
+             id: { 
+               type: 'string',
+               description: 'Unique identifier (operator_id or place_id)',
+               example: 'hu5844'
+             },
+             providerId: { 
+               type: 'string',
+               description: 'Provider native ID (for reference)',
+               example: '1444335'
+             },
+             name: { 
+               type: 'string',
+               example: 'FOXPOST A-BOX Nyíregyháza REpont Hősök tere'
+             },
+             country: { 
+               type: 'string',
+               example: 'hu'
+             },
+             postalCode: { 
+               type: 'string',
+               example: '4400'
+             },
+             city: { 
+               type: 'string',
+               example: 'Nyíregyháza'
+             },
+             street: { 
+               type: 'string',
+               example: 'Hősök tere 15.'
+             },
+             address: { 
+               type: 'string',
+               example: '4400 Nyíregyháza, Hősök tere 15.'
+             },
+             findme: { 
+               type: 'string',
+               description: 'Location hint',
+               example: 'Inside the building'
+             },
+             latitude: { 
+               type: 'number',
+               example: 47.956969
+             },
+             longitude: { 
+               type: 'number',
+               example: 21.716012
+             },
+             openingHours: {
+               type: 'object',
+               description: 'Opening hours by day',
+               example: { hetfo: '00:00-24:00', kedd: '00:00-24:00' }
+             },
+             dropoffAllowed: { 
+               type: 'boolean',
+               example: true
+             },
+             pickupAllowed: { 
+               type: 'boolean',
+               example: true
+             },
+             isOutdoor: { 
+               type: 'boolean',
+               example: false
+             },
+             paymentOptions: {
+               type: 'array',
+               items: { type: 'string' },
+               example: ['card', 'link']
+             },
+             metadata: {
+               type: 'object',
+               description: 'Carrier-specific fields',
+               additionalProperties: true,
+               example: { 
+                 depot: 'Debrecen Depo',
+                 apmType: 'Rollkon',
+                 variant: 'FOXPOST A-BOX'
+               }
+             },
+             raw: {
+               type: 'object',
+               description: 'Full raw carrier response for this point',
+               additionalProperties: true
+             }
+           }
+         }
+       },
+       summary: {
+         type: 'object',
+         properties: {
+           totalCount: { type: 'number', example: 150 },
+           updatedAt: { type: 'string', format: 'date-time' }
+         }
+       },
+       rawCarrierResponse: {
+         type: 'array',
+         description: 'Full raw response from Foxpost feed'
+       }
+     }
+   },
+   400: {
+     description: 'Error fetching pickup points',
+     type: 'object',
+     properties: {
+       message: { type: 'string' },
+       category: { type: 'string' },
+       raw: { type: 'object', additionalProperties: true }
+     }
+   }
+ };

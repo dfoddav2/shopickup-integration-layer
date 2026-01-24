@@ -1,7 +1,7 @@
 import type { Capability } from './capabilities.js';
 import type { AdapterContext } from './adapter-context.js';
 import type { CarrierResource } from './carrier-resource.js';
-import type { Parcel, RatesResponse, TrackingUpdate, CreateParcelsResponse, CreateLabelsResponse, LabelResult } from '../types/index.js';
+import type { Parcel, RatesResponse, TrackingUpdate, CreateParcelsResponse, CreateLabelsResponse, LabelResult, FetchPickupPointsRequest, FetchPickupPointsResponse } from '../types/index.js';
 
 /**
  * Request options
@@ -307,4 +307,13 @@ export interface CarrierAdapter {
     req: TrackingRequest,
     ctx: AdapterContext
   ): Promise<TrackingUpdate>;
+
+  /**
+   * Fetch list of pickup points (APMs, lockers, etc.) from the carrier
+   * Capability: LIST_PICKUP_POINTS
+   */
+  fetchPickupPoints?(
+    req: FetchPickupPointsRequest,
+    ctx: AdapterContext
+  ): Promise<FetchPickupPointsResponse>;
 }

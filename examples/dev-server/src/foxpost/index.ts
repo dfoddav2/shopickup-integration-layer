@@ -10,6 +10,7 @@ import { registerCreateParcelsRoute } from './create-parcels.js';
 import { registerCreateLabelRoute } from './create-label.js';
 import { registerCreateLabelsRoute } from './create-labels.js';
 import { registerTrackRoute } from './track.js';
+import { registerPickupPointsRoute } from './get-pickup-points.js';
 
 /**
  * Register all Foxpost routes to the Fastify instance
@@ -20,6 +21,7 @@ import { registerTrackRoute } from './track.js';
  * - POST /api/dev/foxpost/create-label (single label)
  * - POST /api/dev/foxpost/create-labels (batch labels)
  * - POST /api/dev/foxpost/track (tracking)
+ * - GET /api/dev/foxpost/pickup-points (fetch APM list)
  */
 export async function registerFoxpostRoutes(fastify: FastifyInstance) {
   const adapter = new FoxpostAdapter();
@@ -30,6 +32,7 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
   await registerCreateLabelRoute(fastify, adapter);
   await registerCreateLabelsRoute(fastify, adapter);
   await registerTrackRoute(fastify, adapter);
+  await registerPickupPointsRoute(fastify, adapter);
 }
 
 // Export common utilities for tests or external use

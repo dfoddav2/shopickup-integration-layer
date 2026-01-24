@@ -114,7 +114,7 @@ export async function track(
       events,
       status: currentStatus,
       lastUpdate: events[events.length - 1]?.timestamp || new Date(),
-      raw: response,
+      rawCarrierResponse: response,
     };
   } catch (error) {
     if (error instanceof CarrierError) {

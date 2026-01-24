@@ -18,6 +18,8 @@ import type {
   CarrierResource,
   TrackingUpdate,
   LabelResult,
+  FetchPickupPointsRequest,
+  FetchPickupPointsResponse,
 } from "@shopickup/core";
 import { Capabilities, CarrierError, NotImplementedError } from "@shopickup/core";
 import { FoxpostClient } from './client/index.js';
@@ -27,6 +29,7 @@ import {
   createLabel as createLabelImpl,
   createLabels as createLabelsImpl,
   track as trackImpl,
+  fetchPickupPoints as fetchPickupPointsImpl,
 } from './capabilities/index.js';
 import { createResolveBaseUrl, type ResolveBaseUrl } from './utils/resolveBaseUrl.js';
 
@@ -63,6 +66,7 @@ export class FoxpostAdapter implements CarrierAdapter {
     Capabilities.CREATE_PARCELS,
     Capabilities.CREATE_LABEL,
     Capabilities.TRACK,
+    Capabilities.LIST_PICKUP_POINTS,
     Capabilities.TEST_MODE_SUPPORTED,
   ];
 
@@ -171,6 +175,25 @@ export class FoxpostAdapter implements CarrierAdapter {
     ctx: AdapterContext
   ): Promise<TrackingUpdate> {
     return trackImpl(req, ctx, this.resolveBaseUrl);
+  }
+
+  /**
+   * Fetch list of Foxpost pickup points (APMs)
+   * 
+   * Fetches the public JSON feed from https://cdn.foxpost.hu/foxplus.json
+   * which is updated hourly and contains all active APM locations.
+   * 
+   * No authentication is required as this is a public feed.
+   * 
+   * @param req FetchPickupPointsRequest (optional filters)
+   * @param ctx AdapterContext with HTTP client
+   * @returns FetchPickupPointsResponse with normalized pickup points
+   */
+  async fetchPickupPoints(
+    req: FetchPickupPointsRequest,
+    ctx: AdapterContext
+  ): Promise<FetchPickupPointsResponse> {
+    return fetchPickupPointsImpl(req, ctx);
   }
 
   /**

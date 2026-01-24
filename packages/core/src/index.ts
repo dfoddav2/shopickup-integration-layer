@@ -23,3 +23,11 @@ export { createFetchHttpClient } from './http/fetch-client.js';
 
 // Utilities
 export { serializeForLog, truncateString, sanitizeHeadersForLog, errorToLog } from './utils/index.js';
+export {
+  isSilentOperation,
+  getLoggingOptions,
+  truncateForLogging,
+  summarizeRawResponse,
+  safeLog,
+  createLogEntry,
+} from './utils/logging-helpers.js';

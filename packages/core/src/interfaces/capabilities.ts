@@ -14,6 +14,7 @@ export const Capabilities = {
   PICKUP: "PICKUP",
   WEBHOOKS: "WEBHOOKS",
   TEST_MODE_SUPPORTED: "TEST_MODE_SUPPORTED",
+  LIST_PICKUP_POINTS: "LIST_PICKUP_POINTS",
 } as const;
 
 export type Capability = (typeof Capabilities)[keyof typeof Capabilities];
