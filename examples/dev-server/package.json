@@ -4,11 +4,12 @@
     "private": true,
     "type": "module",
     "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+        "build": "tsc -p tsconfig.build.json",
         "start": "node dist/server.js",
         "dev": "tsx src/server.ts --watch",
         "test": "vitest --run",
-        "test:watch": "vitest"
+        "test:watch": "vitest",
+        "kill:dev": "pids=$(lsof -t -iTCP:3000 -sTCP:LISTEN); [ -n \"$pids\" ] && kill $pids"
     },
      "dependencies": {
          "@fastify/cors": "^11.2.0",

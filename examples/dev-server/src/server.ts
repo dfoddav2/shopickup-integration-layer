@@ -89,6 +89,95 @@ fastify.get("/health", {
     }
 }, async () => ({ status: "ok", ts: new Date().toISOString() }));
 
+/**
+ * Admin endpoint to get/set log level at runtime (development only)
+ * 
+ * GET /admin/logging - Returns current log level
+ * POST /admin/logging - Sets log level (body: { level: 'debug' | 'info' | 'warn' | 'error' })
+ * 
+ * Useful for toggling verbose output without restarting the server.
+ * Example: curl http://localhost:3000/admin/logging?level=debug
+ */
+fastify.get("/admin/logging", {
+    schema: {
+        description: 'Get current server log level',
+        tags: ['server'],
+        summary: 'Get logging level',
+        querystring: {
+            type: 'object',
+            properties: {
+                level: {
+                    type: 'string',
+                    enum: ['debug', 'info', 'warn', 'error', 'fatal', 'silent'],
+                    description: 'Optional: set log level instead of just getting it'
+                }
+            }
+        },
+        response: {
+            200: {
+                description: 'Current log level',
+                type: 'object',
+                properties: {
+                    level: { type: 'string' },
+                    message: { type: 'string' }
+                }
+            },
+        }
+    }
+}, async (request: any, reply: any) => {
+    const newLevel = request.query?.level;
+    
+    if (newLevel) {
+        // Change log level
+        fastify.log.level = newLevel;
+        return {
+            level: newLevel,
+            message: `Log level changed to '${newLevel}'`
+        };
+    }
+    
+    // Return current level
+    return {
+        level: fastify.log.level,
+        message: 'Current log level'
+    };
+});
+
+fastify.post("/admin/logging", {
+    schema: {
+        description: 'Set server log level',
+        tags: ['server'],
+        summary: 'Set logging level',
+        body: {
+            type: 'object',
+            properties: {
+                level: {
+                    type: 'string',
+                    enum: ['debug', 'info', 'warn', 'error', 'fatal', 'silent']
+                }
+            },
+            required: ['level']
+        },
+        response: {
+            200: {
+                description: 'Log level updated',
+                type: 'object',
+                properties: {
+                    level: { type: 'string' },
+                    message: { type: 'string' }
+                }
+            },
+        }
+    }
+}, async (request: any, reply: any) => {
+    const { level } = request.body as { level: string };
+    fastify.log.level = level;
+    return {
+        level,
+        message: `Log level changed to '${level}'`
+    };
+});
+
 // Register Foxpost dev routes
 await registerFoxpostRoutes(fastify);
 
