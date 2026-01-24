@@ -16,27 +16,33 @@ class MockHttpClient implements HttpClient {
   lastUrl?: string;
   lastMethod?: string;
 
-  async post<T>(url: string, data?: any, options?: any): Promise<T> {
-    this.lastUrl = url;
-    this.lastMethod = 'POST';
-    
-     // Mock parcel creation response
-     if (url.includes("/api/parcel")) {
-       // Support batch requests: generate a response for each parcel in the request
-       const requestArray = Array.isArray(data) ? data : [data];
-       const parcels = requestArray.map((parcel: any, idx: number) => ({
-         clFoxId: `CLFOX${String(idx + 1).padStart(10, '0')}`,
-         barcodeTof: `501397${String(7175527 + idx).padStart(9, '0')}000013604024`,
-         refCode: parcel?.refCode,
-         errors: null,
-       }));
-       return {
-         valid: true,
-         parcels,
-       } as unknown as T;
-     }
-    throw new Error(`Unexpected POST: ${url}`);
-  }
+   async post<T>(url: string, data?: any, options?: any): Promise<T> {
+     this.lastUrl = url;
+     this.lastMethod = 'POST';
+     
+      // Mock parcel creation response
+      if (url.includes("/api/parcel")) {
+        // Support batch requests: generate a response for each parcel in the request
+        const requestArray = Array.isArray(data) ? data : [data];
+        const parcels = requestArray.map((parcel: any, idx: number) => ({
+          clFoxId: `CLFOX${String(idx + 1).padStart(10, '0')}`,
+          barcodeTof: `501397${String(7175527 + idx).padStart(9, '0')}000013604024`,
+          refCode: parcel?.refCode,
+          errors: null,
+        }));
+        return {
+          valid: true,
+          parcels,
+        } as unknown as T;
+      }
+
+      // Mock label generation (batch)
+      if (url.includes("/api/label")) {
+        return Buffer.from("PDF_CONTENT_HERE") as unknown as T;
+      }
+
+     throw new Error(`Unexpected POST: ${url}`);
+   }
 
   async get<T>(url: string, options?: any): Promise<T> {
     this.lastUrl = url;
@@ -188,15 +194,19 @@ describe("FoxpostAdapter Integration", () => {
     });
 
     it("creates a label for the parcel", async () => {
-      const result = await adapter.createLabel!(
-        "CLFOX0000000001",
-        context
-      );
+       const result = await adapter.createLabel!(
+         {
+           parcelCarrierId: "CLFOX0000000001",
+           credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+         },
+         context
+       );
 
-      expect(result).toBeDefined();
-      expect(result.carrierId).toBe("CLFOX0000000001");
-      expect(result.status).toBe("created");
-    });
+       expect(result).toBeDefined();
+       expect(result.carrierId).toBe("CLFOX0000000001");
+       expect(result.status).toBe("created");
+       expect(result.labelUrl).toBeDefined();
+     });
 
     it("tracks the parcel", async () => {
       const trackReq: TrackingRequest = {
@@ -427,27 +437,39 @@ describe("FoxpostAdapter Integration", () => {
       expect(mockHttp.lastUrl).not.toContain("webapi-test");
     });
 
-     it("uses test base URL when options.useTestApi=true for createLabel", async () => {
+      it("uses test base URL when options.useTestApi=true for createLabel", async () => {
+        const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+        const mockHttp = new MockHttpClient();
+        const ctx: AdapterContext = { http: mockHttp, logger: console };
+
+        await productionAdapter.createLabel!(
+          {
+            parcelCarrierId: "CLFOX0000000001",
+            credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+            options: { useTestApi: true },
+          },
+          ctx
+        );
+
+        expect(mockHttp.lastUrl).toContain("https://webapi-test.foxpost.hu");
+      });
+
+     it("uses production base URL for createLabel when useTestApi is not set", async () => {
        const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
        const mockHttp = new MockHttpClient();
        const ctx: AdapterContext = { http: mockHttp, logger: console };
 
-       await productionAdapter.createLabel!("CLFOX0000000001", ctx);
+       await productionAdapter.createLabel!(
+         {
+           parcelCarrierId: "CLFOX0000000001",
+           credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+         },
+         ctx
+       );
 
        expect(mockHttp.lastUrl).toContain("https://webapi.foxpost.hu");
        expect(mockHttp.lastUrl).not.toContain("webapi-test");
      });
-
-    it("uses production base URL for createLabel when useTestApi is not set", async () => {
-      const productionAdapter = new FoxpostAdapter("https://webapi.foxpost.hu");
-      const mockHttp = new MockHttpClient();
-      const ctx: AdapterContext = { http: mockHttp, logger: console };
-
-      await productionAdapter.createLabel!("CLFOX0000000001", ctx);
-
-      expect(mockHttp.lastUrl).toContain("https://webapi.foxpost.hu");
-      expect(mockHttp.lastUrl).not.toContain("webapi-test");
-    });
   });
 
   describe("Delivery discriminator (HOME vs PICKUP_POINT)", () => {
@@ -607,10 +629,170 @@ describe("FoxpostAdapter Integration", () => {
       expect(homePayload?.recipientCity).toBeDefined();
       expect(homePayload?.recipientZip).toBeDefined();
       
-      // APM delivery should have destination (not street/city)
-      const apmPayload = mockHttp.lastPostData?.[1];
-      expect(apmPayload?.destination).toBe("LOCKER-APM-123");
-      expect(apmPayload?.recipientAddress).toBeUndefined();
-    });
-  });
+       // APM delivery should have destination (not street/city)
+       const apmPayload = mockHttp.lastPostData?.[1];
+       expect(apmPayload?.destination).toBe("LOCKER-APM-123");
+       expect(apmPayload?.recipientAddress).toBeUndefined();
+     });
+   });
+
+   describe("Batch label generation", () => {
+     it("creates labels for multiple parcel IDs", async () => {
+       const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+       const mockHttp = new MockHttpClient();
+       const ctx: AdapterContext = { http: mockHttp, logger: console };
+
+       const result = await adapter.createLabels!(
+         {
+           parcelCarrierIds: ["CLFOX0000000001", "CLFOX0000000002", "CLFOX0000000003"],
+           credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+         },
+         ctx
+       );
+
+       expect(result).toBeDefined();
+       expect(result.results).toHaveLength(3);
+       expect(result.successCount).toBe(3);
+       expect(result.failureCount).toBe(0);
+       expect(result.allSucceeded).toBe(true);
+       expect(result.summary).toContain("3");
+       
+       // All results should have status "created" and base64 labelUrl
+       result.results.forEach(res => {
+         expect(res.status).toBe("created");
+         expect((res as any).labelUrl).toBeDefined();
+         expect((res as any).labelUrl).toMatch(/^data:application\/pdf;base64,/);
+       });
+     });
+
+     it("creates labels with custom size (A6)", async () => {
+       const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+       const mockHttp = new MockHttpClient();
+       const ctx: AdapterContext = { http: mockHttp, logger: console };
+
+       const result = await adapter.createLabels!(
+         {
+           parcelCarrierIds: ["CLFOX0000000001"],
+           credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+           options: { size: "A6" },
+         },
+         ctx
+       );
+
+       expect(result).toBeDefined();
+       expect(result.results).toHaveLength(1);
+       expect(result.successCount).toBe(1);
+       expect(result.allSucceeded).toBe(true);
+       expect(mockHttp.lastUrl).toContain("/api/label/A6");
+     });
+
+     it("creates labels with custom size (85x85)", async () => {
+       const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+       const mockHttp = new MockHttpClient();
+       const ctx: AdapterContext = { http: mockHttp, logger: console };
+
+       const result = await adapter.createLabels!(
+         {
+           parcelCarrierIds: ["CLFOX0000000001"],
+           credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+           options: { size: "85x85" },
+         },
+         ctx
+       );
+
+       expect(result).toBeDefined();
+       expect(result.results).toHaveLength(1);
+       expect(result.successCount).toBe(1);
+       expect(mockHttp.lastUrl).toContain("/api/label/85x85");
+     });
+
+     it("creates A7 labels with startPos parameter", async () => {
+       const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+       const mockHttp = new MockHttpClient();
+       const ctx: AdapterContext = { http: mockHttp, logger: console };
+
+       const result = await adapter.createLabels!(
+         {
+           parcelCarrierIds: ["CLFOX0000000001", "CLFOX0000000002"],
+           credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+           options: { size: "A7", startPos: 3 },
+         },
+         ctx
+       );
+
+       expect(result).toBeDefined();
+       expect(result.results).toHaveLength(2);
+       expect(result.successCount).toBe(2);
+       expect(mockHttp.lastUrl).toContain("/api/label/A7");
+       expect(mockHttp.lastUrl).toContain("startPos=3");
+     });
+
+     it("handles mixed success and failure in batch", async () => {
+       const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+       const mockHttp: any = {
+         ...new MockHttpClient(),
+         async post<T>(url: string, data?: any, options?: any): Promise<T> {
+           if (url.includes("/api/label")) {
+             // Return error for one of the requests to simulate failure
+             throw new Error("API error");
+           }
+           return super.post(url, data, options);
+         },
+       };
+       const ctx: AdapterContext = { http: mockHttp, logger: console };
+
+       const result = await adapter.createLabels!(
+         {
+           parcelCarrierIds: ["CLFOX0000000001"],
+           credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+         },
+         ctx
+       );
+
+       // Batch operations return results with failed status, not throw
+       expect(result).toBeDefined();
+       expect(result.results).toHaveLength(1);
+       expect(result.failureCount).toBe(1);
+       expect(result.allFailed).toBe(true);
+       expect(result.results[0].status).toBe("failed");
+     });
+
+     it("uses test API when useTestApi option is set", async () => {
+       const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+       const mockHttp = new MockHttpClient();
+       const ctx: AdapterContext = { http: mockHttp, logger: console };
+
+       await adapter.createLabels!(
+         {
+           parcelCarrierIds: ["CLFOX0000000001"],
+           credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+           options: { useTestApi: true },
+         },
+         ctx
+       );
+
+       expect(mockHttp.lastUrl).toContain("https://webapi-test.foxpost.hu");
+     });
+
+     it("delegates createLabel (singular) to createLabels", async () => {
+       const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
+       const mockHttp = new MockHttpClient();
+       const ctx: AdapterContext = { http: mockHttp, logger: console };
+
+       const result = await adapter.createLabel!(
+         {
+           parcelCarrierId: "CLFOX0000000001",
+           credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
+           options: { size: "A6" },
+         },
+         ctx
+       );
+
+       expect(result).toBeDefined();
+       expect(result.carrierId).toBe("CLFOX0000000001");
+       expect(result.status).toBe("created");
+       expect(result.labelUrl).toBeDefined();
+       expect(mockHttp.lastUrl).toContain("/api/label/A6");
+     });
+   });
 });

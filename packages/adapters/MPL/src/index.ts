@@ -1,4 +1,4 @@
-import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource } from '@shopickup/core';
+import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelsRequest, CreateLabelsResponse } from '@shopickup/core';
 
 /**
  * MPLAdapter
@@ -84,15 +84,25 @@ export class MPLAdapter implements CarrierAdapter {
         );
     }
 
-    async createLabel(
-        _parcelCarrierId: string,
-        _ctx: AdapterContext
-    ): Promise<CarrierResource> {
-        throw new CarrierError(
-            "createLabel not yet implemented for MPL adapter",
-            "Permanent"
-        );
-    }
+     async createLabel(
+         _req: CreateLabelRequest,
+         _ctx: AdapterContext
+     ): Promise<CarrierResource & { labelUrl?: string | null }> {
+         throw new CarrierError(
+             "createLabel not yet implemented for MPL adapter",
+             "Permanent"
+         );
+     }
+
+     async createLabels(
+         _req: CreateLabelsRequest,
+         _ctx: AdapterContext
+     ): Promise<CreateLabelsResponse> {
+         throw new CarrierError(
+             "createLabels not yet implemented for MPL adapter",
+             "Permanent"
+         );
+     }
 
     async track(
         _req: any,

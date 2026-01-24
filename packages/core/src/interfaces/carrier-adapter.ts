@@ -1,7 +1,7 @@
 import type { Capability } from './capabilities.js';
 import type { AdapterContext } from './adapter-context.js';
 import type { CarrierResource } from './carrier-resource.js';
-import type { Parcel, RatesResponse, TrackingUpdate, CreateParcelsResponse } from '../types/index.js';
+import type { Parcel, RatesResponse, TrackingUpdate, CreateParcelsResponse, CreateLabelsResponse } from '../types/index.js';
 
 /**
  * Request options
@@ -83,9 +83,51 @@ export interface CreateLabelRequest {
    */
   credentials: Record<string, unknown>;
   /**
-   * Per-call options (e.g., useTestApi)
+   * Per-call options (e.g., useTestApi, label size, startPos)
    */
-  options?: RequestOptions;
+  options?: RequestOptions & {
+    /**
+     * Label size/format (carrier-specific)
+     * Examples: "A6", "A7", "4x6", "85x85"
+     * Default depends on carrier (typically "A7" for Foxpost)
+     */
+    size?: string;
+    /**
+     * Starting position on page (carrier-specific)
+     * For A7 labels on A4 page: 1-7
+     * Ignored for other sizes
+     */
+    startPos?: number;
+  };
+}
+
+/**
+ * Request to create labels for multiple parcels in a single batch
+ * Similar to CreateParcelsRequest but for label generation
+ */
+export interface CreateLabelsRequest {
+  /**
+   * Array of carrier-specific parcel IDs to generate labels for
+   */
+  parcelCarrierIds: string[];
+  /**
+   * Shared credentials for the entire batch
+   */
+  credentials: Record<string, unknown>;
+  /**
+   * Shared options for the entire batch (size, startPos, etc.)
+   */
+  options?: RequestOptions & {
+    /**
+     * Label size/format (carrier-specific)
+     * Examples: "A6", "A7", "4x6", "85x85"
+     */
+    size?: string;
+    /**
+     * Starting position on page (carrier-specific, e.g., 1-7 for A7)
+     */
+    startPos?: number;
+  };
 }
 
 export interface TrackingRequest {
@@ -190,14 +232,36 @@ export interface CarrierAdapter {
     ctx: AdapterContext
   ): Promise<CarrierResource>;
 
-  /**
-   * Generate a label for a parcel
-   * Capability: CREATE_LABEL
-   */
-  createLabel?(
-    req: CreateLabelRequest,
-    ctx: AdapterContext
-  ): Promise<CarrierResource & { labelUrl?: string | null }>;
+   /**
+    * Generate a label for a parcel
+    * Capability: CREATE_LABEL
+    * 
+    * Can accept either:
+    * - Original CreateLabelRequest (for backward compatibility)
+    * - New extended request with size and startPos options
+    */
+   createLabel?(
+     req: CreateLabelRequest,
+     ctx: AdapterContext
+   ): Promise<CarrierResource & { labelUrl?: string | null }>;
+
+   /**
+    * Generate labels for multiple parcels in one call
+    * Capability: CREATE_LABEL (same as singular, but batch)
+    * 
+    * Returns strongly-typed CreateLabelsResponse with:
+    * - Per-item results (results: CarrierResource[])
+    * - Summary statistics (successCount, failureCount, totalCount)
+    * - Convenience flags (allSucceeded, allFailed, someFailed)
+    * - Raw PDF or batch response data
+    * 
+    * Some carriers (like Foxpost) return a single PDF with all labels.
+    * Adapters handle the parsing and should return per-label results.
+    */
+   createLabels?(
+     req: CreateLabelsRequest,
+     ctx: AdapterContext
+   ): Promise<CreateLabelsResponse>;
 
   /**
    * Void/cancel a label

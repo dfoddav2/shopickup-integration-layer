@@ -251,7 +251,23 @@ export const CreateLabelRequestFoxpostSchema = z.object({
   parcelCarrierId: z.string().min(1, 'Parcel carrier ID is required'),
   credentials: FoxpostCredentialsSchema.optional(),
   options: z.object({
-    useTestApi: z.boolean().optional()
+    useTestApi: z.boolean().optional(),
+    size: z.enum(['A6', 'A7', '85x85']).default('A7'),
+    startPos: z.number().int().min(1).max(7).optional(),
+  }).optional()
+});
+
+/**
+ * Batch label request schema
+ * Similar to CreateParcelsRequest but for labels
+ */
+export const CreateLabelsRequestFoxpostSchema = z.object({
+  parcelCarrierIds: z.array(z.string().min(1)).min(1, 'At least one parcel ID is required'),
+  credentials: FoxpostCredentialsSchema,
+  options: z.object({
+    useTestApi: z.boolean().optional(),
+    size: z.enum(['A6', 'A7', '85x85']).default('A7'),
+    startPos: z.number().int().min(1).max(7).optional(),
   }).optional()
 });
 
@@ -328,6 +344,14 @@ export function safeValidateCreateParcelsRequest(req: unknown) {
  */
 export function safeValidateCreateLabelRequest(req: unknown) {
   return CreateLabelRequestFoxpostSchema.safeParse(req);
+}
+
+/**
+ * Helper to safely validate a CreateLabelsRequest without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateCreateLabelsRequest(req: unknown) {
+  return CreateLabelsRequestFoxpostSchema.safeParse(req);
 }
 
 /**

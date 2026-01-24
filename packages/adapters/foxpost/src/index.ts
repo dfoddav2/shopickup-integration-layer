@@ -12,9 +12,11 @@ import type {
   TrackingRequest,
   RatesRequest,
   CreateParcelsResponse,
+  CreateLabelRequest,
+  CreateLabelsRequest,
+  CreateLabelsResponse,
   CarrierResource,
   TrackingUpdate,
-  CreateLabelRequest,
 } from "@shopickup/core";
 import { Capabilities, CarrierError, NotImplementedError } from "@shopickup/core";
 import { FoxpostClient } from './client/index.js';
@@ -22,6 +24,7 @@ import {
   createParcel as createParcelImpl,
   createParcels as createParcelsImpl,
   createLabel as createLabelImpl,
+  createLabels as createLabelsImpl,
   track as trackImpl,
 } from './capabilities/index.js';
 import { createResolveBaseUrl, type ResolveBaseUrl } from './utils/resolveBaseUrl.js';
@@ -125,6 +128,23 @@ export class FoxpostAdapter implements CarrierAdapter {
     ctx: AdapterContext
   ): Promise<CarrierResource & { labelUrl?: string | null }> {
     return createLabelImpl(req, ctx, this.resolveBaseUrl);
+  }
+
+  /**
+   * Create labels for multiple parcels in one batch call
+   * 
+   * Generates a single PDF with all requested labels using Foxpost POST /api/label/{pageSize}
+   * Returns per-item results for tracking success/failure of each label
+   * 
+   * @param req CreateLabelsRequest with array of parcelCarrierIds
+   * @param ctx AdapterContext with HTTP client and logger
+   * @returns CreateLabelsResponse with per-item results and summary
+   */
+  async createLabels(
+    req: CreateLabelsRequest,
+    ctx: AdapterContext
+  ): Promise<CreateLabelsResponse> {
+    return createLabelsImpl(req, ctx, this.resolveBaseUrl);
   }
 
   /**

@@ -4,6 +4,7 @@ import type {
   CarrierResource,
   Store,
   DomainEvent,
+  CreateLabelRequest,
 } from '../interfaces/index.js';
 import type { Parcel } from '../types/index.js';
 import { Capabilities } from '../interfaces/capabilities.js';
@@ -95,14 +96,19 @@ export async function executeCreateLabelFlow(opts: {
           continue;
         }
 
-        context.logger?.debug("Flow: Creating label", {
-          parcelId: parcelRes.carrierId,
-        });
+         context.logger?.debug("Flow: Creating label", {
+           parcelId: parcelRes.carrierId,
+         });
 
-        const labelRes = await adapter.createLabel!(
-          parcelRes.carrierId,
-          context
-        );
+         const labelReq: CreateLabelRequest = {
+           parcelCarrierId: parcelRes.carrierId,
+           credentials,
+         };
+
+         const labelRes = await adapter.createLabel!(
+           labelReq,
+           context
+         );
 
         result.labelResources.push(labelRes);
 

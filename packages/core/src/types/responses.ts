@@ -76,21 +76,84 @@ export interface CreateParcelsResponse {
   someFailed: boolean;
 
    /**
-    * Human-readable summary of the results
-    * Examples:
-    * - "All 5 parcels created successfully"
-    * - "2 created, 3 failed"
-    * - "All 4 parcels failed with validation errors"
-    */
-   summary: string;
+     * Human-readable summary of the results
+     * Examples:
+     * - "All 5 parcels created successfully"
+     * - "2 created, 3 failed"
+     * - "All 4 parcels failed with validation errors"
+     */
+    summary: string;
 
-   /**
-    * Full raw carrier response from the HTTP call
-    * Contains status code, headers, and parsed body
-    * Useful for debugging, auditing, and later typing against carrier schemas
-    * Optional: adapters may omit if HTTP client does not support response inspection
-    */
-   rawCarrierResponse?: unknown;
+    /**
+     * Full raw carrier response from the HTTP call
+     * Contains status code, headers, and parsed body
+     * Useful for debugging, auditing, and later typing against carrier schemas
+     * Optional: adapters may omit if HTTP client does not support response inspection
+     */
+    rawCarrierResponse?: unknown;
+}
+
+/**
+ * Response from batch label creation operations
+ * Provides per-item results and an overall summary
+ * 
+ * Similar structure to CreateParcelsResponse but for labels
+ * Handles partial success (some labels generated, some failed)
+ */
+export interface CreateLabelsResponse {
+  /**
+   * Per-item results from the batch operation
+   * One CarrierResource per input parcel ID, in the same order
+   */
+  results: CarrierResource[];
+
+  /**
+   * Number of labels that succeeded (status === 'created')
+   */
+  successCount: number;
+
+  /**
+   * Number of labels that failed (status === 'failed')
+   */
+  failureCount: number;
+
+  /**
+   * Total number of labels processed
+   */
+  totalCount: number;
+
+  /**
+   * Whether all labels succeeded
+   * True only if failureCount === 0 && totalCount > 0
+   */
+  allSucceeded: boolean;
+
+  /**
+   * Whether all labels failed
+   * True only if successCount === 0 && totalCount > 0
+   */
+  allFailed: boolean;
+
+  /**
+   * Whether operation had mixed results (some succeeded, some failed)
+   * True only if successCount > 0 && failureCount > 0
+   */
+  someFailed: boolean;
+
+  /**
+   * Human-readable summary of the results
+   * Examples:
+   * - "All 5 labels generated successfully"
+   * - "3 labels generated, 2 failed"
+   * - "All labels failed"
+   */
+  summary: string;
+
+  /**
+   * Full raw carrier response from the HTTP call
+   * For batch label endpoints, this is typically the PDF file or a reference to it
+   */
+  rawCarrierResponse?: unknown;
 }
 
 /**
@@ -105,6 +168,23 @@ export interface CreateParcelsResponse {
  * @returns HTTP status code to return to client
  */
 export function getHttpStatusForBatchResponse(response: CreateParcelsResponse): 200 | 207 | 400 {
+  if (response.allSucceeded) {
+    return 200;
+  } else if (response.allFailed) {
+    return 400;
+  } else {
+    return 207; // Multi-Status
+  }
+}
+
+/**
+ * Determines HTTP status code based on label batch results
+ * Same logic as parcel batch responses
+ * 
+ * @param response - The CreateLabelsResponse from adapter
+ * @returns HTTP status code to return to client
+ */
+export function getHttpStatusForLabelBatchResponse(response: CreateLabelsResponse): 200 | 207 | 400 {
   if (response.allSucceeded) {
     return 200;
   } else if (response.allFailed) {

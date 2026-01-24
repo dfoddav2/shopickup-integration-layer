@@ -4,5 +4,5 @@
  */
 
 export { createParcel, createParcels } from './parcels.js';
-export { createLabel } from './label.js';
+export { createLabel, createLabels } from './label.js';
 export { track } from './track.js';
