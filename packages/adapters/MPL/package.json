@@ -1,0 +1,52 @@
+{
+    "name": "@shopickup/adapters-mpl",
+    "version": "1.0.0",
+    "description": "MPL shipping carrier adapter for Shopickup",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./types": {
+            "import": "./dist/types/index.js",
+            "types": "./dist/types/index.d.ts"
+        },
+        "./validation": {
+            "import": "./dist/validation.js",
+            "types": "./dist/validation.d.ts"
+        }
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json",
+        "test": "vitest --run",
+        "dev": "tsc -w -p tsconfig.json",
+        "codegen": "openapi-typescript ../../carrier-docs/hu-mpl/hu-mpl.openapi.yaml --output ./src/types/generated.ts"
+    },
+    "peerDependencies": {
+        "@shopickup/core": "^1.0.0"
+    },
+    "devDependencies": {
+        "@shopickup/core": "workspace:*",
+        "@stoplight/prism-http": "^5.0.0",
+        "axios": "^1.6.0",
+        "openapi-typescript": "^6.7.0",
+        "typescript": "^5.4.2"
+    },
+    "dependencies": {
+        "axios": "^1.6.0",
+        "zod": "^4.3.5"
+    },
+    "keywords": [
+        "shipping",
+        "carrier",
+        "mpl",
+        "adapter",
+        "logistics",
+        "hungary"
+    ],
+    "author": "Shopickup Contributors",
+    "license": "MIT"
+}

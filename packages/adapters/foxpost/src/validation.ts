@@ -124,7 +124,7 @@ const ParcelSchema = z.object({
     orderId: z.string().optional(),
     customerReference: z.string().optional(),
   }).optional(),
-   items: z.array(z.object({
+  items: z.array(z.object({
     sku: z.string().optional(),
     quantity: z.number().gt(0),
     description: z.string().optional(),
@@ -247,6 +247,14 @@ export const CreateParcelsRequestFoxpostSchema = z.object({
   }).optional()
 });
 
+export const CreateLabelRequestFoxpostSchema = z.object({
+  parcelCarrierId: z.string().min(1, 'Parcel carrier ID is required'),
+  credentials: FoxpostCredentialsSchema.optional(),
+  options: z.object({
+    useTestApi: z.boolean().optional()
+  }).optional()
+});
+
 /**
  * Foxpost-specific TrackingRequest (narrowed credentials)
  */
@@ -311,6 +319,15 @@ export function safeValidateCreateParcelRequest(req: unknown) {
 
 export function safeValidateCreateParcelsRequest(req: unknown) {
   return CreateParcelsRequestFoxpostSchema.safeParse(req);
+}
+
+
+/**
+ * Helper to safely validate a CreateLabelRequest without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateCreateLabelRequest(req: unknown) {
+  return CreateLabelRequestFoxpostSchema.safeParse(req);
 }
 
 /**

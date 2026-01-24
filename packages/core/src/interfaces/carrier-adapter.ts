@@ -73,6 +73,21 @@ export interface CreateParcelsRequest {
   options?: RequestOptions;
 }
 
+export interface CreateLabelRequest {
+  /**
+   * Carrier-specific parcel ID to create label for
+   */
+  parcelCarrierId: string;
+  /**
+   * Credentials for the carrier API (if required for labeling)
+   */
+  credentials: Record<string, unknown>;
+  /**
+   * Per-call options (e.g., useTestApi)
+   */
+  options?: RequestOptions;
+}
+
 export interface TrackingRequest {
   /**
    * Tracking number of the parcel to track
@@ -180,7 +195,7 @@ export interface CarrierAdapter {
    * Capability: CREATE_LABEL
    */
   createLabel?(
-    parcelCarrierId: string,
+    req: CreateLabelRequest,
     ctx: AdapterContext
   ): Promise<CarrierResource & { labelUrl?: string | null }>;
 
