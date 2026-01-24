@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import type { CreateParcelRequest as CoreCreateParcelRequest, CreateParcelsRequest as CoreCreateParcelsRequest } from '@shopickup/core';
 import type { Parcel } from '@shopickup/core';
-import { is } from 'zod/locales';
 
 /**
  * Foxpost-specific credentials
@@ -250,7 +249,7 @@ export const CreateParcelsRequestFoxpostSchema = z.object({
 
 export const CreateLabelRequestFoxpostSchema = z.object({
   parcelCarrierId: z.string().min(1, 'Parcel carrier ID is required'),
-  credentials: FoxpostCredentialsSchema.optional(),
+  credentials: FoxpostCredentialsSchema,
   options: z.object({
     useTestApi: z.boolean().optional(),
     size: z.enum(['A6', 'A7', '_85X85']).default('A7'),

@@ -1,113 +1,36 @@
 /**
- * Foxpost HTTP Client Wrapper
- * Thin wrapper around HTTP calls to Foxpost API
+ * Foxpost HTTP Client Utilities
+ * Thin utilities for building Foxpost API requests
  */
 
-import type { HttpClient } from "@shopickup/core";
-import type {
-  CreateParcelRequest,
-  CreateResponse,
-  TrackDTO,
-  Tracking,
-  LabelInfo,
-} from '../types/generated.js';
+import type { FoxpostCredentials } from '../validation.js';
 
 /**
- * FoxpostClient
- * Minimal wrapper around Foxpost HTTP endpoints
+ * Build standard Foxpost auth headers
+ * Requires both Basic auth (username:password) and API key
  */
-export class FoxpostClient {
-  constructor(
-    private baseUrl: string,
-    private apiKey?: string
-  ) {}
+export function buildFoxpostHeaders(credentials: FoxpostCredentials): Record<string, string> {
+  const { apiKey, basicUsername, basicPassword } = credentials;
 
-  /**
-   * Create parcels in Foxpost
-   */
-  async createParcels(
-    parcels: CreateParcelRequest[],
-    http: HttpClient,
-    options: { isWeb?: boolean; isRedirect?: boolean } = {}
-  ): Promise<CreateResponse> {
-    const params = new URLSearchParams();
-    if (options.isWeb !== undefined) params.append("isWeb", String(options.isWeb));
-    if (options.isRedirect !== undefined) params.append("isRedirect", String(options.isRedirect));
+  const basicAuth = Buffer.from(`${basicUsername}:${basicPassword}`).toString("base64");
 
-    const url = `${this.baseUrl}/api/parcel?${params}`;
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Basic ${basicAuth}`,
+    ...(apiKey && { "Api-key": apiKey }),
+  };
+}
 
-    return http.post<CreateResponse>(url, parcels, {
-      headers: this.buildHeaders(),
-    });
-  }
+/**
+ * Build Foxpost headers for binary responses (e.g., PDF)
+ */
+export function buildFoxpostBinaryHeaders(credentials: FoxpostCredentials): Record<string, string> {
+  const { apiKey, basicUsername, basicPassword } = credentials;
 
-  /**
-   * Generate label PDF
-   */
-  async generateLabel(
-    barcodes: string[],
-    pageSize: "A5" | "A6" | "A7" | "_85X85" = "A7",
-    http?: HttpClient
-  ): Promise<Buffer> {
-    // This is a placeholder - actual implementation would handle binary response
-    // In real implementation, would use ctx.http to make the call
-    throw new Error("generateLabel not yet implemented");
-  }
+  const basicAuth = Buffer.from(`${basicUsername}:${basicPassword}`).toString("base64");
 
-  /**
-   * Get tracking for a parcel
-   */
-  async getTracking(
-    barcode: string,
-    http: HttpClient
-  ): Promise<Tracking> {
-    const url = `${this.baseUrl}/api/tracking/${barcode}`;
-
-    return http.get<Tracking>(url, {
-      headers: this.buildHeaders(),
-    });
-  }
-
-  /**
-   * Get tracking history for a parcel
-   */
-  async getTrackingHistory(
-    barcode: string,
-    http: HttpClient
-  ): Promise<TrackDTO[]> {
-    const url = `${this.baseUrl}/api/tracking/tracks/${barcode}`;
-
-    return http.get<TrackDTO[]>(url, {
-      headers: this.buildHeaders(),
-    });
-  }
-
-  /**
-   * Get label info for a parcel
-   */
-  async getLabelInfo(
-    barcode: string,
-    http: HttpClient
-  ): Promise<LabelInfo> {
-    const url = `${this.baseUrl}/api/label/info/${barcode}`;
-
-    return http.get<LabelInfo>(url, {
-      headers: this.buildHeaders(),
-    });
-  }
-
-  /**
-   * Build common headers for Foxpost requests
-   */
-  private buildHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-
-    if (this.apiKey) {
-      headers["api-key"] = this.apiKey;
-    }
-
-    return headers;
-  }
+  return {
+    "Authorization": `Basic ${basicAuth}`,
+    ...(apiKey && { "Api-key": apiKey }),
+  };
 }

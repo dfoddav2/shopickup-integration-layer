@@ -18,6 +18,7 @@ import {
 } from '../mappers/index.js';
 import { translateFoxpostError } from '../errors.js';
 import { safeValidateCreateParcelRequest, safeValidateCreateParcelsRequest, safeValidateFoxpostParcel } from '../validation.js';
+import { buildFoxpostHeaders } from '../client/index.js';
 import type { ResolveBaseUrl } from '../utils/resolveBaseUrl.js';
 
 /**
@@ -150,17 +151,13 @@ export async function createParcels(
       testMode: useTestApi,
     });
 
-    const httpResponse = await ctx.http.post<any>(
-      `${baseUrl}/api/parcel?isWeb=${isWeb}&isRedirect=false`,
-      foxpostRequestsWithValidation,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Basic ${Buffer.from(`${basicUsername}:${basicPassword}`).toString("base64")}`,
-          ...(apiKey && { "Api-key": apiKey }),
-        },
-      }
-    );
+     const httpResponse = await ctx.http.post<any>(
+       `${baseUrl}/api/parcel?isWeb=${isWeb}&isRedirect=false`,
+       foxpostRequestsWithValidation,
+       {
+         headers: buildFoxpostHeaders(validated.data.credentials),
+       }
+     );
 
     // Normalize carrier response body from various HTTP client shapes
     const carrierRespBody =

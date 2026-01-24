@@ -14,6 +14,7 @@ import {
 } from '../mappers/index.js';
 import { translateFoxpostError } from '../errors.js';
 import { safeValidateTrackingRequest } from '../validation.js';
+import { buildFoxpostHeaders } from '../client/index.js';
 import type { TrackingResponse } from '../types/generated.js';
 import type { ResolveBaseUrl } from '../utils/resolveBaseUrl.js';
 
@@ -61,15 +62,11 @@ export async function track(
       testMode: useTestApi,
     });
 
-    // Get tracking history via new /api/tracking/{barcode} endpoint with proper typing
-    const url = `${baseUrl}/api/tracking/${trackingNumber}`;
-    const response = await ctx.http.get<TrackingResponse>(url, {
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Basic ${Buffer.from(`${basicUsername}:${basicPassword}`).toString("base64")}`,
-        ...(apiKey && { "Api-key": apiKey }),
-      },
-    });
+     // Get tracking history via new /api/tracking/{barcode} endpoint with proper typing
+     const url = `${baseUrl}/api/tracking/${trackingNumber}`;
+     const response = await ctx.http.get<TrackingResponse>(url, {
+       headers: buildFoxpostHeaders(validated.data.credentials),
+     });
 
     // Validate response
     if (!response || !response.clFox) {

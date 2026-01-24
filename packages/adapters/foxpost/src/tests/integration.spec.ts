@@ -669,11 +669,12 @@ describe("FoxpostAdapter Integration", () => {
           expect(res.pageRange?.end).toBe(idx + 1);
         });
         
-        // Files array should contain the actual PDF
-        expect(result.files).toBeDefined();
-        expect(result.files).toHaveLength(1);
-        expect(result.files![0].dataUrl).toBeDefined();
-        expect(result.files![0].dataUrl).toMatch(/^data:application\/pdf;base64,/);
+         // Files array should contain the PDF metadata
+         expect(result.files).toBeDefined();
+         expect(result.files).toHaveLength(1);
+         expect(result.files![0].contentType).toBe('application/pdf');
+         expect(result.files![0].byteLength).toBeGreaterThan(0);
+         expect(result.files![0].id).toBeDefined();
      });
 
      it("creates labels with custom size (A6)", async () => {

@@ -22,7 +22,6 @@ import type {
   FetchPickupPointsResponse,
 } from "@shopickup/core";
 import { Capabilities, CarrierError, NotImplementedError } from "@shopickup/core";
-import { FoxpostClient } from './client/index.js';
 import {
   createParcel as createParcelImpl,
   createParcels as createParcelsImpl,
@@ -73,7 +72,6 @@ export class FoxpostAdapter implements CarrierAdapter {
   // Foxpost doesn't require close before label
   readonly requires = {};
 
-  private client: FoxpostClient;
   private prodBaseUrl = "https://webapi.foxpost.hu";
   private testBaseUrl = "https://webapi-test.foxpost.hu";
   private resolveBaseUrl: ResolveBaseUrl;
@@ -81,7 +79,6 @@ export class FoxpostAdapter implements CarrierAdapter {
   constructor(baseUrl: string = "https://webapi.foxpost.hu") {
     this.prodBaseUrl = "https://webapi.foxpost.hu";
     this.testBaseUrl = "https://webapi-test.foxpost.hu";
-    this.client = new FoxpostClient(baseUrl);
     this.resolveBaseUrl = createResolveBaseUrl(this.prodBaseUrl, this.testBaseUrl);
   }
 

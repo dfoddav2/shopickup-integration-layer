@@ -131,8 +131,8 @@ describe('FoxpostAdapter track', () => {
     };
     const result = await adapter.track!(req, ctx);
 
-    expect(result.raw).toBeDefined();
-    const rawResponse = result.raw as TrackingResponse;
+    expect(result.rawCarrierResponse).toBeDefined();
+    const rawResponse = result.rawCarrierResponse as TrackingResponse;
     expect(rawResponse.clFox).toBe('CLFOX0000000001');
     expect(rawResponse.estimatedDelivery).toBe('2024-01-20');
     expect(rawResponse.parcelType).toBe('NORMAL');
@@ -248,14 +248,11 @@ describe('FoxpostAdapter track', () => {
      };
      const result = await adapter.track!(req, ctx);
 
-     // Each event should have a carrierStatusCode
-     result.events.forEach((event, idx) => {
-       expect(event.carrierStatusCode).toBeDefined(
-         `Event ${idx} is missing carrierStatusCode`
-       );
-       // carrierStatusCode should be a non-empty string
-       expect(typeof event.carrierStatusCode).toBe('string');
-       expect(event.carrierStatusCode!.length).toBeGreaterThan(0);
-     });
+      result.events.forEach((event, idx) => {
+        expect(event.carrierStatusCode).toBeDefined();
+        // carrierStatusCode should be a non-empty string
+        expect(typeof event.carrierStatusCode).toBe('string');
+        expect(event.carrierStatusCode!.length).toBeGreaterThan(0);
+      });
    });
 });

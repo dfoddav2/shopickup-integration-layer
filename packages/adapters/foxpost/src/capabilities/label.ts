@@ -15,6 +15,7 @@ import type {
 import { CarrierError, errorToLog, serializeForLog } from "@shopickup/core";
 import { translateFoxpostError } from '../errors.js';
 import { safeValidateCreateLabelRequest, safeValidateCreateLabelsRequest } from "../validation.js";
+import { buildFoxpostBinaryHeaders } from '../client/index.js';
 import type { ResolveBaseUrl } from "../utils/resolveBaseUrl.js";
 import { URLSearchParams } from "node:url";
 import { randomUUID } from "node:crypto";
@@ -142,108 +143,102 @@ export async function createLabels(
       isPortrait,
     });
 
-    try {
-      // Make request to Foxpost label API
-      // Response is PDF binary data
-      const pdfBuffer = await ctx.http.post<Buffer>(
-        url,
-        validated.data.parcelCarrierIds,
-        {
-          headers: {
-            "Accept-Type": "application/pdf",
-            "Authorization": `Basic ${Buffer.from(`${basicUsername}:${basicPassword}`).toString("base64")}`,
-            ...(apiKey && { "Api-key": apiKey }),
-          },
-          responseType: "arraybuffer",
-        }
-      );
+     try {
+       // Make request to Foxpost label API
+       // Response is PDF binary data
+       const pdfBuffer = await ctx.http.post<Buffer>(
+         url,
+         validated.data.parcelCarrierIds,
+         {
+           headers: buildFoxpostBinaryHeaders(validated.data.credentials),
+           responseType: "arraybuffer",
+         }
+       );
 
-      if (!pdfBuffer || pdfBuffer.byteLength === 0) {
-        throw new CarrierError(
-          "Empty PDF response from Foxpost label endpoint",
-          "Transient"
-        );
-      }
+       if (!pdfBuffer || pdfBuffer.byteLength === 0) {
+         throw new CarrierError(
+           "Empty PDF response from Foxpost label endpoint",
+           "Transient"
+         );
+       }
 
-      // Create file resource for the single PDF
-      const fileId = randomUUID();
-      const dataUrl = `data:application/pdf;base64,${Buffer.from(pdfBuffer).toString("base64")}`;
-      const file: LabelFileResource = {
-        id: fileId,
-        dataUrl,
-        contentType: "application/pdf",
-        byteLength: pdfBuffer.byteLength,
-        pages: req.parcelCarrierIds.length, // One page per label (Foxpost behavior)
-        orientation: isPortrait === false ? 'landscape' : 'portrait',
-        metadata: {
-          size,
-          isPortrait,
-          barcodeCount: req.parcelCarrierIds.length,
-          combined: true, // All labels in one file
-        },
-      };
+       // Create file resource for the single PDF
+       const fileId = randomUUID();
+       const file: LabelFileResource = {
+         id: fileId,
+         contentType: "application/pdf",
+         byteLength: pdfBuffer.byteLength,
+         pages: req.parcelCarrierIds.length, // One page per label (Foxpost behavior)
+         orientation: isPortrait === false ? 'landscape' : 'portrait',
+         metadata: {
+           size,
+           isPortrait,
+           barcodeCount: req.parcelCarrierIds.length,
+           combined: true, // All labels in one file
+         },
+       };
 
-      ctx.logger?.info("Foxpost: Labels created successfully", {
-        count: req.parcelCarrierIds.length,
-        size,
-        testMode: useTestApi,
-      });
+       ctx.logger?.info("Foxpost: Labels created successfully", {
+         count: req.parcelCarrierIds.length,
+         size,
+         testMode: useTestApi,
+       });
 
-      // Create per-item results, all referencing the same file
-      const results: LabelResult[] = req.parcelCarrierIds.map((barcode, idx) => ({
-        inputId: barcode,
-        status: "created" as const,
-        fileId,
-        pageRange: { start: idx + 1, end: idx + 1 }, // One page per label
-        raw: { barcode, format: "PDF", pageSize: size, startPos, pageNumber: idx + 1 },
-      }));
+       // Create per-item results, all referencing the same file
+       const results: LabelResult[] = req.parcelCarrierIds.map((barcode, idx) => ({
+         inputId: barcode,
+         status: "created" as const,
+         fileId,
+         pageRange: { start: idx + 1, end: idx + 1 }, // One page per label
+         raw: { barcode, format: "PDF", pageSize: size, startPos, pageNumber: idx + 1 },
+       }));
 
-      return {
-        results,
-        files: [file],
-        successCount: results.length,
-        failureCount: 0,
-        totalCount: results.length,
-        allSucceeded: true,
-        allFailed: false,
-        someFailed: false,
-        summary: `All ${results.length} labels generated successfully`,
-        rawCarrierResponse: { pdfBuffer, size, barcodesCount: req.parcelCarrierIds.length },
-      };
-    } catch (labelError) {
-      // If PDF generation fails, return error results for all barcodes
-      ctx.logger?.error("Foxpost: Label generation failed", {
-        count: req.parcelCarrierIds.length,
-        size,
-        error: errorToLog(labelError),
-      });
+       return {
+         results,
+         files: [file],
+         successCount: results.length,
+         failureCount: 0,
+         totalCount: results.length,
+         allSucceeded: true,
+         allFailed: false,
+         someFailed: false,
+         summary: `All ${results.length} labels generated successfully`,
+         rawCarrierResponse: { pdfBuffer, size, barcodesCount: req.parcelCarrierIds.length },
+       };
+     } catch (labelError) {
+       // If PDF generation fails, return error results for all barcodes
+       ctx.logger?.error("Foxpost: Label generation failed", {
+         count: req.parcelCarrierIds.length,
+         size,
+         error: errorToLog(labelError),
+       });
 
-      // Return failed results for all parcels
-      const results: LabelResult[] = req.parcelCarrierIds.map((barcode) => ({
-        inputId: barcode,
-        status: "failed" as const,
-        errors: [
-          {
-            code: "LABEL_GENERATION_FAILED",
-            message: `Failed to generate label: ${(labelError as any)?.message || "Unknown error"}`,
-          },
-        ],
-        raw: { barcode, error: serializeForLog(labelError) },
-      }));
+       // Return failed results for all parcels
+       const results: LabelResult[] = req.parcelCarrierIds.map((barcode) => ({
+         inputId: barcode,
+         status: "failed" as const,
+         errors: [
+           {
+             code: "LABEL_GENERATION_FAILED",
+             message: `Failed to generate label: ${(labelError as any)?.message || "Unknown error"}`,
+           },
+         ],
+         raw: { barcode, error: serializeForLog(labelError) },
+       }));
 
-      return {
-        results,
-        files: [],
-        successCount: 0,
-        failureCount: results.length,
-        totalCount: results.length,
-        allSucceeded: false,
-        allFailed: true,
-        someFailed: false,
-        summary: `All ${results.length} labels failed`,
-        rawCarrierResponse: { error: serializeForLog(labelError) },
-      };
-    }
+       return {
+         results,
+         files: [],
+         successCount: 0,
+         failureCount: results.length,
+         totalCount: results.length,
+         allSucceeded: false,
+         allFailed: true,
+         someFailed: false,
+         summary: `All ${results.length} labels failed`,
+         rawCarrierResponse: { error: serializeForLog(labelError) },
+       };
+     }
   } catch (error) {
     if (error instanceof CarrierError) {
       throw error;
