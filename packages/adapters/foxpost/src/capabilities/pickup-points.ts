@@ -182,18 +182,18 @@ function mapFoxpostApmToPickupPoint(apm: FoxpostApmEntry): PickupPoint {
  *   }
  * }
  * 
+ * When using the withOperationName wrapper from @shopickup/core, the operation name
+ * is automatically injected and logging control is applied automatically.
+ * 
  * @param req Request with optional filters and credentials (not used for public feed)
- * @param ctx Adapter context with HTTP client
+ * @param ctx Adapter context with HTTP client (operationName set by wrapper or manually)
  * @returns FetchPickupPointsResponse with normalized pickup points
  */
 export async function fetchPickupPoints(
   req: FetchPickupPointsRequest,
-  ctx: AdapterContext & { operationName?: string }
+  ctx: AdapterContext
 ): Promise<FetchPickupPointsResponse> {
-  // Set operation name for logging control
-  const opCtx = { ...ctx, operationName: 'fetchPickupPoints' };
-
-  if (!opCtx.http) {
+  if (!ctx.http) {
     throw new CarrierError(
       "HTTP client not provided in adapter context",
       "Permanent",
@@ -205,16 +205,16 @@ export async function fetchPickupPoints(
 
   try {
     // Fetch the public JSON feed (no authentication needed)
+    // operationName is already set by withOperationName wrapper
     safeLog(
-      opCtx.logger,
+      ctx.logger,
       'debug',
       'Fetching Foxpost APM feed',
       { url: feedUrl },
-      opCtx,
-      ['fetchPickupPoints']
+      ctx
     );
 
-    const response = await opCtx.http.get(feedUrl);
+    const response = await ctx.http.get(feedUrl);
 
     // Validate response is an array
     if (!Array.isArray(response)) {
@@ -222,12 +222,11 @@ export async function fetchPickupPoints(
     }
 
     safeLog(
-      opCtx.logger,
+      ctx.logger,
       'debug',
       'Fetched Foxpost APM feed',
-      createLogEntry({ url: feedUrl }, response, opCtx, ['fetchPickupPoints']),
-      opCtx,
-      ['fetchPickupPoints']
+      createLogEntry({ url: feedUrl }, response, ctx),
+      ctx
     );
 
     // Map each entry to PickupPoint
@@ -235,14 +234,14 @@ export async function fetchPickupPoints(
       try {
         return mapFoxpostApmToPickupPoint(apm);
       } catch (err) {
-        opCtx.logger?.warn("Failed to map APM entry", { apm, error: String(err) });
+        ctx.logger?.warn("Failed to map APM entry", { apm, error: String(err) });
         // Skip entries that can't be mapped
         return null;
       }
     }).filter((p: PickupPoint | null): p is PickupPoint => p !== null);
 
     safeLog(
-      opCtx.logger,
+      ctx.logger,
       'info',
       'Successfully fetched and mapped Foxpost APMs',
       {
@@ -250,8 +249,7 @@ export async function fetchPickupPoints(
         succeeded: points.length,
         failed: response.length - points.length,
       },
-      opCtx,
-      ['fetchPickupPoints']
+      ctx
     );
 
     return {
@@ -264,7 +262,7 @@ export async function fetchPickupPoints(
     };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    opCtx.logger?.error("Failed to fetch Foxpost APM feed", { error: errorMessage, url: feedUrl });
+    ctx.logger?.error("Failed to fetch Foxpost APM feed", { error: errorMessage, url: feedUrl });
 
     // Categorize error for retry logic
     let category: "Permanent" | "Transient" = "Transient";

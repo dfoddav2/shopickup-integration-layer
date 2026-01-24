@@ -415,6 +415,95 @@ try {
 }
 ```
 
+### Adapter Wrappers for Cross-Cutting Concerns
+
+Adapters can be wrapped with higher-order functions to add cross-cutting concerns without modifying adapter code. The `@shopickup/core` library provides several standard wrappers:
+
+#### `withOperationName(adapter): CarrierAdapter`
+
+Automatically injects the `operationName` into the adapter context for all method calls. This enables:
+- Automatic operation identification for logging
+- Per-operation logging control via `loggingOptions.silentOperations`
+- Transparent operation tracking without adapter code changes
+
+**Usage:**
+
+```typescript
+import { withOperationName } from '@shopickup/core';
+
+const baseAdapter = new FoxpostAdapter("https://api.foxpost.hu");
+const adapter = withOperationName(baseAdapter);
+
+// Now when calling any method, operationName is automatically set:
+const result = await adapter.fetchPickupPoints(req, {
+  http: client,
+  logger: logger,
+  loggingOptions: {
+    silentOperations: ['fetchPickupPoints'],  // Suppress verbose logging
+  }
+});
+// operationName 'fetchPickupPoints' is now automatically available in ctx
+```
+
+#### `withCallTracing(adapter, logger): CarrierAdapter`
+
+Logs all adapter method calls with timing information. Useful for monitoring adapter performance and debugging.
+
+**Usage:**
+
+```typescript
+import { withCallTracing } from '@shopickup/core';
+
+const baseAdapter = new FoxpostAdapter("https://api.foxpost.hu");
+const tracedAdapter = withCallTracing(baseAdapter, logger);
+
+// Now all calls are logged with timing:
+// [debug] [foxpost] createLabel started
+// [info] [foxpost] createLabel completed in 145ms
+```
+
+#### `composeAdapterWrappers(adapter, wrappers): CarrierAdapter`
+
+Compose multiple wrappers together. Wrappers are applied left-to-right (first wrapper is innermost).
+
+**Usage:**
+
+```typescript
+import { withOperationName, withCallTracing, composeAdapterWrappers } from '@shopickup/core';
+
+const baseAdapter = new FoxpostAdapter("https://api.foxpost.hu");
+const adapter = composeAdapterWrappers(baseAdapter, [
+  (a) => withOperationName(a),
+  (a) => withCallTracing(a, logger),
+]);
+
+// Now all calls have both operation name injection AND call tracing
+```
+
+#### Adapter Implementation Guidelines
+
+When implementing adapters, use operation names from context and assume the wrapper handles injection:
+
+```typescript
+// In your adapter method:
+async fetchPickupPoints(req: FetchPickupPointsRequest, ctx: AdapterContext) {
+  // operationName is already set by withOperationName wrapper
+  // Use it for logging control:
+  
+  safeLog(
+    ctx.logger,
+    'debug',
+    'Fetching pickup points',
+    { count: 100 },
+    ctx  // No need to manually set operationName or pass it to safeLog
+  );
+  
+  // ...rest of implementation
+}
+```
+
+The `safeLog()` helper automatically checks `ctx.operationName` and `ctx.loggingOptions.silentOperations` to decide whether to log.
+
 ---
 
 ## Testing Approach
