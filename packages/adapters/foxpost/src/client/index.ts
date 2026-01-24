@@ -8,6 +8,7 @@ import type { FoxpostCredentials } from '../validation.js';
 /**
  * Build standard Foxpost auth headers
  * Requires both Basic auth (username:password) and API key
+ * Uses capitalized "Api-key" header (Foxpost recommended format)
  */
 export function buildFoxpostHeaders(credentials: FoxpostCredentials): Record<string, string> {
   const { apiKey, basicUsername, basicPassword } = credentials;
@@ -23,6 +24,7 @@ export function buildFoxpostHeaders(credentials: FoxpostCredentials): Record<str
 
 /**
  * Build Foxpost headers for binary responses (e.g., PDF)
+ * Uses capitalized "Api-key" header (Foxpost recommended format)
  */
 export function buildFoxpostBinaryHeaders(credentials: FoxpostCredentials): Record<string, string> {
   const { apiKey, basicUsername, basicPassword } = credentials;

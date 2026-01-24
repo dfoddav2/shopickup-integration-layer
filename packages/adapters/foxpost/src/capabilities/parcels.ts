@@ -14,10 +14,9 @@ import type {
 import { CarrierError, serializeForLog, errorToLog } from "@shopickup/core";
 import {
   mapParcelToFoxpost,
-  mapParcelToFoxpostCarrierType,
 } from '../mappers/index.js';
 import { translateFoxpostError } from '../errors.js';
-import { safeValidateCreateParcelRequest, safeValidateCreateParcelsRequest, safeValidateFoxpostParcel } from '../validation.js';
+import { safeValidateCreateParcelRequest, safeValidateCreateParcelsRequest } from '../validation.js';
 import { buildFoxpostHeaders } from '../client/index.js';
 import type { ResolveBaseUrl } from '../utils/resolveBaseUrl.js';
 
@@ -123,25 +122,41 @@ export async function createParcels(
     const useTestApi = validated.data.options?.useTestApi ?? false;
     const isWeb = !useTestApi;
 
-    // Validate and map each canonical parcel to Foxpost carrier-specific type
-    // This catches mapping errors early before sending to carrier
-    const foxpostRequestsWithValidation = req.parcels.map((parcel, idx) => {
-      // Map to carrier-specific parcel type (HD or APM)
-      const carrierParcel = mapParcelToFoxpostCarrierType(parcel);
+     // Validate and map each canonical parcel to Foxpost request format
+     // mapParcelToFoxpost determines HD vs APM based on delivery method internally
+     const foxpostRequestsWithValidation = req.parcels.map((parcel, idx) => {
+       // Map canonical parcel to final Foxpost OpenAPI request format
+       // This handles both HD and APM delivery types internally
+       const foxpostRequest = mapParcelToFoxpost(parcel);
+       
+       // Validate the mapped request before sending to Foxpost API
+       // Note: We validate the OpenAPI request format, not the intermediate carrier type
+       // Both contain the same data, just structured differently
+       try {
+         // Ensure required fields are present for the delivery type
+         if (!foxpostRequest.recipientName || !foxpostRequest.recipientEmail || !foxpostRequest.recipientPhone) {
+           throw new Error('Missing required recipient fields (name, email, phone)');
+         }
+         
+         // For HOME delivery, validate address fields are present
+         if (foxpostRequest.recipientCity && foxpostRequest.recipientZip && foxpostRequest.recipientAddress) {
+           // HD request - looks good
+         } else if (!foxpostRequest.recipientCity && !foxpostRequest.recipientZip && !foxpostRequest.recipientAddress) {
+           // APM request (no address fields) - looks good
+         } else {
+           // Partial address fields - error
+           throw new Error('Address fields must be either all present (HD) or all absent (APM)');
+         }
+       } catch (validationErr) {
+         throw new CarrierError(
+           `Invalid carrier payload for parcel ${idx}: ${(validationErr as Error).message}`,
+           "Validation",
+           { raw: serializeForLog({ parcelIdx: idx, parcelId: parcel.id }) as any }
+         );
+       }
 
-      // Validate the mapped carrier parcel
-      const carrierValidation = safeValidateFoxpostParcel(carrierParcel);
-      if (!carrierValidation.success) {
-        throw new CarrierError(
-          `Invalid carrier payload for parcel ${idx}: ${carrierValidation.error.message}`,
-          "Validation",
-          { raw: serializeForLog({ ...carrierValidation.error, parcelIdx: idx }) as any }
-        );
-      }
-
-      // Map to Foxpost OpenAPI request format
-      return mapParcelToFoxpost(parcel);
-    });
+       return foxpostRequest;
+     });
 
     // Extract strongly-typed credentials from validated request
     const { apiKey, basicUsername, basicPassword } = validated.data.credentials;

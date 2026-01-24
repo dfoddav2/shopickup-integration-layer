@@ -69,8 +69,8 @@ export interface TrackingUpdate {
   /** Overall current status */
   status: TrackingStatus;
 
-  /** Last update timestamp */
-  lastUpdate: Date;
+  /** Last update timestamp (null if no tracking events available) */
+  lastUpdate: Date | null;
 
   /** Raw carrier response for debugging */
   rawCarrierResponse?: unknown;
