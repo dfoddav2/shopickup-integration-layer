@@ -9,7 +9,7 @@ import type {
   TrackDTO as FoxpostTrackDTO,
   TraceDTO as FoxpostTraceDTO,
 } from '../types/generated.js';
-import type { FoxpostParcel, FoxpostPackageSize } from '../validation.js';
+import type { FoxpostParcel, FoxpostPackageSize, FoxCreateParcelRequestItem } from '../validation.js';
 
 const FOXPOST_SIZES = ["xs", "s", "m", "l", "xl"] as const;
 type FoxpostSize = typeof FOXPOST_SIZES[number]; // "xs" | "s" | "m" | "l" | "xl"
@@ -65,6 +65,75 @@ export function determineFoxpostSize(parcel: Parcel): FoxpostSize | undefined {
   }
 
   return candidate;
+}
+
+/**
+ * Map canonical Parcel to Foxpost CreateParcelRequest (strongly-typed)
+ * Returns typed FoxCreateParcelRequestItem with lenient validation support
+ * 
+ * Handles both HOME delivery (full address) and PICKUP_POINT delivery (APM/locker)
+ */
+export function mapParcelToFoxpostRequest(
+  parcel: Parcel,
+  options: {
+    isWeb?: boolean;
+    isRedirect?: boolean;
+  } = {}
+): FoxCreateParcelRequestItem {
+  const delivery = parcel.recipient.delivery;
+  const isHomeDelivery = delivery.method === 'HOME';
+  const recipientAddr = isHomeDelivery 
+    ? delivery.address 
+    : undefined;
+  
+  const recipient = {
+    name: parcel.recipient.contact.name.substring(0, 150),
+    phone: parcel.recipient.contact.phone || "",
+    email: parcel.recipient.contact.email || "",
+    city: recipientAddr?.city?.substring(0, 25),
+    zip: recipientAddr?.postalCode,
+    address: recipientAddr?.street?.substring(0, 150),
+    country: recipientAddr?.country || "HU",
+  };
+
+  // COD amount from parcel if present, default to 0
+  const codAmount = parcel.cod?.amount.amount ?? 0;
+
+  const baseRequest: any = {
+    recipientName: recipient.name,
+    recipientPhone: recipient.phone,
+    recipientEmail: recipient.email,
+    size: determineFoxpostSize(parcel)?.toUpperCase() || 'S',
+    cod: codAmount,
+    // Optional fields
+    refCode: parcel.references?.customerReference
+      ?.substring(0, 30)
+      .concat(`-${parcel.id.substring(0, 10)}`),
+    comment: parcel.handling?.fragile ? 'FRAGILE' : undefined,
+    fragile: parcel.handling?.fragile || false,
+  };
+
+  // HOME delivery includes address fields
+  if (isHomeDelivery) {
+    return {
+      ...baseRequest,
+      recipientCity: recipient.city,
+      recipientZip: recipient.zip,
+      recipientAddress: recipient.address,
+      recipientCountry: recipient.country,
+    } as FoxCreateParcelRequestItem;
+  }
+
+  // PICKUP_POINT delivery adds destination (locker/APM code)
+  if (delivery.method === 'PICKUP_POINT') {
+    const pickupPoint = delivery.pickupPoint;
+    return {
+      ...baseRequest,
+      destination: pickupPoint?.id || '',
+    } as FoxCreateParcelRequestItem;
+  }
+
+  return baseRequest as FoxCreateParcelRequestItem;
 }
 
 /**

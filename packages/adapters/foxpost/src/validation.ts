@@ -439,22 +439,22 @@ export type FoxpostTraceStatus = z.infer<typeof TraceStatusEnum>;
  * - Other fields: optional, pass through extra fields
  */
 const TraceSchema = z.object({
-  statusDate: z.string()
-    .refine((s) => {
-      // Accept any string that looks like a date
-      // Covers: ISO with timezone, ISO without timezone, other formats
-      const date = new Date(s);
-      return !isNaN(date.getTime());
-    }, "Invalid date format")
-    .transform(s => new Date(s)),
-  statusStationId: z.union([
-    z.string(),
-    z.number().transform(n => String(n)),
-  ]).optional(),
-  shortName: z.string().optional(),
-  longName: z.string().optional(),
-  status: TraceStatusEnum.optional(),
-}).passthrough(); // Allow extra fields from API
+   statusDate: z.string()
+     .refine((s) => {
+       // Accept any string that looks like a date
+       // Covers: ISO with timezone, ISO without timezone, other formats
+       const date = new Date(s);
+       return !isNaN(date.getTime());
+     }, "Invalid date format")
+     .transform(s => new Date(s)),
+   statusStationId: z.union([
+     z.string(),
+     z.number().transform(n => String(n)),
+   ]).optional(),
+   shortName: z.string().optional(),
+   longName: z.string().optional(),
+   status: TraceStatusEnum.optional(),
+ }).loose(); // Allow extra fields from API
 
 export type FoxpostTrace = z.infer<typeof TraceSchema>;
 
@@ -492,13 +492,13 @@ export type FoxpostSendType = z.infer<typeof FoxpostSendTypeEnum>;
  * - Passes through extra fields from API
  */
 const FoxpostTrackingSchema = z.object({
-  clFox: z.string().optional(),
-  parcelType: FoxpostParcelTypeEnum.optional(),
-  sendType: FoxpostSendTypeEnum.optional(),
-  traces: z.array(TraceSchema).optional(),
-  relatedParcel: z.string().nullable().optional(),
-  estimatedDelivery: z.string().nullable().optional(),
-}).passthrough(); // Allow extra fields from API
+   clFox: z.string().optional(),
+   parcelType: FoxpostParcelTypeEnum.optional(),
+   sendType: FoxpostSendTypeEnum.optional(),
+   traces: z.array(TraceSchema).optional(),
+   relatedParcel: z.string().nullable().optional(),
+   estimatedDelivery: z.string().nullable().optional(),
+ }).loose(); // Allow extra fields from API
 
 export type FoxpostTracking = z.infer<typeof FoxpostTrackingSchema>;
 
@@ -520,6 +520,172 @@ export function safeValidateFoxpostTracking(res: unknown) {
 
 /**
  * ============================================================================
+ * Foxpost Parcel Creation Request/Response Schemas (from OpenAPI /api/parcel)
+ * ============================================================================
+ * 
+ * Schemas for request body and response shapes, modeled after Foxpost OpenAPI
+ * but kept lenient to handle real-world API quirks and future changes.
+ */
+
+/**
+ * FieldError schema (from OpenAPI components/schemas/FieldError)
+ * Represents a validation error on a specific field
+ * Uses lenient validation to accept any field name or error code
+ */
+const FieldErrorSchema = z.object({
+   field: z.string().optional(),
+   message: z.string().optional(),
+ }).loose(); // Allow extra fields (e.g., error codes)
+
+export type FoxFieldError = z.infer<typeof FieldErrorSchema>;
+
+/**
+ * Package schema (from OpenAPI components/schemas/Package)
+ * Represents a single parcel result in the CreateResponse
+ * 
+ * Uses lenient validation:
+ * - All fields optional to handle partial responses
+ * - Passes through extra fields from carrier
+ * - Lenient with field types (clFoxId may be string or number fallback)
+ */
+const PackageSchema = z.object({
+   clFoxId: z.union([
+     z.string(),
+     z.number().transform(n => String(n)),
+   ]).optional(),
+   barcode: z.string().optional(), // Fallback name for barcode
+   newBarcode: z.string().optional(), // Alternative barcode field
+   refCode: z.string().optional(),
+   uniqueBarcode: z.string().optional(),
+   errors: z.array(FieldErrorSchema).optional(),
+ }).loose(); // Allow extra fields from API
+
+export type FoxPackage = z.infer<typeof PackageSchema>;
+
+/**
+ * CreateResponse schema (from OpenAPI components/schemas/CreateResponse)
+ * Response from POST /api/parcel
+ * 
+ * Uses lenient validation:
+ * - valid: boolean indicating if all parcels succeeded or not
+ * - parcels: array of Package results
+ * - errors: top-level validation errors (optional)
+ * - Passes through extra fields for extensibility
+ */
+const CreateResponseSchema = z.object({
+   valid: z.boolean().optional(),
+   parcels: z.array(PackageSchema).optional(),
+   errors: z.array(FieldErrorSchema).optional(),
+ }).loose(); // Allow extra fields from API
+
+export type FoxCreateResponse = z.infer<typeof CreateResponseSchema>;
+
+/**
+ * CreateParcelRequest schema (from OpenAPI components/schemas/CreateParcelRequest)
+ * Request body for POST /api/parcel (single or batch)
+ * 
+ * Uses lenient validation:
+ * - Required: recipientName, recipientEmail, recipientPhone (for all parcels)
+ * - HD parcels: also require recipientCity, recipientZip, recipientAddress
+ * - APM parcels: also require destination
+ * - Optional fields accept any string/value, not strict enums
+ * - size defaults to 's' if missing
+ * - cod: coerced to number, defaults to 0
+ * - Passes through extra fields for future extensibility
+ */
+const CreateParcelRequestItemSchema = z.object({
+  // Required recipient contact fields
+  recipientName: z.string().max(150).optional(),
+  recipientEmail: z.string().optional(),
+  recipientPhone: z.string().optional(),
+  
+  // Optional contact fields
+  recipientCountry: z.string().max(3).optional(),
+  
+  // HD (Home Delivery) address fields - optional at schema level
+  // (validation logic in parcels.ts checks that either all or none are present)
+  recipientCity: z.string().max(50).optional(),
+  recipientZip: z.string().optional(),
+  recipientAddress: z.string().max(150).optional(),
+  
+  // APM delivery field
+  destination: z.string().optional(),
+  
+  // Parcel details
+  size: z.union([
+    z.enum(['XS', 'S', 'M', 'L', 'XL']),
+    z.enum(['xs', 's', 'm', 'l', 'xl']).transform(s => s.toUpperCase()),
+    z.string(), // Lenient: accept any string size
+  ]).optional().default('S'),
+  
+  cod: z.union([
+    z.number().int().min(0).max(1000000),
+    z.string().transform(s => parseInt(s, 10)).refine(n => !Number.isNaN(n) && n >= 0 && n <= 1000000),
+  ]).optional().default(0),
+  
+  // Optional fields - lenient, any string accepted
+  comment: z.string().max(50).optional(),
+  deliveryNote: z.string().optional(),
+  label: z.boolean().optional(),
+  fragile: z.boolean().optional(),
+   refCode: z.string().max(30).optional(),
+   uniqueBarcode: z.string().max(20).optional(),
+   
+   // Extra fields for future extensibility
+ }).loose();
+
+export type FoxCreateParcelRequestItem = z.infer<typeof CreateParcelRequestItemSchema>;
+
+/**
+ * Helper to validate a Foxpost CreateResponse
+ * Throws ZodError if validation fails
+ */
+export function validateFoxpostCreateResponse(res: unknown): FoxCreateResponse {
+  return CreateResponseSchema.parse(res);
+}
+
+/**
+ * Helper to safely validate a Foxpost CreateResponse without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateFoxpostCreateResponse(res: unknown) {
+  return CreateResponseSchema.safeParse(res);
+}
+
+/**
+ * Helper to validate a Foxpost Package entry
+ * Throws ZodError if validation fails
+ */
+export function validateFoxpostPackage(pkg: unknown): FoxPackage {
+  return PackageSchema.parse(pkg);
+}
+
+/**
+ * Helper to safely validate a Foxpost Package entry without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateFoxpostPackage(pkg: unknown) {
+  return PackageSchema.safeParse(pkg);
+}
+
+/**
+ * Helper to validate a single Foxpost CreateParcelRequest item
+ * Throws ZodError if validation fails
+ */
+export function validateFoxpostCreateParcelRequestItem(item: unknown): FoxCreateParcelRequestItem {
+  return CreateParcelRequestItemSchema.parse(item);
+}
+
+/**
+ * Helper to safely validate a Foxpost CreateParcelRequest item without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateFoxpostCreateParcelRequestItem(item: unknown) {
+  return CreateParcelRequestItemSchema.safeParse(item);
+}
+
+/**
+ * ============================================================================
  * Foxpost APM/Pickup-Points Schemas (from foxplus.json feed)
  * ============================================================================
  */
@@ -529,14 +695,14 @@ export function safeValidateFoxpostTracking(res: unknown) {
  * Uses passthrough to allow extra fields and lenient validation
  */
 const OpeningHoursSchema = z.object({
-  hetfo: z.string().optional().nullable(),
-  kedd: z.string().optional().nullable(),
-  szerda: z.string().optional().nullable(),
-  csutortok: z.string().optional().nullable(),
-  pentek: z.string().optional().nullable(),
-  szombat: z.string().optional().nullable(),
-  vasarnap: z.string().optional().nullable(),
-}).passthrough(); // Allow extra fields
+   hetfo: z.string().optional().nullable(),
+   kedd: z.string().optional().nullable(),
+   szerda: z.string().optional().nullable(),
+   csutortok: z.string().optional().nullable(),
+   pentek: z.string().optional().nullable(),
+   szombat: z.string().optional().nullable(),
+   vasarnap: z.string().optional().nullable(),
+ }).loose(); // Allow extra fields
 
 export type FoxpostOpeningHours = z.infer<typeof OpeningHoursSchema>;
 
@@ -544,9 +710,9 @@ export type FoxpostOpeningHours = z.infer<typeof OpeningHoursSchema>;
  * Fill/empty schedule entry
  */
 const FillEmptyEntrySchema = z.object({
-  emptying: z.string().optional(),
-  filling: z.string().optional(),
-}).passthrough();
+   emptying: z.string().optional(),
+   filling: z.string().optional(),
+ }).loose();
 
 export type FoxpostFillEmptyEntry = z.infer<typeof FillEmptyEntrySchema>;
 
@@ -556,12 +722,12 @@ export type FoxpostFillEmptyEntry = z.infer<typeof FillEmptyEntrySchema>;
  * where the customer can pick up/drop off their parcel.
  */
 const FoxpostSubstituteSchema = z.object({
-  place_id: z.union([
-    z.string(),
-    z.number().transform(n => String(n)),
-  ]),
-  operator_id: z.string().optional().nullable(),
-}).passthrough(); // Allow extra fields for future extensibility
+   place_id: z.union([
+     z.string(),
+     z.number().transform(n => String(n)),
+   ]),
+   operator_id: z.string().optional().nullable(),
+ }).loose(); // Allow extra fields for future extensibility
 
 export type FoxpostSubstitute = z.infer<typeof FoxpostSubstituteSchema>;
 
@@ -570,15 +736,15 @@ export type FoxpostSubstitute = z.infer<typeof FoxpostSubstituteSchema>;
  * Uses lenient validation with passthrough for future extensibility
  */
 const FoxpostApmMetadataSchema = z.object({
-  depot: z.string().optional(),
-  load: z.string().optional(), // Lenient: accept any string, not just predefined enum values
-  apmType: z.string().optional(), // Lenient: accept any string (Cleveron, Keba, Rollkon, Rotte, Z-BOX, Z-Pont, etc.)
-  substitutes: z.array(FoxpostSubstituteSchema).optional(), // Array of substitute APM objects
-  variant: z.string().optional(), // Lenient: accept any string
-  fillEmptyList: z.array(FillEmptyEntrySchema).optional(),
-  ssapt: z.string().optional(),
-  sdapt: z.string().optional(),
-}).passthrough();
+   depot: z.string().optional(),
+   load: z.string().optional(), // Lenient: accept any string, not just predefined enum values
+   apmType: z.string().optional(), // Lenient: accept any string (Cleveron, Keba, Rollkon, Rotte, Z-BOX, Z-Pont, etc.)
+   substitutes: z.array(FoxpostSubstituteSchema).optional(), // Array of substitute APM objects
+   variant: z.string().optional(), // Lenient: accept any string
+   fillEmptyList: z.array(FillEmptyEntrySchema).optional(),
+   ssapt: z.string().optional(),
+   sdapt: z.string().optional(),
+ }).loose();
 
 export type FoxpostApmMetadata = z.infer<typeof FoxpostApmMetadataSchema>;
 
@@ -625,9 +791,9 @@ const FoxpostApmEntrySchema = z.object({
    variant: z.string().optional(), // Lenient: accept any string (e.g., FOXPOST A-BOX, Packeta Z-BOX, custom types)
    paymentOptions: z.array(z.string()).optional(), // Lenient: accept any payment method string
    paymentOptionsString: z.string().optional(),
-   service: z.array(z.string()).optional(), // Lenient: accept any service string (pickup, dispatch, or others)
-   serviceString: z.string().optional(),
-}).passthrough(); // Allow extra fields from API
+    service: z.array(z.string()).optional(), // Lenient: accept any service string (pickup, dispatch, or others)
+    serviceString: z.string().optional(),
+ }).loose(); // Allow extra fields from API
 
 export type FoxpostApmEntry = z.infer<typeof FoxpostApmEntrySchema>;
 
