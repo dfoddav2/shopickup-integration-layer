@@ -45,7 +45,7 @@ export async function registerCreateLabelsRoute(
               },
                 size: {
                   type: 'string',
-                  enum: ['A5', 'A6', 'A7', '_85X85'],
+                  enum: ['A6', 'A7', '_85X85'],
                   description: 'Label size format',
                   default: 'A7',
                 },

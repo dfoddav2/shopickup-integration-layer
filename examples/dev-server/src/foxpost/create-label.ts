@@ -42,12 +42,12 @@ export async function registerCreateLabelRoute(
                  description: 'Use test API endpoint instead of production',
                  default: false,
                },
-                size: {
-                  type: 'string',
-                  enum: ['A5', 'A6', 'A7', '_85X85'],
-                  description: 'Label size format',
-                  default: 'A7',
-                },
+                 size: {
+                   type: 'string',
+                   enum: ['A6', 'A7', '_85X85'],
+                   description: 'Label size format',
+                   default: 'A7',
+                 },
                 startPos: {
                   type: 'integer',
                   minimum: 0,

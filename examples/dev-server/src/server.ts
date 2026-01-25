@@ -68,6 +68,47 @@ await fastify.register(fastifySwaggerUi, {
     // },
 })
 
+// Register custom error handler for validation errors
+fastify.setErrorHandler((error: any, request, reply) => {
+    // Log the error
+    fastify.log.error(error);
+
+    // Check if it's a Fastify validation error
+    if (error.statusCode === 400 && error.validation) {
+        return reply.status(400).send({
+            message: 'Validation error',
+            category: 'Validation',
+            errors: error.validation,
+            statusCode: 400,
+        });
+    }
+
+    // Check if it's a Fastify schema error (invalid enum, etc)
+    if (error.statusCode === 400) {
+        return reply.status(400).send({
+            message: error.message || 'Validation error',
+            category: 'Validation',
+            statusCode: 400,
+        });
+    }
+
+    // Handle 404 errors
+    if (error.statusCode === 404) {
+        return reply.status(404).send({
+            message: 'Route not found',
+            category: 'NotFound',
+            statusCode: 404,
+        });
+    }
+
+    // Default error response
+    return reply.status(error.statusCode || 500).send({
+        message: error.message || 'Internal server error',
+        category: 'Internal',
+        statusCode: error.statusCode || 500,
+    });
+});
+
 // Declare routes
 // fastify.get('/', function (request, reply) {
 //     reply.send({ hello: 'world' })

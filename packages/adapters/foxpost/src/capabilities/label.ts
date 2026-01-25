@@ -215,50 +215,57 @@ export async function createLabels(
          summary: `All ${results.length} labels generated successfully`,
          rawCarrierResponse: { pdfBuffer, size, barcodesCount: req.parcelCarrierIds.length },
        };
-     } catch (labelError) {
-       // Try to parse error response as Foxpost ApiError
-       let errorMessage = `Failed to generate label: ${(labelError as any)?.message || "Unknown error"}`;
-       let errorCategory: 'Validation' | 'Auth' | 'Transient' | 'Permanent' = 'Transient';
+      } catch (labelError) {
+        // Try to parse error response as Foxpost ApiError
+        let errorMessage = `Failed to generate label: ${(labelError as any)?.message || "Unknown error"}`;
+        let errorCategory: 'Validation' | 'Auth' | 'Transient' | 'Permanent' = 'Transient';
 
-       // If labelError is from Foxpost API and contains status/error info, extract it
-       if (labelError instanceof CarrierError) {
-         // Already a CarrierError from validation, propagate it
-         throw labelError;
-       }
+        // If labelError is from Foxpost API and contains status/error info, extract it
+        if (labelError instanceof CarrierError) {
+          // Already a CarrierError from validation, propagate it
+          throw labelError;
+        }
 
-       // Try to extract HTTP status from axios-like error
-       const httpStatus = (labelError as any)?.response?.status;
-       if (httpStatus) {
-         // Attempt to parse error body as JSON if available
-         try {
-           const errorBody = (labelError as any)?.response?.data;
-           if (errorBody) {
-             // Try to parse as Foxpost ApiError
-             const apiErrorValidation = safeValidateFoxpostApiError(errorBody);
-             if (apiErrorValidation.success) {
-               const apiError = apiErrorValidation.data;
-               errorMessage = apiError.error || errorMessage;
-               // Map HTTP status to error category
-               if (httpStatus === 400) {
-                 errorCategory = 'Validation';
-               } else if (httpStatus === 401 || httpStatus === 403) {
-                 errorCategory = 'Auth';
-               } else if (httpStatus >= 500) {
-                 errorCategory = 'Transient';
-               }
-             }
-           }
-         } catch {
-           // If parsing fails, use default error category based on status
-           if (httpStatus === 400) {
-             errorCategory = 'Validation';
-           } else if (httpStatus === 401 || httpStatus === 403) {
-             errorCategory = 'Auth';
-           } else if (httpStatus >= 500) {
-             errorCategory = 'Transient';
-           }
-         }
-       }
+        // Try to extract HTTP status from axios-like error
+        const httpStatus = (labelError as any)?.response?.status;
+        if (httpStatus) {
+          // Attempt to parse error body as JSON if available
+          try {
+            let errorBody = (labelError as any)?.response?.data;
+            if (errorBody) {
+              // If error body is a Buffer, decode it to string first
+              if (Buffer.isBuffer(errorBody)) {
+                errorBody = JSON.parse(errorBody.toString('utf-8'));
+              } else if (errorBody instanceof Uint8Array) {
+                errorBody = JSON.parse(new TextDecoder().decode(errorBody));
+              }
+              
+              // Try to parse as Foxpost ApiError
+              const apiErrorValidation = safeValidateFoxpostApiError(errorBody);
+              if (apiErrorValidation.success) {
+                const apiError = apiErrorValidation.data;
+                errorMessage = apiError.error || errorMessage;
+                // Map HTTP status to error category
+                if (httpStatus === 400) {
+                  errorCategory = 'Validation';
+                } else if (httpStatus === 401 || httpStatus === 403) {
+                  errorCategory = 'Auth';
+                } else if (httpStatus >= 500) {
+                  errorCategory = 'Transient';
+                }
+              }
+            }
+          } catch {
+            // If parsing fails, use default error category based on status
+            if (httpStatus === 400) {
+              errorCategory = 'Validation';
+            } else if (httpStatus === 401 || httpStatus === 403) {
+              errorCategory = 'Auth';
+            } else if (httpStatus >= 500) {
+              errorCategory = 'Transient';
+            }
+          }
+        }
 
        // If PDF generation fails, return error results for all barcodes
        ctx.logger?.error("Foxpost: Label generation failed", {

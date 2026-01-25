@@ -252,7 +252,7 @@ export const CreateLabelRequestFoxpostSchema = z.object({
    credentials: FoxpostCredentialsSchema,
    options: z.object({
      useTestApi: z.boolean().optional(),
-     size: z.enum(['A5', 'A6', 'A7', '_85X85']).default('A7'),
+     size: z.enum(['A6', 'A7', '_85X85']).default('A7'),
      startPos: z.number().int().min(0).max(7).optional(),
      isPortrait: z.boolean().optional().default(false),
    }).optional()
@@ -267,7 +267,7 @@ export const CreateLabelsRequestFoxpostSchema = z.object({
    credentials: FoxpostCredentialsSchema,
    options: z.object({
      useTestApi: z.boolean().optional(),
-     size: z.enum(['A5', 'A6', 'A7', '_85X85']).default('A7'),
+     size: z.enum(['A6', 'A7', '_85X85']).default('A7'),
      startPos: z.number().int().min(0).max(7).optional(),
      isPortrait: z.boolean().optional().default(false),
    }).optional()
@@ -741,7 +741,7 @@ export function safeValidateFoxpostLabelPdfRaw(raw: unknown) {
  * Describes the PDF file properties and generation options
  */
 const FoxpostLabelPdfMetadataSchema = z.object({
-   size: z.enum(['A5', 'A6', 'A7', '_85X85']).optional(),
+   size: z.enum(['A6', 'A7', '_85X85']).optional(),
    barcodesCount: z.number().int().min(1).optional(),
    startPos: z.number().int().min(0).max(7).optional(),
    isPortrait: z.boolean().optional(),

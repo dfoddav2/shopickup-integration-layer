@@ -437,16 +437,16 @@ describe('Foxpost Validation Schemas', () => {
    });
 
    describe('PDF metadata validation', () => {
-     it('validates all page sizes', () => {
-       const pageSizes = ['A5', 'A6', 'A7', '_85X85'] as const;
+      it('validates all page sizes', () => {
+        const pageSizes = ['A6', 'A7', '_85X85'] as const;
 
-       pageSizes.forEach(size => {
-         const metadata = { size, barcodesCount: 5 };
-         const response = safeValidateFoxpostLabelPdfMetadata(metadata);
-         expect(response.success).toBe(true);
-         expect(response.data?.size).toBe(size);
-       });
-     });
+        pageSizes.forEach(size => {
+          const metadata = { size, barcodesCount: 5 };
+          const response = safeValidateFoxpostLabelPdfMetadata(metadata);
+          expect(response.success).toBe(true);
+          expect(response.data?.size).toBe(size);
+        });
+      });
 
      it('validates startPos range 0-7', () => {
        const positions = [0, 1, 3, 7];
