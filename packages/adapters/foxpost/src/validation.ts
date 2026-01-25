@@ -432,10 +432,25 @@ export type FoxpostTraceStatus = z.infer<typeof TraceStatusEnum>;
 
 /**
  * Trace schema (from OpenAPI components/schemas/Trace)
+ * 
+ * Uses lenient validation with coercion to handle real API responses:
+ * - statusDate: coerces various date string formats to Date objects
+ * - statusStationId: coerces numbers to strings (API inconsistency)
+ * - Other fields: optional, pass through extra fields
  */
 const TraceSchema = z.object({
-  statusDate: z.string().datetime().transform(s => new Date(s)),
-  statusStationId: z.string().optional(),
+  statusDate: z.string()
+    .refine((s) => {
+      // Accept any string that looks like a date
+      // Covers: ISO with timezone, ISO without timezone, other formats
+      const date = new Date(s);
+      return !isNaN(date.getTime());
+    }, "Invalid date format")
+    .transform(s => new Date(s)),
+  statusStationId: z.union([
+    z.string(),
+    z.number().transform(n => String(n)),
+  ]).optional(),
   shortName: z.string().optional(),
   longName: z.string().optional(),
   status: TraceStatusEnum.optional(),
@@ -470,6 +485,11 @@ export type FoxpostSendType = z.infer<typeof FoxpostSendTypeEnum>;
 /**
  * Tracking schema (from OpenAPI components/schemas/Tracking)
  * This is the response from GET /api/tracking/{barcode}
+ * 
+ * Uses lenient validation to handle API quirks:
+ * - All fields optional
+ * - estimatedDelivery can be null or string
+ * - Passes through extra fields from API
  */
 const FoxpostTrackingSchema = z.object({
   clFox: z.string().optional(),
@@ -477,7 +497,7 @@ const FoxpostTrackingSchema = z.object({
   sendType: FoxpostSendTypeEnum.optional(),
   traces: z.array(TraceSchema).optional(),
   relatedParcel: z.string().nullable().optional(),
-  estimatedDelivery: z.string().optional(),
+  estimatedDelivery: z.string().nullable().optional(),
 }).passthrough(); // Allow extra fields from API
 
 export type FoxpostTracking = z.infer<typeof FoxpostTrackingSchema>;

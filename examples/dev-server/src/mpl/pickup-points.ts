@@ -40,23 +40,19 @@ export async function registerPickupPointsRoute(
           accountingCode: {
             type: 'string',
             description: 'MPL accounting code for the request',
-            example: 'ACC123456'
           },
           postCode: {
             type: 'string',
             description: 'Optional: filter by postal code (4 characters)',
-            example: '1065'
           },
           city: {
             type: 'string',
             description: 'Optional: filter by city name',
-            example: 'Budapest'
           },
           servicePointType: {
             type: 'string',
             enum: ['PM', 'PP', 'CS'],
             description: 'Optional: filter by service point type (PM=Post Office, PP=Post Point, CS=Parcel Locker)',
-            example: 'CS'
           },
           options: {
             type: 'object',
@@ -70,6 +66,18 @@ export async function registerPickupPointsRoute(
           }
         },
         required: ['credentials', 'accountingCode'],
+        examples: [
+          {
+            credentials: {
+              apiKey: 'your-api-key',
+              apiSecret: 'your-api-secret',
+            },
+            accountingCode: 'ACC123456',
+            postCode: '',
+            city: '',
+            servicePointType: '',
+          }
+        ]
       },
       response: MPL_PICKUP_POINTS_RESPONSE_SCHEMA,
     },
@@ -109,10 +117,10 @@ export async function registerPickupPointsRoute(
           // Map carrier error categories to HTTP status codes
           const statusCode =
             error.category === 'Auth' ? 401 :
-            error.category === 'RateLimit' ? 429 :
-            error.category === 'Validation' ? 400 :
-            error.category === 'Transient' ? 503 :
-            400;
+              error.category === 'RateLimit' ? 429 :
+                error.category === 'Validation' ? 400 :
+                  error.category === 'Transient' ? 503 :
+                    400;
 
           return reply.status(statusCode).send({
             message: error.message,
