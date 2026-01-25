@@ -6,6 +6,23 @@ This document is for **developers and AI agents** contributing to Shopickup. It 
 
 ---
 
+## AI Agent Guidelines
+
+**CRITICAL: AI agents must NEVER auto-commit changes without explicit user permission.**
+
+When working on tasks:
+- ✅ Plan work using TodoWrite tool
+- ✅ Make code changes
+- ✅ Build and test thoroughly
+- ✅ Present results to the user
+- ❌ **DO NOT** commit or push without user explicitly asking
+- ❌ **DO NOT** create pull requests without user permission
+- ❌ **DO NOT** run force push or destructive git operations
+
+Always ask the user: "Ready to commit? Here's what changed..." before creating any commits.
+
+---
+
 ## Table of Contents
 
 1. [Project Philosophy & Constraints](#project-philosophy--constraints)

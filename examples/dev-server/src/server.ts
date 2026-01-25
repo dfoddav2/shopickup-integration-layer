@@ -69,6 +69,7 @@ await fastify.register(fastifySwaggerUi, {
 })
 
 // Register custom error handler for validation errors
+// IMPORTANT: Register BEFORE routes so it catches all errors
 fastify.setErrorHandler((error: any, request, reply) => {
     // Log the error
     fastify.log.error(error);

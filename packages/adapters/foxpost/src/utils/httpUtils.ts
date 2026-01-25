@@ -25,14 +25,17 @@ export function buildFoxpostHeaders(credentials: FoxpostCredentials): Record<str
 /**
  * Build Foxpost headers for binary responses (e.g., PDF)
  * Uses capitalized "Api-key" header (Foxpost recommended format)
+ * Sets Accept-Encoding to application/pdf so Foxpost returns JSON on errors
  */
 export function buildFoxpostBinaryHeaders(credentials: FoxpostCredentials): Record<string, string> {
-  const { apiKey, basicUsername, basicPassword } = credentials;
+   const { apiKey, basicUsername, basicPassword } = credentials;
 
-  const basicAuth = Buffer.from(`${basicUsername}:${basicPassword}`).toString("base64");
+   const basicAuth = Buffer.from(`${basicUsername}:${basicPassword}`).toString("base64");
 
-  return {
-    "Authorization": `Basic ${basicAuth}`,
-    ...(apiKey && { "Api-key": apiKey }),
-  };
+   return {
+     "Accept-Encoding": "application/pdf",
+     "Content-Type": "application/json",
+     "Authorization": `Basic ${basicAuth}`,
+     ...(apiKey && { "Api-key": apiKey }),
+   };
 }

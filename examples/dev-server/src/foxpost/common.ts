@@ -539,7 +539,15 @@ export const BATCH_LABEL_RESPONSE_SCHEMA = {
             },
             errors: { 
               type: 'array', 
-              items: { type: 'object' },
+              items: {
+                type: 'object',
+                properties: {
+                  code: { type: 'string', description: 'Error code' },
+                  message: { type: 'string', description: 'Error message' },
+                  field: { type: 'string', description: 'Field that caused the error (optional)' }
+                },
+                required: ['message']
+              },
               description: 'Error details if status is failed'
             },
             raw: { 
@@ -620,14 +628,24 @@ export const BATCH_LABEL_RESPONSE_SCHEMA = {
         type: 'array',
         items: {
           type: 'object',
-          properties: {
-            inputId: { type: 'string' },
-            status: { type: 'string', enum: ['created', 'failed'] },
-            fileId: { type: 'string' },
-            pageRange: { type: 'object' },
-            errors: { type: 'array', items: { type: 'object' } },
-            raw: { type: 'object', additionalProperties: true },
-          },
+           properties: {
+             inputId: { type: 'string' },
+             status: { type: 'string', enum: ['created', 'failed'] },
+             fileId: { type: 'string' },
+             pageRange: { type: 'object' },
+             errors: { 
+               type: 'array', 
+               items: {
+                 type: 'object',
+                 properties: {
+                   code: { type: 'string' },
+                   message: { type: 'string' },
+                   field: { type: 'string' }
+                 }
+               }
+             },
+             raw: { type: 'object', additionalProperties: true },
+           },
         },
       },
       files: {
@@ -664,12 +682,22 @@ export const BATCH_LABEL_RESPONSE_SCHEMA = {
         type: 'array',
         items: {
           type: 'object',
-          properties: {
-            inputId: { type: 'string' },
-            status: { type: 'string', enum: ['failed'] },
-            errors: { type: 'array', items: { type: 'object' } },
-            raw: { type: 'object', additionalProperties: true },
-          },
+           properties: {
+             inputId: { type: 'string' },
+             status: { type: 'string', enum: ['failed'] },
+             errors: { 
+               type: 'array', 
+               items: {
+                 type: 'object',
+                 properties: {
+                   code: { type: 'string' },
+                   message: { type: 'string' },
+                   field: { type: 'string' }
+                 }
+               }
+             },
+             raw: { type: 'object', additionalProperties: true },
+           },
          },
        },
      },

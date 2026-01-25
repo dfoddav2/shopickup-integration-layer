@@ -228,23 +228,45 @@ export async function createLabels(
 
         // Try to extract HTTP status from axios-like error
         const httpStatus = (labelError as any)?.response?.status;
+        ctx.logger?.debug("Foxpost error analysis", {
+          hasResponse: !!(labelError as any)?.response,
+          httpStatus,
+          dataType: (labelError as any)?.response?.data?.constructor?.name,
+          isBuffer: Buffer.isBuffer((labelError as any)?.response?.data),
+        });
+        
         if (httpStatus) {
           // Attempt to parse error body as JSON if available
           try {
             let errorBody = (labelError as any)?.response?.data;
             if (errorBody) {
+              ctx.logger?.debug("Raw error body before parsing", {
+                type: errorBody?.constructor?.name,
+                isBuffer: Buffer.isBuffer(errorBody),
+                isUint8Array: errorBody instanceof Uint8Array,
+                byteLength: errorBody?.length || errorBody?.byteLength,
+              });
+              
               // If error body is a Buffer, decode it to string first
               if (Buffer.isBuffer(errorBody)) {
-                errorBody = JSON.parse(errorBody.toString('utf-8'));
+                const decoded = errorBody.toString('utf-8');
+                ctx.logger?.debug("Decoded buffer to string", { decoded });
+                errorBody = JSON.parse(decoded);
               } else if (errorBody instanceof Uint8Array) {
                 errorBody = JSON.parse(new TextDecoder().decode(errorBody));
               }
+              
+              ctx.logger?.debug("Parsed error body", { errorBody });
               
               // Try to parse as Foxpost ApiError
               const apiErrorValidation = safeValidateFoxpostApiError(errorBody);
               if (apiErrorValidation.success) {
                 const apiError = apiErrorValidation.data;
-                errorMessage = apiError.error || errorMessage;
+                // Use error code as message if available
+                if (apiError.error) {
+                  errorMessage = apiError.error;
+                  ctx.logger?.debug("Extracted error message from API response", { message: errorMessage });
+                }
                 // Map HTTP status to error category
                 if (httpStatus === 400) {
                   errorCategory = 'Validation';
@@ -253,10 +275,19 @@ export async function createLabels(
                 } else if (httpStatus >= 500) {
                   errorCategory = 'Transient';
                 }
+              } else {
+                // Validation failed, log the issue
+                ctx.logger?.debug("Failed to validate Foxpost API error response", {
+                  validation: apiErrorValidation.error,
+                  attemptedBody: errorBody,
+                });
               }
             }
-          } catch {
-            // If parsing fails, use default error category based on status
+          } catch (parseError) {
+            // If parsing fails, log and use default error category based on status
+            ctx.logger?.debug("Failed to parse error body", {
+              error: (parseError as any)?.message,
+            });
             if (httpStatus === 400) {
               errorCategory = 'Validation';
             } else if (httpStatus === 401 || httpStatus === 403) {
@@ -274,24 +305,47 @@ export async function createLabels(
          error: errorToLog(labelError),
        });
 
-       // Return failed results for all parcels
-       const results: LabelResult[] = req.parcelCarrierIds.map((barcode) => ({
-         inputId: barcode,
-         status: "failed" as const,
-         errors: [
-           {
-             code: "LABEL_GENERATION_FAILED",
-             message: errorMessage,
-           },
-         ],
-         raw: { barcode, error: serializeForLog(labelError) },
-       }));
+        // Return failed results for all parcels
+        const errorObj = {
+          code: "LABEL_GENERATION_FAILED",
+          message: errorMessage,
+        };
+        
+        ctx.logger?.debug("Creating error object", {
+          code: errorObj.code,
+          message: errorObj.message,
+          stringified: JSON.stringify(errorObj),
+        });
 
-       return {
-         results,
-         files: [],
-         successCount: 0,
-         failureCount: results.length,
+        const results: LabelResult[] = req.parcelCarrierIds.map((barcode) => {
+          const result: LabelResult = {
+            inputId: barcode,
+            status: "failed" as const,
+            errors: [errorObj],
+            raw: { barcode, error: serializeForLog(labelError) },
+          };
+          
+          ctx.logger?.debug("Result object created", {
+            inputId: result.inputId,
+            status: result.status,
+            errorsLength: result.errors?.length,
+            firstError: result.errors?.[0],
+          });
+          
+          return result;
+        });
+
+        ctx.logger?.debug("Error results being returned", {
+          sample: results[0],
+          errorMessage,
+          errorCategory,
+        });
+
+        return {
+          results,
+          files: [],
+          successCount: 0,
+          failureCount: results.length,
          totalCount: results.length,
          allSucceeded: false,
          allFailed: true,
