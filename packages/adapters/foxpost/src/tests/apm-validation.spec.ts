@@ -31,7 +31,10 @@ describe('Foxpost APM Zod Validation', () => {
         load: 'normal loaded' as const,
         isOutdoor: false,
         apmType: 'Cleveron' as const,
-        substitutes: ['APM002', 'APM003'],
+        substitutes: [
+          { place_id: 'APM002', operator_id: 'OP002' },
+          { place_id: 'APM003', operator_id: 'OP003' },
+        ],
         open: {
           hetfo: '08:00-20:00',
           kedd: '08:00-20:00',
@@ -134,7 +137,7 @@ describe('Foxpost APM Zod Validation', () => {
       }
     });
 
-    it('should validate load enum values', () => {
+    it('should validate load enum values (lenient - accepts any string)', () => {
       const validEntry = {
         place_id: 'APM001',
         load: 'normal loaded' as const,
@@ -142,15 +145,16 @@ describe('Foxpost APM Zod Validation', () => {
       const validResult = safeValidateFoxpostApmEntry(validEntry);
       expect(validResult.success).toBe(true);
 
-      const invalidEntry = {
+      // With lenient validation, unknown load values are accepted
+      const unknownLoadEntry = {
         place_id: 'APM001',
         load: 'extremely-overloaded',
       };
-      const invalidResult = safeValidateFoxpostApmEntry(invalidEntry);
-      expect(invalidResult.success).toBe(false);
+      const unknownResult = safeValidateFoxpostApmEntry(unknownLoadEntry);
+      expect(unknownResult.success).toBe(true); // Now passes - lenient validation
     });
 
-    it('should validate apmType enum values', () => {
+    it('should validate apmType enum values (lenient - accepts any string)', () => {
       const validEntry = {
         place_id: 'APM001',
         apmType: 'Cleveron' as const,
@@ -158,15 +162,16 @@ describe('Foxpost APM Zod Validation', () => {
       const validResult = safeValidateFoxpostApmEntry(validEntry);
       expect(validResult.success).toBe(true);
 
-      const invalidEntry = {
+      // With lenient validation, unknown APM types are accepted (e.g., Packeta Z-BOX, Z-Pont)
+      const unknownApmEntry = {
         place_id: 'APM001',
         apmType: 'UnknownBrand',
       };
-      const invalidResult = safeValidateFoxpostApmEntry(invalidEntry);
-      expect(invalidResult.success).toBe(false);
+      const unknownResult = safeValidateFoxpostApmEntry(unknownApmEntry);
+      expect(unknownResult.success).toBe(true); // Now passes - lenient validation
     });
 
-    it('should validate variant enum values', () => {
+    it('should validate variant enum values (lenient - accepts any string)', () => {
       const validEntry = {
         place_id: 'APM001',
         variant: 'FOXPOST Z-BOX' as const,
@@ -174,12 +179,13 @@ describe('Foxpost APM Zod Validation', () => {
       const validResult = safeValidateFoxpostApmEntry(validEntry);
       expect(validResult.success).toBe(true);
 
-      const invalidEntry = {
+      // With lenient validation, unknown variants are accepted
+      const unknownVariantEntry = {
         place_id: 'APM001',
         variant: 'UNKNOWN-BOX',
       };
-      const invalidResult = safeValidateFoxpostApmEntry(invalidEntry);
-      expect(invalidResult.success).toBe(false);
+      const unknownResult = safeValidateFoxpostApmEntry(unknownVariantEntry);
+      expect(unknownResult.success).toBe(true); // Now passes - lenient validation
     });
 
     it('should validate allowed2 enum values', () => {
@@ -198,7 +204,7 @@ describe('Foxpost APM Zod Validation', () => {
       expect(invalidResult.success).toBe(false);
     });
 
-    it('should validate payment options enum values', () => {
+    it('should validate payment options enum values (lenient - accepts any string)', () => {
       const validEntry = {
         place_id: 'APM001',
         paymentOptions: ['card', 'cash', 'link', 'app'],
@@ -206,15 +212,16 @@ describe('Foxpost APM Zod Validation', () => {
       const validResult = safeValidateFoxpostApmEntry(validEntry);
       expect(validResult.success).toBe(true);
 
-      const invalidEntry = {
+      // With lenient validation, unknown payment methods are accepted
+      const unknownPaymentEntry = {
         place_id: 'APM001',
-        paymentOptions: ['card', 'invalid_payment'],
+        paymentOptions: ['card', 'crypto', 'blockchain'],
       };
-      const invalidResult = safeValidateFoxpostApmEntry(invalidEntry);
-      expect(invalidResult.success).toBe(false);
+      const unknownResult = safeValidateFoxpostApmEntry(unknownPaymentEntry);
+      expect(unknownResult.success).toBe(true); // Now passes - lenient validation
     });
 
-    it('should validate service enum values', () => {
+    it('should validate service enum values (lenient - accepts any string)', () => {
       const validEntry = {
         place_id: 'APM001',
         service: ['pickup', 'dispatch'],
@@ -222,12 +229,13 @@ describe('Foxpost APM Zod Validation', () => {
       const validResult = safeValidateFoxpostApmEntry(validEntry);
       expect(validResult.success).toBe(true);
 
-      const invalidEntry = {
+      // With lenient validation, unknown service types are accepted
+      const unknownServiceEntry = {
         place_id: 'APM001',
-        service: ['pickup', 'invalid_service'],
+        service: ['pickup', 'delivery', 'returns'],
       };
-      const invalidResult = safeValidateFoxpostApmEntry(invalidEntry);
-      expect(invalidResult.success).toBe(false);
+      const unknownResult = safeValidateFoxpostApmEntry(unknownServiceEntry);
+      expect(unknownResult.success).toBe(true); // Now passes - lenient validation
     });
 
     it('should accept extra fields with passthrough', () => {
@@ -401,6 +409,26 @@ describe('Foxpost APM Zod Validation', () => {
       if (result.success) {
         expect(result.data.fillEmptyList).toHaveLength(2);
         expect(result.data.fillEmptyList?.[1].emptying).toBe('14:00');
+      }
+    });
+
+    it('should handle substitutes array with objects', () => {
+      const entry = {
+        place_id: 'APM001',
+        substitutes: [
+          { place_id: 'APM002', operator_id: 'OP002' },
+          { place_id: 123, operator_id: 'OP003' }, // numeric place_id coerced to string
+          { place_id: 'APM004' }, // operator_id omitted
+        ],
+      };
+
+      const result = safeValidateFoxpostApmEntry(entry);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.substitutes).toHaveLength(3);
+        expect(result.data.substitutes?.[0].place_id).toBe('APM002');
+        expect(result.data.substitutes?.[1].place_id).toBe('123'); // Coerced to string
+        expect(result.data.substitutes?.[2].operator_id).toBeUndefined();
       }
     });
   });

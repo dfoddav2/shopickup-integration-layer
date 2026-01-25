@@ -551,15 +551,30 @@ const FillEmptyEntrySchema = z.object({
 export type FoxpostFillEmptyEntry = z.infer<typeof FillEmptyEntrySchema>;
 
 /**
+ * Foxpost APM substitute entry
+ * When a pickup point is closed or unavailable, these are alternative locations
+ * where the customer can pick up/drop off their parcel.
+ */
+const FoxpostSubstituteSchema = z.object({
+  place_id: z.union([
+    z.string(),
+    z.number().transform(n => String(n)),
+  ]),
+  operator_id: z.string().optional().nullable(),
+}).passthrough(); // Allow extra fields for future extensibility
+
+export type FoxpostSubstitute = z.infer<typeof FoxpostSubstituteSchema>;
+
+/**
  * Foxpost APM metadata schema - carrier-specific fields
  * Uses lenient validation with passthrough for future extensibility
  */
 const FoxpostApmMetadataSchema = z.object({
   depot: z.string().optional(),
-  load: z.enum(['normal loaded', 'medium loaded', 'overloaded']).optional(),
-  apmType: z.enum(['Cleveron', 'Keba', 'Rollkon', 'Rotte']).optional(),
-  substitutes: z.array(z.string()).optional(),
-  variant: z.enum(['FOXPOST A-BOX', 'FOXPOST Z-BOX', 'Packeta Z-BOX', 'Packeta Z-Pont']).optional(),
+  load: z.string().optional(), // Lenient: accept any string, not just predefined enum values
+  apmType: z.string().optional(), // Lenient: accept any string (Cleveron, Keba, Rollkon, Rotte, Z-BOX, Z-Pont, etc.)
+  substitutes: z.array(FoxpostSubstituteSchema).optional(), // Array of substitute APM objects
+  variant: z.string().optional(), // Lenient: accept any string
   fillEmptyList: z.array(FillEmptyEntrySchema).optional(),
   ssapt: z.string().optional(),
   sdapt: z.string().optional(),
@@ -567,16 +582,6 @@ const FoxpostApmMetadataSchema = z.object({
 
 export type FoxpostApmMetadata = z.infer<typeof FoxpostApmMetadataSchema>;
 
-/**
- * Foxpost APM entry from foxplus.json feed
- * 
- * Uses lenient validation with coercion:
- * - place_id: coerces numbers to strings (API inconsistency)
- * - geolat/geolng: coerces strings to numbers, validates not NaN
- * - operator_id: allows null/undefined
- * - All optional fields are truly optional
- * - Passthrough allows extra fields from API
- */
 const FoxpostApmEntrySchema = z.object({
   place_id: z.union([
     z.string(),
@@ -606,22 +611,22 @@ const FoxpostApmEntrySchema = z.object({
     n => n === undefined || !Number.isNaN(n),
     'Longitude must be a valid number'
   ),
-  allowed2: z.enum(['ALL', 'C2C', 'B2C']).optional(),
-  depot: z.string().optional(),
-  load: z.enum(['normal loaded', 'medium loaded', 'overloaded']).optional(),
-  isOutdoor: z.boolean().optional(),
-  apmType: z.enum(['Cleveron', 'Keba', 'Rollkon', 'Rotte']).optional(),
-  substitutes: z.array(z.string()).optional(),
-  open: OpeningHoursSchema.optional(),
-  fillEmptyList: z.array(FillEmptyEntrySchema).optional(),
-  cardPayment: z.boolean().optional(),
-  cashPayment: z.boolean().optional(),
-  iconUrl: z.string().optional(),
-  variant: z.enum(['FOXPOST A-BOX', 'FOXPOST Z-BOX', 'Packeta Z-BOX', 'Packeta Z-Pont']).optional(),
-  paymentOptions: z.array(z.enum(['card', 'cash', 'link', 'app'])).optional(),
-  paymentOptionsString: z.string().optional(),
-  service: z.array(z.enum(['pickup', 'dispatch'])).optional(),
-  serviceString: z.string().optional(),
+   allowed2: z.enum(['ALL', 'C2C', 'B2C']).optional(),
+   depot: z.string().optional(),
+   load: z.string().optional(), // Lenient: accept any string (e.g., "normal loaded", "custom value")
+   isOutdoor: z.boolean().optional(),
+   apmType: z.string().optional(), // Lenient: accept any string (Foxpost types: Cleveron/Keba/Rollkon/Rotte, Packeta types: Z-BOX/Z-Pont, etc.)
+   substitutes: z.array(FoxpostSubstituteSchema).optional(), // Array of substitute APM objects
+   open: OpeningHoursSchema.optional(),
+   fillEmptyList: z.array(FillEmptyEntrySchema).optional(),
+   cardPayment: z.boolean().optional(),
+   cashPayment: z.boolean().optional(),
+   iconUrl: z.string().optional(),
+   variant: z.string().optional(), // Lenient: accept any string (e.g., FOXPOST A-BOX, Packeta Z-BOX, custom types)
+   paymentOptions: z.array(z.string()).optional(), // Lenient: accept any payment method string
+   paymentOptionsString: z.string().optional(),
+   service: z.array(z.string()).optional(), // Lenient: accept any service string (pickup, dispatch, or others)
+   serviceString: z.string().optional(),
 }).passthrough(); // Allow extra fields from API
 
 export type FoxpostApmEntry = z.infer<typeof FoxpostApmEntrySchema>;
