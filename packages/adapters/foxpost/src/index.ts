@@ -70,7 +70,9 @@ export class FoxpostAdapter implements CarrierAdapter {
   ];
 
   // Foxpost doesn't require close before label
-  readonly requires = {};
+  readonly requires = {
+    createLabel: [Capabilities.CREATE_PARCEL],
+  };
 
   private prodBaseUrl = "https://webapi.foxpost.hu";
   private testBaseUrl = "https://webapi-test.foxpost.hu";

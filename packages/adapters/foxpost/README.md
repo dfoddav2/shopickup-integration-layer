@@ -8,6 +8,35 @@ Shopickup adapter for **Foxpost** - a major Hungarian logistics carrier providin
 - **CREATE_LABEL** - Generate PDF shipping labels
 - **TRACK** - Track parcel status and location
 
+## State of Implementation
+
+The following table shows what API endpoints and features of the Foxpost API have or have not been implemented in this adapter yet:
+
+| Endpoint / Feature                | Description                 | Implemented  | Details                                                                     |
+|-----------------------------------|-----------------------------|--------------|-----------------------------------------------------------------------------|
+| POST/api/parcel                   | Create Parcel               | ✅ Yes       | Complete support; HD + APM; parcel sizing needs some work                   |
+| PUT/api/parcel                    | Update Parcel               | 🗓️ No        | Not implemented yet, planned                                                |
+| DELETE/api/parcel/{barcode}       | Void Parcel                 | 🗓️ No        | Not implemented yet, planned                                                |
+| POST/api/parcel/c2b               | Create C2B Parcel           | ❌ No        | Not planned, special access required                                        |
+| POST/api/parcel/ext               | Create Marketplace Parcel   | ❌ No        | Not planned, special access required                                        |
+| POST/api/label/{pageSize}         | Create Labels               | ✅ Yes       | Full support; all sizes; single / multiple                                  |
+| GET/api/label/info/{barcode}      | Get Info for Custom Barcode | ❌ No        | Not planned; custom barcodes are niche                                      |
+| POST/api/label/deliveryNote       | Create Delivery Note        | 🗓️ No        | Not implemented yet, planned for collection                                 |
+| GET/api/tracking/{barcode}        | Track Parcel                | ✅ Yes       | Full support; status mapping and event parsing                              |
+| GET/api/tracking/tracks/{barcode} | Get Tracking Events         | ❌ No        | Not planned, special access required                                        |
+| POST/api/tracking/tracks          | Get Bulk Tracking Events    | ⚠️ No        | Planned, but special access required                                        |
+| POST/api/re/ext                   | Create Return Parcel        | ❌ No        | Not planned, special access required                                        |
+| POST/api/re/exts                  | Create Bulk Return Parcels  | ❌ No        | Not planned, special access required                                        |
+| POST/api/xre/unique               | Create External Return      | ❌ No        | Not planned, special access required                                        |
+| POST/api/re/exts                  | Create Bulk External Return | ❌ No        | Not planned, special access required                                        |
+| POST/api/address                  | Create Return Address       | ❌ No        | Not planned, special access required                                        |
+| DELETE/api/address/{name}         | Delete Return Address       | ❌ No        | Not planned, special access required                                        |
+| GET/api/address                   | List Return Addresses       | ❌ No        | Not planned, special access required                                        |
+| POST/api/file                     | Create Parcels via File     | 🗓️ No        | Not implemented yet, planned                                                |
+| Pull Tracking                     | Pickup Point List           | ✅ Yes       | Full support                                                                |
+| Map Errors                        | Error Handling              | 🗓️ No        | Foxpost error codes; should be documented and mapped                        |
+| Package Statuses                  | Status Mapping              | 🗓️ No        | Mapped to canonical statuses                                                |
+
 ## Installation
 
 ```bash
@@ -96,6 +125,7 @@ If dimensions are not provided, defaults to **s** (small).
 ### Home Delivery (HD)
 
 For home delivery parcels, these fields are **required**:
+
 - `recipientCity`
 - `recipientZip` (postal code)
 - `recipientAddress` (street address)
@@ -163,11 +193,13 @@ Foxpost tracking events are mapped to canonical statuses:
 ## Environments
 
 ### Sandbox
+
 ```typescript
 const adapter = new FoxpostAdapter("https://webapi-test.foxpost.hu");
 ```
 
 ### Production
+
 ```typescript
 const adapter = new FoxpostAdapter("https://webapi.foxpost.hu");
 ```
@@ -179,12 +211,13 @@ The Foxpost adapter supports switching between production and test API endpoints
 ### How It Works
 
 Foxpost has two separate API environments:
+
 - **Production:** `https://webapi.foxpost.hu` - real shipments
 - **Test/Sandbox:** `https://webapi-test.foxpost.hu` - test credentials required
 
 ### Using Test Mode
 
-#### For `createParcel()` - Pass via request options:
+#### For `createParcel()` - Pass via request options
 
 ```typescript
 import { FoxpostAdapter } from "@shopickup/adapters-foxpost";
@@ -204,7 +237,7 @@ const result = await adapter.createParcel!(
 );
 ```
 
-#### For `track()` and `createLabel()` - Pass via context:
+#### For `track()` and `createLabel()` - Pass via context
 
 ```typescript
 // Extend context with options (using 'as any' for now)
@@ -261,6 +294,7 @@ console.log("Test tracking:", tracking.status);
 - **Separate Credentials:** Test and production APIs use different credentials. Ensure you have separate API keys for each environment.
 - **No Data Sharing:** Test and production environments are completely isolated. Test shipments won't appear in production.
 - **Mixed Calls:** You can mix test and production calls in the same session:
+
   ```typescript
   // Some calls to prod
   await adapter.createParcel!(id1, { credentials: prod, options: { useTestApi: false } }, ctx);
@@ -268,7 +302,9 @@ console.log("Test tracking:", tracking.status);
   // Some calls to test
   await adapter.createParcel!(id2, { credentials: test, options: { useTestApi: true } }, ctx);
   ```
+
 - **Discovery:** Check for `TEST_MODE_SUPPORTED` capability to detect if an adapter supports this feature:
+
   ```typescript
   if (adapter.capabilities.includes("TEST_MODE_SUPPORTED")) {
     // Safe to use useTestApi option
@@ -320,6 +356,7 @@ pnpm run test -- mapper.spec.ts
 ### Test Examples
 
 **Mapper Test:**
+
 ```typescript
 import { describe, it, expect } from "vitest";
 import { mapToFoxpost } from "../mapper";
@@ -341,6 +378,7 @@ describe("Mapper", () => {
 ```
 
 **Integration Test:**
+
 ```typescript
 import { describe, it, expect } from "vitest";
 import { FoxpostAdapter } from "../index";

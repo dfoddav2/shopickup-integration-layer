@@ -6,6 +6,7 @@ import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import { registerFoxpostRoutes } from './foxpost/index.js';
+import { registerMPLRoutes } from './mpl/index.js';
 
 // Create a Fastify instance
 const isDev = process.env.NODE_ENV !== 'production';
@@ -54,6 +55,7 @@ await fastify.register(swagger, {
         tags: [
             { name: "server", description: "Server related endpoints" },
             { name: "Foxpost", description: "Foxpost carrier adapter dev endpoints" },
+            { name: "MPL", description: "MPL carrier adapter dev endpoints" },
             { name: "Dev", description: "Development and testing endpoints" }
         ]
     }
@@ -180,6 +182,9 @@ fastify.post("/admin/logging", {
 
 // Register Foxpost dev routes
 await registerFoxpostRoutes(fastify);
+
+// Register MPL dev routes
+await registerMPLRoutes(fastify);
 
 // Run the server!
 await fastify.ready();

@@ -1,4 +1,6 @@
-import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelsRequest, CreateLabelsResponse, LabelResult, CreateParcelRequest, CreateParcelsRequest, TrackingRequest, TrackingUpdate } from '@shopickup/core';
+import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelsRequest, CreateLabelsResponse, LabelResult, CreateParcelRequest, CreateParcelsRequest, TrackingRequest, TrackingUpdate, FetchPickupPointsRequest, FetchPickupPointsResponse } from '@shopickup/core';
+import { createResolveBaseUrl, ResolveBaseUrl } from './utils/resolveBaseUrl.js';
+import { fetchPickupPoints as fetchPickupPointsImpl } from './capabilities/index.js';
 
 /**
  * MPLAdapter
@@ -33,30 +35,23 @@ export class MPLAdapter implements CarrierAdapter {
         Capabilities.CREATE_PARCELS,
         Capabilities.CREATE_LABEL,
         Capabilities.TRACK,
+        Capabilities.CLOSE_SHIPMENT,
         Capabilities.TEST_MODE_SUPPORTED,
     ];
 
     // MPL requires close before label generation
     readonly requires = {
-        createLabel: [Capabilities.CREATE_PARCEL],
+        createLabel: [Capabilities.CREATE_PARCEL, Capabilities.CLOSE_SHIPMENT],
     }
 
     private prodBaseUrl = "https://core.api.posta.hu/v2/mplapi";
     private testBaseUrl = "https://sandbox.api.posta.hu/v2/mplapi";
+    private resolveBaseUrl: ResolveBaseUrl;
 
-    constructor(baseUrl?: string) {
-        if (baseUrl) {
-            this.prodBaseUrl = baseUrl;
-        }
-    }
-
-    /**
-     * Resolve the base URL based on test mode flag
-     * @param useTestApi Whether to use test API endpoint
-     * @returns Base URL to use for this request
-     */
-    private getBaseUrl(useTestApi?: boolean): string {
-        return useTestApi ? this.testBaseUrl : this.prodBaseUrl;
+    constructor(baseUrl: string = "https://core.api.posta.hu/v2/mplapi") {
+        this.prodBaseUrl = "https://core.api.posta.hu/v2/mplapi";
+        this.testBaseUrl = "https://sandbox.api.posta.hu/v2/mplapi";
+        this.resolveBaseUrl = createResolveBaseUrl(this.prodBaseUrl, this.testBaseUrl);
     }
 
     /**
@@ -64,54 +59,60 @@ export class MPLAdapter implements CarrierAdapter {
      * These methods are declared in capabilities but will throw NotImplementedError if called
      * without a proper implementation.
      */
-     async createParcel(
-         _req: CreateParcelRequest,
-         _ctx: AdapterContext
-     ): Promise<CarrierResource> {
-         throw new CarrierError(
-             "createParcel not yet implemented for MPL adapter",
-             "Permanent"
-         );
-     }
+    async createParcel(
+        _req: CreateParcelRequest,
+        _ctx: AdapterContext
+    ): Promise<CarrierResource> {
+        throw new CarrierError(
+            "createParcel not yet implemented for MPL adapter",
+            "Permanent"
+        );
+    }
 
-     async createParcels(
-         _req: CreateParcelsRequest,
-         _ctx: AdapterContext
-     ): Promise<any> {
-         throw new CarrierError(
-             "createParcels not yet implemented for MPL adapter",
-             "Permanent"
-         );
-     }
+    async createParcels(
+        _req: CreateParcelsRequest,
+        _ctx: AdapterContext
+    ): Promise<any> {
+        throw new CarrierError(
+            "createParcels not yet implemented for MPL adapter",
+            "Permanent"
+        );
+    }
 
-       async createLabel(
-           _req: CreateLabelRequest,
-           _ctx: AdapterContext
-       ): Promise<LabelResult> {
-           throw new CarrierError(
-               "createLabel not yet implemented for MPL adapter",
-               "Permanent"
-           );
-       }
+    async createLabel(
+        _req: CreateLabelRequest,
+        _ctx: AdapterContext
+    ): Promise<LabelResult> {
+        throw new CarrierError(
+            "createLabel not yet implemented for MPL adapter",
+            "Permanent"
+        );
+    }
 
-      async createLabels(
-          _req: CreateLabelsRequest,
-          _ctx: AdapterContext
-      ): Promise<CreateLabelsResponse> {
-          throw new CarrierError(
-              "createLabels not yet implemented for MPL adapter",
-              "Permanent"
-          );
-      }
+    async createLabels(
+        _req: CreateLabelsRequest,
+        _ctx: AdapterContext
+    ): Promise<CreateLabelsResponse> {
+        throw new CarrierError(
+            "createLabels not yet implemented for MPL adapter",
+            "Permanent"
+        );
+    }
 
-     async track(
-         _req: TrackingRequest,
-         _ctx: AdapterContext
-     ): Promise<TrackingUpdate> {
-         throw new CarrierError(
-             "track not yet implemented for MPL adapter",
-             "Permanent"
-         );
-     }
+    async track(
+        _req: TrackingRequest,
+        _ctx: AdapterContext
+    ): Promise<TrackingUpdate> {
+        throw new CarrierError(
+            "track not yet implemented for MPL adapter",
+            "Permanent"
+        );
+    }
 
+    async fetchPickupPoints(
+        req: FetchPickupPointsRequest,
+        ctx: AdapterContext,
+    ): Promise<FetchPickupPointsResponse> {
+        return fetchPickupPointsImpl(req, ctx, this.resolveBaseUrl);
+    }
 }

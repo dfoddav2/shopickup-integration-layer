@@ -18,7 +18,7 @@ import {
 } from '../mappers/index.js';
 import { translateFoxpostError, sanitizeResponseForLog } from '../errors.js';
 import { safeValidateCreateParcelRequest, safeValidateCreateParcelsRequest } from '../validation.js';
-import { buildFoxpostHeaders } from '../client/index.js';
+import { buildFoxpostHeaders } from '../utils/httpUtils.js';
 import type { ResolveBaseUrl } from '../utils/resolveBaseUrl.js';
 
 /**
@@ -123,41 +123,41 @@ export async function createParcels(
     const useTestApi = validated.data.options?.useTestApi ?? false;
     const isWeb = !useTestApi;
 
-     // Validate and map each canonical parcel to Foxpost request format
-     // mapParcelToFoxpost determines HD vs APM based on delivery method internally
-     const foxpostRequestsWithValidation = req.parcels.map((parcel, idx) => {
-       // Map canonical parcel to final Foxpost OpenAPI request format
-       // This handles both HD and APM delivery types internally
-       const foxpostRequest = mapParcelToFoxpost(parcel);
-       
-       // Validate the mapped request before sending to Foxpost API
-       // Note: We validate the OpenAPI request format, not the intermediate carrier type
-       // Both contain the same data, just structured differently
-       try {
-         // Ensure required fields are present for the delivery type
-         if (!foxpostRequest.recipientName || !foxpostRequest.recipientEmail || !foxpostRequest.recipientPhone) {
-           throw new Error('Missing required recipient fields (name, email, phone)');
-         }
-         
-         // For HOME delivery, validate address fields are present
-         if (foxpostRequest.recipientCity && foxpostRequest.recipientZip && foxpostRequest.recipientAddress) {
-           // HD request - looks good
-         } else if (!foxpostRequest.recipientCity && !foxpostRequest.recipientZip && !foxpostRequest.recipientAddress) {
-           // APM request (no address fields) - looks good
-         } else {
-           // Partial address fields - error
-           throw new Error('Address fields must be either all present (HD) or all absent (APM)');
-         }
-       } catch (validationErr) {
-         throw new CarrierError(
-           `Invalid carrier payload for parcel ${idx}: ${(validationErr as Error).message}`,
-           "Validation",
-           { raw: serializeForLog({ parcelIdx: idx, parcelId: parcel.id }) as any }
-         );
-       }
+    // Validate and map each canonical parcel to Foxpost request format
+    // mapParcelToFoxpost determines HD vs APM based on delivery method internally
+    const foxpostRequestsWithValidation = req.parcels.map((parcel, idx) => {
+      // Map canonical parcel to final Foxpost OpenAPI request format
+      // This handles both HD and APM delivery types internally
+      const foxpostRequest = mapParcelToFoxpost(parcel);
 
-       return foxpostRequest;
-     });
+      // Validate the mapped request before sending to Foxpost API
+      // Note: We validate the OpenAPI request format, not the intermediate carrier type
+      // Both contain the same data, just structured differently
+      try {
+        // Ensure required fields are present for the delivery type
+        if (!foxpostRequest.recipientName || !foxpostRequest.recipientEmail || !foxpostRequest.recipientPhone) {
+          throw new Error('Missing required recipient fields (name, email, phone)');
+        }
+
+        // For HOME delivery, validate address fields are present
+        if (foxpostRequest.recipientCity && foxpostRequest.recipientZip && foxpostRequest.recipientAddress) {
+          // HD request - looks good
+        } else if (!foxpostRequest.recipientCity && !foxpostRequest.recipientZip && !foxpostRequest.recipientAddress) {
+          // APM request (no address fields) - looks good
+        } else {
+          // Partial address fields - error
+          throw new Error('Address fields must be either all present (HD) or all absent (APM)');
+        }
+      } catch (validationErr) {
+        throw new CarrierError(
+          `Invalid carrier payload for parcel ${idx}: ${(validationErr as Error).message}`,
+          "Validation",
+          { raw: serializeForLog({ parcelIdx: idx, parcelId: parcel.id }) as any }
+        );
+      }
+
+      return foxpostRequest;
+    });
 
     // Extract strongly-typed credentials from validated request
     const { apiKey, basicUsername, basicPassword } = validated.data.credentials;
@@ -167,20 +167,20 @@ export async function createParcels(
       testMode: useTestApi,
     });
 
-      const httpResponse = await ctx.http.post<any>(
-        `${baseUrl}/api/parcel?isWeb=${isWeb}&isRedirect=false`,
-        foxpostRequestsWithValidation,
-        {
-          headers: buildFoxpostHeaders(validated.data.credentials),
-        }
-      );
+    const httpResponse = await ctx.http.post<any>(
+      `${baseUrl}/api/parcel?isWeb=${isWeb}&isRedirect=false`,
+      foxpostRequestsWithValidation,
+      {
+        headers: buildFoxpostHeaders(validated.data.credentials),
+      }
+    );
 
-     // Extract body from normalized HttpResponse
-     const carrierRespBody = httpResponse.body;
+    // Extract body from normalized HttpResponse
+    const carrierRespBody = httpResponse.body;
 
-     if (!carrierRespBody || !Array.isArray(carrierRespBody.parcels)) {
-       throw new CarrierError("Invalid response from Foxpost", "Transient", { raw: serializeForLog(sanitizeResponseForLog(httpResponse)) as any });
-     }
+    if (!carrierRespBody || !Array.isArray(carrierRespBody.parcels)) {
+      throw new CarrierError("Invalid response from Foxpost", "Transient", { raw: serializeForLog(sanitizeResponseForLog(httpResponse)) as any });
+    }
 
     const response = carrierRespBody;
 
@@ -218,39 +218,39 @@ export async function createParcels(
           errors: serializeForLog(errors),
         });
 
-         const rawParcel = serializeForLog(p) as any;
-         rawParcel.errors = errors;
+        const rawParcel = serializeForLog(p) as any;
+        rawParcel.errors = errors;
 
-         const failedResource: FailedCarrierResource = {
-           carrierId: undefined,
-           status: "failed",
-           raw: rawParcel,
-           errors,
-         };
+        const failedResource: FailedCarrierResource = {
+          carrierId: undefined,
+          status: "failed",
+          raw: rawParcel,
+          errors,
+        };
 
-         return failedResource;
+        return failedResource;
       }
 
       // Check for successful barcode assignment
       const carrierId = p.clFoxId;
       if (!carrierId) {
-         ctx.logger?.warn("Foxpost: Parcel created returned no clFoxId", {
-           parcelIdx: idx,
-           refCode: p.refCode,
-         });
+        ctx.logger?.warn("Foxpost: Parcel created returned no clFoxId", {
+          parcelIdx: idx,
+          refCode: p.refCode,
+        });
 
-         const failedResource: FailedCarrierResource = {
-           carrierId: undefined,
-           status: "failed",
-           raw: serializeForLog(p) as any,
-           errors: [{
-             field: "clFoxId",
-             message: "No barcode assigned by carrier",
-             code: "NO_BARCODE_ASSIGNED",
-           }],
-         };
+        const failedResource: FailedCarrierResource = {
+          carrierId: undefined,
+          status: "failed",
+          raw: serializeForLog(p) as any,
+          errors: [{
+            field: "clFoxId",
+            message: "No barcode assigned by carrier",
+            code: "NO_BARCODE_ASSIGNED",
+          }],
+        };
 
-         return failedResource;
+        return failedResource;
       }
 
       // Success - parcel was created with barcode
@@ -284,18 +284,18 @@ export async function createParcels(
       failureCount,
     });
 
-     // Return strongly-typed response with full carrier response for debugging
-     return {
-       results,
-       successCount,
-       failureCount,
-       totalCount,
-       allSucceeded: failureCount === 0 && totalCount > 0,
-       allFailed: successCount === 0 && totalCount > 0,
-       someFailed: successCount > 0 && failureCount > 0,
-       summary,
-       rawCarrierResponse: serializeForLog(sanitizeResponseForLog(httpResponse)),
-     };
+    // Return strongly-typed response with full carrier response for debugging
+    return {
+      results,
+      successCount,
+      failureCount,
+      totalCount,
+      allSucceeded: failureCount === 0 && totalCount > 0,
+      allFailed: successCount === 0 && totalCount > 0,
+      someFailed: successCount > 0 && failureCount > 0,
+      summary,
+      rawCarrierResponse: serializeForLog(sanitizeResponseForLog(httpResponse)),
+    };
   } catch (error) {
     ctx.logger?.error("Foxpost: Error creating parcels batch", {
       error: errorToLog(error),

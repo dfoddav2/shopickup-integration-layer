@@ -389,8 +389,10 @@ describe("FoxpostAdapter Integration", () => {
       expect(adapter.capabilities).not.toContain("RATES");
     });
 
-    it("has empty requires (no dependencies)", () => {
-      expect(adapter.requires).toEqual({});
+    it("declares createLabel requires CREATE_PARCEL", () => {
+      expect(adapter.requires).toEqual({
+        createLabel: ["CREATE_PARCEL"]
+      });
     });
 
     it("declares TEST_MODE_SUPPORTED capability", () => {

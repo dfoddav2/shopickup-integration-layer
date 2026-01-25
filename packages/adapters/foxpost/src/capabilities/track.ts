@@ -14,7 +14,7 @@ import {
 } from '../mappers/index.js';
 import { translateFoxpostError, sanitizeResponseForLog } from '../errors.js';
 import { safeValidateTrackingRequest } from '../validation.js';
-import { buildFoxpostHeaders } from '../client/index.js';
+import { buildFoxpostHeaders } from '../utils/httpUtils.js';
 import type { TrackingResponse } from '../types/generated.js';
 import type { ResolveBaseUrl } from '../utils/resolveBaseUrl.js';
 
@@ -62,22 +62,22 @@ export async function track(
       testMode: useTestApi,
     });
 
-      // Get tracking history via new /api/tracking/{barcode} endpoint with proper typing
-      const url = `${baseUrl}/api/tracking/${trackingNumber}`;
-      const httpResponse = await ctx.http.get<TrackingResponse>(url, {
-        headers: buildFoxpostHeaders(validated.data.credentials),
-      });
+    // Get tracking history via new /api/tracking/{barcode} endpoint with proper typing
+    const url = `${baseUrl}/api/tracking/${trackingNumber}`;
+    const httpResponse = await ctx.http.get<TrackingResponse>(url, {
+      headers: buildFoxpostHeaders(validated.data.credentials),
+    });
 
-     // Extract body from normalized HttpResponse
-     const response = httpResponse.body;
+    // Extract body from normalized HttpResponse
+    const response = httpResponse.body;
 
-     // Validate response
-     if (!response || !response.clFox) {
-       throw new CarrierError(
-         `No tracking information found for ${trackingNumber}`,
-         "Validation"
-       );
-     }
+    // Validate response
+    if (!response || !response.clFox) {
+      throw new CarrierError(
+        `No tracking information found for ${trackingNumber}`,
+        "Validation"
+      );
+    }
 
     // Validate traces array
     if (!Array.isArray(response.traces)) {
@@ -109,13 +109,13 @@ export async function track(
       testMode: useTestApi,
     });
 
-     return {
-       trackingNumber,
-       events,
-       status: currentStatus,
-       lastUpdate: events.length > 0 ? events[events.length - 1].timestamp : null,
-       rawCarrierResponse: response,
-     };
+    return {
+      trackingNumber,
+      events,
+      status: currentStatus,
+      lastUpdate: events.length > 0 ? events[events.length - 1].timestamp : null,
+      rawCarrierResponse: response,
+    };
   } catch (error) {
     if (error instanceof CarrierError) {
       throw error;
