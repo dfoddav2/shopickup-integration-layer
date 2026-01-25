@@ -16,64 +16,7 @@ import type {
   CarrierError as CarrierErrorType,
 } from "@shopickup/core";
 import { CarrierError, safeLog, createLogEntry } from "@shopickup/core";
-
-/**
- * Foxpost-specific metadata for pickup points
- * Contains carrier-specific fields not part of the canonical PickupPoint type
- */
-interface FoxpostApmMetadata {
-  /** Depot code associated with the APM */
-  depot?: string;
-  /** Load status of the APM (how full it is) */
-  load?: "normal loaded" | "medium loaded" | "overloaded";
-  /** Manufacturer/type of the APM hardware */
-  apmType?: "Cleveron" | "Keba" | "Rollkon" | "Rotte";
-  /** List of substitute APM IDs in case this APM is full or out of order */
-  substitutes?: string[];
-  /** Variant/model of the APM */
-  variant?: "FOXPOST A-BOX" | "FOXPOST Z-BOX" | "Packeta Z-BOX" | "Packeta Z-Pont";
-  /** Schedule of emptying and filling operations */
-  fillEmptyList?: Array<{ emptying: string; filling: string }>;
-  /** Service access points (ssapt field) */
-  ssapt?: string;
-  /** Service dispatch points (sdapt field) */
-  sdapt?: string;
-}
-
-/**
- * Raw Foxpost APM entry from the foxplus.json feed
- */
-interface FoxpostApmEntry {
-  place_id: number | string; // APM identifier - used in case of non-new connections, or in case of Packeta points
-  operator_id: string; // APM identifier - used in case of new connection, if empty use place_id
-  name: string;  // Name of the APM
-  ssapt: string; // Only specific types of package allowed
-  sdapt: string; // Only specific types of package allowed
-  country: string; // ISO 3166-1 alpha-2
-  address: string; // Full address string
-  zip: string; // Postal code
-  city: string;  // City name
-  street: string;  // Street name
-  findme: string;  // Additional address info - description on where to find the APM inside a given building / complex
-  geolat: number | string; // Latitude coordinate
-  geolng: number | string; // Longitude coordinate
-  allowed2: "ALL" | "C2C" | "B2C"; // Allowed package types / services for the APM
-  depot: string; // Associated depot code
-  load: "normal loaded" | "medium loaded" | "overloaded";  // Load information
-  isOutdoor: boolean;  // Is the APM located outdoors
-  apmType: "Cleveron" | "Keba" | "Rollkon" | "Rotte"; // Manufacturer / type of the APM
-  substitutes: string[]; // List of substitute APM IDs - in case APM is full or out of order
-  open: { hetfo: string; kedd: string; szerda: string; csutortok: string; pentek: string; szombat: string; vasarnap: string; }; // Opening hours per day of week
-  fillEmptyList: { emptying: string; filling: string; }[]; // List of scheduled emptying and filling times
-  cardPayment: boolean; // Supports card payment
-  cashPayment: boolean; // Supports cash payment
-  iconUrl: string;  // URL to icon image on Foxpost's CDN
-  variant: "FOXPOST A-BOX" | "FOXPOST Z-BOX" | "Packeta Z-BOX" | "Packeta Z-Pont";  // Shows whether APM is of type: FOXPOST A-BOX, FOXPOST Z-BOX, Packeta Z-BOX, Packeta Z-Pont
-  paymentOptions: ("card" | "cash" | "link" | "app")[]; // Unified payment options
-  paymentOptionsString: string; // Human-readable payment options in Hungarian
-  service: ("pickup" | "dispatch")[]; // Services supported by the APM
-  serviceString: string;  // Human-readable services in Hungarian
-}
+import { safeValidateFoxpostApmEntry, type FoxpostApmEntry, type FoxpostApmMetadata } from "../validation.js";
 
 /**
  * Normalize a Foxpost APM entry to canonical PickupPoint
@@ -86,19 +29,9 @@ function mapFoxpostApmToPickupPoint(apm: FoxpostApmEntry): PickupPoint {
   const id = operatorId || placeId || `fallback-${Math.random().toString(36).slice(2, 9)}`;
   const providerId = operatorId ? placeId : operatorId;
 
-  // Parse coordinates
-  let latitude: number | undefined;
-  let longitude: number | undefined;
-
-  if (apm.geolat !== undefined && apm.geolat !== null) {
-    latitude = typeof apm.geolat === 'string' ? parseFloat(apm.geolat) : apm.geolat;
-    latitude = isNaN(latitude) ? undefined : latitude;
-  }
-
-  if (apm.geolng !== undefined && apm.geolng !== null) {
-    longitude = typeof apm.geolng === 'string' ? parseFloat(apm.geolng) : apm.geolng;
-    longitude = isNaN(longitude) ? undefined : longitude;
-  }
+  // Parse coordinates (Zod already coerced them to numbers in validation)
+  let latitude: number | undefined = apm.geolat;
+  let longitude: number | undefined = apm.geolng;
 
   // Determine allowed services from allowed2 field
   // "ALL" = both pickup and dropoff
@@ -253,28 +186,39 @@ export async function fetchPickupPoints(
       ctx
     );
 
-    // Map each entry to PickupPoint
-    const points: PickupPoint[] = apmData.map((apm: FoxpostApmEntry) => {
-      try {
-        return mapFoxpostApmToPickupPoint(apm);
-      } catch (err) {
-        ctx.logger?.warn("Failed to map APM entry", { apm, error: String(err) });
-        // Skip entries that can't be mapped
-        return null;
-      }
-    }).filter((p: PickupPoint | null): p is PickupPoint => p !== null);
+     // Map each entry to PickupPoint with per-entry validation
+     const points: PickupPoint[] = apmData.map((entry: unknown) => {
+       try {
+         // Validate and coerce entry using Zod schema
+         const validation = safeValidateFoxpostApmEntry(entry);
+         if (!validation.success) {
+           ctx.logger?.warn("Skipping invalid APM entry", {
+             errors: validation.error.flatten(),
+             entry: entry instanceof Object ? JSON.stringify(entry).substring(0, 100) : entry
+           });
+           return null;
+         }
+         
+         // Map validated entry to PickupPoint
+         return mapFoxpostApmToPickupPoint(validation.data);
+       } catch (err) {
+         ctx.logger?.warn("Failed to map APM entry", { error: String(err), entry: entry instanceof Object ? JSON.stringify(entry).substring(0, 100) : entry });
+         // Skip entries that can't be mapped
+         return null;
+       }
+     }).filter((p: PickupPoint | null): p is PickupPoint => p !== null);
 
-    safeLog(
-      ctx.logger,
-      'info',
-      'Successfully fetched and mapped Foxpost APMs',
-      {
-        count: points.length,
-        succeeded: points.length,
-        failed: apmData.length - points.length,
-      },
-      ctx
-    );
+     safeLog(
+       ctx.logger,
+       'info',
+       'Successfully fetched and mapped Foxpost APMs',
+       {
+         total: apmData.length,
+         succeeded: points.length,
+         failed: apmData.length - points.length,
+       },
+       ctx
+     );
 
     return {
       points,

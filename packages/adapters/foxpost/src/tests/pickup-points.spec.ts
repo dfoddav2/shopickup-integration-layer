@@ -40,7 +40,7 @@ const SAMPLE_APM_DATA = [
     },
     variant: "FOXPOST A-BOX",
     paymentOptions: ["card", "link"],
-    service: ["pick up", "dispatch"],
+    service: ["pickup", "dispatch"],
   },
   {
     place_id: 1502648,
@@ -73,7 +73,7 @@ const SAMPLE_APM_DATA = [
     },
     variant: "FOXPOST A-BOX",
     paymentOptions: ["card", "link"],
-    service: ["pick up", "dispatch"],
+    service: ["pickup", "dispatch"],
   },
   {
     place_id: 1449553,
@@ -307,7 +307,12 @@ describe("Foxpost Pickup Points", () => {
       const result = await fetchPickupPoints({}, mockContext);
       const firstPoint = result.points[0];
 
-      expect(firstPoint.raw).toEqual(SAMPLE_APM_DATA[0]);
+      // Raw entry is the validated/coerced version:
+      // - place_id is coerced to string by Zod
+      expect(firstPoint.raw.place_id).toBe("1444335");
+      expect(firstPoint.raw.name).toBe(SAMPLE_APM_DATA[0].name);
+      expect(firstPoint.raw.country).toBe(SAMPLE_APM_DATA[0].country);
+      expect(firstPoint.raw.geolat).toBe(SAMPLE_APM_DATA[0].geolat);
     });
 
     it("should normalize country code to lowercase", async () => {
@@ -373,14 +378,19 @@ describe("Foxpost Pickup Points", () => {
       expect(point.longitude).toBe(19.0);
     });
 
-    it("should handle invalid coordinate values", async () => {
+    it("should skip entries with invalid coordinates", async () => {
       const dataWithInvalidCoords = [
         {
-          place_id: 123,
-          operator_id: "test",
-          name: "Test APM",
-          geolat: "invalid",
-          geolng: null,
+          place_id: "APM1",
+          name: "Valid APM",
+          geolat: 47.5,
+          geolng: 19.0,
+        },
+        {
+          place_id: "APM2",
+          name: "Test APM with invalid lat",
+          geolat: "invalid", // Will be filtered out due to NaN
+          geolng: 19.0,
         },
       ];
 
@@ -391,10 +401,11 @@ describe("Foxpost Pickup Points", () => {
       });
 
       const result = await fetchPickupPoints({}, mockContext);
-      const point = result.points[0];
-
-      expect(point.latitude).toBeUndefined();
-      expect(point.longitude).toBeUndefined();
+      
+      // Only the valid entry should be included
+      expect(result.points).toHaveLength(1);
+      expect(result.points[0].name).toBe("Valid APM");
+      expect(result.points[0].latitude).toBe(47.5);
     });
 
     it("should call HTTP client with correct URL", async () => {

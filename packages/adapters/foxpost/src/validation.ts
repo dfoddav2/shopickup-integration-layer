@@ -518,4 +518,128 @@ export function safeValidateFoxpostTracking(res: unknown) {
   return FoxpostTrackingSchema.safeParse(res);
 }
 
+/**
+ * ============================================================================
+ * Foxpost APM/Pickup-Points Schemas (from foxplus.json feed)
+ * ============================================================================
+ */
+
+/**
+ * Opening hours schema - Hungarian day names with optional string values
+ * Uses passthrough to allow extra fields and lenient validation
+ */
+const OpeningHoursSchema = z.object({
+  hetfo: z.string().optional().nullable(),
+  kedd: z.string().optional().nullable(),
+  szerda: z.string().optional().nullable(),
+  csutortok: z.string().optional().nullable(),
+  pentek: z.string().optional().nullable(),
+  szombat: z.string().optional().nullable(),
+  vasarnap: z.string().optional().nullable(),
+}).passthrough(); // Allow extra fields
+
+export type FoxpostOpeningHours = z.infer<typeof OpeningHoursSchema>;
+
+/**
+ * Fill/empty schedule entry
+ */
+const FillEmptyEntrySchema = z.object({
+  emptying: z.string().optional(),
+  filling: z.string().optional(),
+}).passthrough();
+
+export type FoxpostFillEmptyEntry = z.infer<typeof FillEmptyEntrySchema>;
+
+/**
+ * Foxpost APM metadata schema - carrier-specific fields
+ * Uses lenient validation with passthrough for future extensibility
+ */
+const FoxpostApmMetadataSchema = z.object({
+  depot: z.string().optional(),
+  load: z.enum(['normal loaded', 'medium loaded', 'overloaded']).optional(),
+  apmType: z.enum(['Cleveron', 'Keba', 'Rollkon', 'Rotte']).optional(),
+  substitutes: z.array(z.string()).optional(),
+  variant: z.enum(['FOXPOST A-BOX', 'FOXPOST Z-BOX', 'Packeta Z-BOX', 'Packeta Z-Pont']).optional(),
+  fillEmptyList: z.array(FillEmptyEntrySchema).optional(),
+  ssapt: z.string().optional(),
+  sdapt: z.string().optional(),
+}).passthrough();
+
+export type FoxpostApmMetadata = z.infer<typeof FoxpostApmMetadataSchema>;
+
+/**
+ * Foxpost APM entry from foxplus.json feed
+ * 
+ * Uses lenient validation with coercion:
+ * - place_id: coerces numbers to strings (API inconsistency)
+ * - geolat/geolng: coerces strings to numbers, validates not NaN
+ * - operator_id: allows null/undefined
+ * - All optional fields are truly optional
+ * - Passthrough allows extra fields from API
+ */
+const FoxpostApmEntrySchema = z.object({
+  place_id: z.union([
+    z.string(),
+    z.number().transform(n => String(n)),
+  ]),
+  operator_id: z.string().optional().nullable(),
+  name: z.string().optional(),
+  ssapt: z.string().optional(),
+  sdapt: z.string().optional(),
+  country: z.string().optional(),
+  address: z.string().optional(),
+  zip: z.string().optional(),
+  city: z.string().optional(),
+  street: z.string().optional(),
+  findme: z.string().optional(),
+  geolat: z.union([
+    z.number(),
+    z.string().transform(s => parseFloat(s)),
+  ]).optional().refine(
+    n => n === undefined || !Number.isNaN(n),
+    'Latitude must be a valid number'
+  ),
+  geolng: z.union([
+    z.number(),
+    z.string().transform(s => parseFloat(s)),
+  ]).optional().refine(
+    n => n === undefined || !Number.isNaN(n),
+    'Longitude must be a valid number'
+  ),
+  allowed2: z.enum(['ALL', 'C2C', 'B2C']).optional(),
+  depot: z.string().optional(),
+  load: z.enum(['normal loaded', 'medium loaded', 'overloaded']).optional(),
+  isOutdoor: z.boolean().optional(),
+  apmType: z.enum(['Cleveron', 'Keba', 'Rollkon', 'Rotte']).optional(),
+  substitutes: z.array(z.string()).optional(),
+  open: OpeningHoursSchema.optional(),
+  fillEmptyList: z.array(FillEmptyEntrySchema).optional(),
+  cardPayment: z.boolean().optional(),
+  cashPayment: z.boolean().optional(),
+  iconUrl: z.string().optional(),
+  variant: z.enum(['FOXPOST A-BOX', 'FOXPOST Z-BOX', 'Packeta Z-BOX', 'Packeta Z-Pont']).optional(),
+  paymentOptions: z.array(z.enum(['card', 'cash', 'link', 'app'])).optional(),
+  paymentOptionsString: z.string().optional(),
+  service: z.array(z.enum(['pickup', 'dispatch'])).optional(),
+  serviceString: z.string().optional(),
+}).passthrough(); // Allow extra fields from API
+
+export type FoxpostApmEntry = z.infer<typeof FoxpostApmEntrySchema>;
+
+/**
+ * Helper to safely validate a Foxpost APM feed (array of entries)
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateFoxpostApmFeed(feed: unknown) {
+  return z.array(FoxpostApmEntrySchema).safeParse(feed);
+}
+
+/**
+ * Helper to safely validate a single Foxpost APM entry
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateFoxpostApmEntry(entry: unknown) {
+  return FoxpostApmEntrySchema.safeParse(entry);
+}
+
 

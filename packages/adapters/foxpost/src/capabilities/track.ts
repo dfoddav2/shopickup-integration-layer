@@ -55,8 +55,6 @@ export async function track(
 
     // Extract strongly-typed credentials from validated request
     const trackingNumber = validated.data.trackingNumber;
-    const { apiKey, basicUsername, basicPassword } = validated.data.credentials;
-
     ctx.logger?.debug("Foxpost: Tracking parcel", {
       trackingNumber,
       testMode: useTestApi,
