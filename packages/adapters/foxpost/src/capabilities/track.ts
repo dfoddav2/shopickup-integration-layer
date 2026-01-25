@@ -13,13 +13,13 @@ import {
   mapFoxpostTraceToCanonical,
 } from '../mappers/index.js';
 import { translateFoxpostError, sanitizeResponseForLog } from '../errors.js';
-import { safeValidateTrackingRequest } from '../validation.js';
+import { safeValidateTrackingRequest, safeValidateFoxpostTracking } from '../validation.js';
 import { buildFoxpostHeaders } from '../utils/httpUtils.js';
 import type { TrackingResponse } from '../types/generated.js';
 import type { ResolveBaseUrl } from '../utils/resolveBaseUrl.js';
 
 /**
- * Track a parcel by its clFoxId or uniqueBarcode using the new GET /api/tracking/{barcode} endpoint
+ * Track a parcel by its clFoxId or uniqueBarcode using the GET /api/tracking/{barcode} endpoint
  * 
  * Returns normalized tracking information with all available traces in reverse chronological order
  * 
@@ -62,7 +62,7 @@ export async function track(
       testMode: useTestApi,
     });
 
-    // Get tracking history via new /api/tracking/{barcode} endpoint with proper typing
+    // Get tracking history via /api/tracking/{barcode} endpoint with proper typing
     const url = `${baseUrl}/api/tracking/${trackingNumber}`;
     const httpResponse = await ctx.http.get<TrackingResponse>(url, {
       headers: buildFoxpostHeaders(validated.data.credentials),
@@ -71,41 +71,53 @@ export async function track(
     // Extract body from normalized HttpResponse
     const response = httpResponse.body;
 
-    // Validate response
-    if (!response || !response.clFox) {
+    // Validate response against Zod schema
+    const responseValidation = safeValidateFoxpostTracking(response);
+    if (!responseValidation.success) {
+      throw new CarrierError(
+        `Invalid tracking response: ${responseValidation.error.message}`,
+        "Validation",
+        { raw: serializeForLog(responseValidation.error) as any }
+      );
+    }
+
+    const validatedResponse = responseValidation.data;
+
+    // Validate clFox is present
+    if (!validatedResponse.clFox) {
       throw new CarrierError(
         `No tracking information found for ${trackingNumber}`,
         "Validation"
       );
     }
 
-    // Validate traces array
-    if (!Array.isArray(response.traces)) {
+    // Validate traces array exists
+    if (!Array.isArray(validatedResponse.traces)) {
       throw new CarrierError(
         `Invalid tracking response: traces array missing for ${trackingNumber}`,
         "Transient",
-        { raw: serializeForLog(response) as any }
+        { raw: serializeForLog(validatedResponse) as any }
       );
     }
 
     // Convert Foxpost traces to canonical TrackingEvents
     // Traces arrive in reverse chronological order (latest first), but we want them chronological for the response
-    const events = response.traces
+    const events = validatedResponse.traces
       .map(mapFoxpostTraceToCanonical)
       .reverse(); // Reverse to get chronological order
 
     // Current status is from the latest trace (which is first in the API response)
-    const currentStatus = response.traces.length > 0
-      ? mapFoxpostTraceToCanonical(response.traces[0]).status
+    const currentStatus = validatedResponse.traces.length > 0
+      ? mapFoxpostTraceToCanonical(validatedResponse.traces[0]).status
       : "PENDING";
 
     ctx.logger?.info("Foxpost: Tracking retrieved", {
       trackingNumber,
-      clFox: response.clFox,
+      clFox: validatedResponse.clFox,
       status: currentStatus,
       events: events.length,
-      parcelType: response.parcelType,
-      sendType: response.sendType,
+      parcelType: validatedResponse.parcelType,
+      sendType: validatedResponse.sendType,
       testMode: useTestApi,
     });
 
@@ -114,7 +126,7 @@ export async function track(
       events,
       status: currentStatus,
       lastUpdate: events.length > 0 ? events[events.length - 1].timestamp : null,
-      rawCarrierResponse: response,
+      rawCarrierResponse: validatedResponse,
     };
   } catch (error) {
     if (error instanceof CarrierError) {

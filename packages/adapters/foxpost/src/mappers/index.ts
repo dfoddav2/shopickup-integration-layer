@@ -201,19 +201,26 @@ export function mapFoxpostTrackToCanonical(
  * Normalizes the Foxpost status code to a canonical TrackingStatus while preserving
  * the original carrier-specific code in `carrierStatusCode`.
  * 
+ * Accepts both string and Date types for statusDate to support both raw API responses
+ * and validated Zod-parsed responses (which transform to Date).
+ * 
  * Example mapping:
  * - Foxpost "CREATE" -> canonical "PENDING" (carrierStatusCode: "CREATE")
  * - Foxpost "HDINTRANSIT" -> canonical "OUT_FOR_DELIVERY" (carrierStatusCode: "HDINTRANSIT")
  * - Foxpost "RECEIVE" -> canonical "DELIVERED" (carrierStatusCode: "RECEIVE")
  */
 export function mapFoxpostTraceToCanonical(
-  trace: FoxpostTraceDTO
+  trace: FoxpostTraceDTO | { statusDate: string | Date; status?: string; shortName?: string; longName?: string }
 ): TrackingEvent {
+  const statusDate = typeof trace.statusDate === 'string' 
+    ? new Date(trace.statusDate) 
+    : trace.statusDate;
+    
   return {
-    timestamp: new Date(trace.statusDate || new Date()),
-    status: mapFoxpostStatusToCanonical(trace.status || "PENDING"),
-    carrierStatusCode: trace.status || undefined,
-    description: trace.longName || trace.shortName || trace.status || "Unknown status",
+    timestamp: statusDate || new Date(),
+    status: mapFoxpostStatusToCanonical((trace.status as string) || "PENDING"),
+    carrierStatusCode: (trace.status as string) || undefined,
+    description: ((trace as any).longName || (trace as any).shortName || (trace.status as string) || "Unknown status"),
     raw: trace,
   };
 }

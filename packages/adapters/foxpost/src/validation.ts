@@ -379,3 +379,123 @@ export function validateFoxpostParcel(parcel: unknown): FoxpostParcel {
 export function safeValidateFoxpostParcel(parcel: unknown) {
   return FoxpostParcelSchema.safeParse(parcel);
 }
+
+/**
+ * ============================================================================
+ * Foxpost Tracking Schemas (from OpenAPI /api/tracking/{barcode})
+ * ============================================================================
+ */
+
+/**
+ * Trace enum from OpenAPI Trace.status
+ */
+const TraceStatusEnum = z.enum([
+  'CREATE',
+  'OPERIN',
+  'OPEROUT',
+  'RECEIVE',
+  'RETURN',
+  'REDIRECT',
+  'OVERTIMEOUT',
+  'SORTIN',
+  'SORTOUT',
+  'SLOTCHANGE',
+  'OVERTIMED',
+  'MPSIN',
+  'C2CIN',
+  'HDSENT',
+  'HDDEPO',
+  'HDINTRANSIT',
+  'HDRETURN',
+  'HDRECEIVE',
+  'WBXREDIRECT',
+  'BACKTOSENDER',
+  'HDHUBIN',
+  'HDHUBOUT',
+  'HDCOURIER',
+  'HDUNDELIVERABLE',
+  'PREPAREDFORPD',
+  'INWAREHOUSE',
+  'COLLECTSENT',
+  'C2BIN',
+  'RETURNED',
+  'COLLECTED',
+  'BACKLOGINFULL',
+  'BACKLOGINFAIL',
+  'MISSORT',
+  'EMPTYSLOT',
+  'RESENT',
+  'PREREDIRECT',
+]);
+
+export type FoxpostTraceStatus = z.infer<typeof TraceStatusEnum>;
+
+/**
+ * Trace schema (from OpenAPI components/schemas/Trace)
+ */
+const TraceSchema = z.object({
+  statusDate: z.string().datetime().transform(s => new Date(s)),
+  statusStationId: z.string().optional(),
+  shortName: z.string().optional(),
+  longName: z.string().optional(),
+  status: TraceStatusEnum.optional(),
+}).passthrough(); // Allow extra fields from API
+
+export type FoxpostTrace = z.infer<typeof TraceSchema>;
+
+/**
+ * TrackDTO schema (from OpenAPI components/schemas/TrackDTO)
+ * Note: TrackDTO mirrors Trace but with trackId and slightly different names
+ */
+const TrackDTOSchema = z.object({
+  trackId: z.number().int().optional(),
+  status: z.string().optional(),
+  statusDate: z.string().datetime().or(z.string()).transform(s => new Date(s)),
+}).strict();
+
+export type FoxpostTrackDTO = z.infer<typeof TrackDTOSchema>;
+
+/**
+ * Parcel type enum from OpenAPI Tracking.parcelType
+ */
+const FoxpostParcelTypeEnum = z.enum(['NORMAL', 'RE', 'XRE', 'IRE', 'C2B']);
+export type FoxpostParcelType = z.infer<typeof FoxpostParcelTypeEnum>;
+
+/**
+ * Send type enum from OpenAPI Tracking.sendType
+ */
+const FoxpostSendTypeEnum = z.enum(['APM', 'HD', 'COLLECT']);
+export type FoxpostSendType = z.infer<typeof FoxpostSendTypeEnum>;
+
+/**
+ * Tracking schema (from OpenAPI components/schemas/Tracking)
+ * This is the response from GET /api/tracking/{barcode}
+ */
+const FoxpostTrackingSchema = z.object({
+  clFox: z.string().optional(),
+  parcelType: FoxpostParcelTypeEnum.optional(),
+  sendType: FoxpostSendTypeEnum.optional(),
+  traces: z.array(TraceSchema).optional(),
+  relatedParcel: z.string().nullable().optional(),
+  estimatedDelivery: z.string().optional(),
+}).passthrough(); // Allow extra fields from API
+
+export type FoxpostTracking = z.infer<typeof FoxpostTrackingSchema>;
+
+/**
+ * Helper to validate a Foxpost tracking response
+ * Throws ZodError if validation fails
+ */
+export function validateFoxpostTracking(res: unknown): FoxpostTracking {
+  return FoxpostTrackingSchema.parse(res);
+}
+
+/**
+ * Helper to safely validate a Foxpost tracking response without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateFoxpostTracking(res: unknown) {
+  return FoxpostTrackingSchema.safeParse(res);
+}
+
+

@@ -69,6 +69,9 @@ importers:
       '@shopickup/adapters-foxpost':
         specifier: link:../../packages/adapters/foxpost
         version: link:../../packages/adapters/foxpost
+      '@shopickup/adapters-mpl':
+        specifier: link:../../packages/adapters/MPL
+        version: link:../../packages/adapters/MPL
       '@shopickup/core':
         specifier: link:../../packages/core
         version: link:../../packages/core
@@ -97,7 +100,7 @@ importers:
 
   packages/adapters: {}
 
-  packages/adapters/foxpost:
+  packages/adapters/MPL:
     dependencies:
       axios:
         specifier: ^1.6.0
@@ -112,6 +115,28 @@ importers:
       '@stoplight/prism-http':
         specifier: ^5.0.0
         version: 5.12.0
+      openapi-typescript:
+        specifier: ^6.7.0
+        version: 6.7.6
+      typescript:
+        specifier: ^5.4.2
+        version: 5.9.3
+
+  packages/adapters/foxpost:
+    dependencies:
+      zod:
+        specifier: ^4.3.5
+        version: 4.3.5
+    devDependencies:
+      '@shopickup/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@stoplight/prism-http':
+        specifier: ^5.0.0
+        version: 5.12.0
+      axios:
+        specifier: ^1.6.0
+        version: 1.13.2
       openapi-typescript:
         specifier: ^6.7.0
         version: 6.7.6

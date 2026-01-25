@@ -6,9 +6,7 @@
     "lib": ["ES2022"],
     "baseUrl": ".",
     "paths": {
-      "@shopickup/core": ["packages/core/dist/index.d.ts"],
-      "@shopickup/adapters/foxpost": ["packages/adapters/foxpost/dist/index.d.ts"],
-      "@shopickup/adapters-mpl": ["packages/adapters/MPL/dist/index.d.ts"]
+      "@shopickup/core": ["packages/core/dist/index.d.ts"]
     },
     "resolveJsonModule": true,
     "strict": true,

@@ -217,3 +217,15 @@ export class FoxpostAdapter implements CarrierAdapter {
 }
 
 export default FoxpostAdapter;
+
+// Export validation helpers for use in external code (e.g., dev-server)
+export {
+  safeValidateTrackingRequest,
+  safeValidateFoxpostTracking,
+  validateFoxpostTracking,
+  safeValidateFoxpostCredentials,
+  validateFoxpostCredentials,
+  type FoxpostTracking,
+  type FoxpostTrace,
+  type FoxpostTrackDTO,
+} from './validation.js';
