@@ -248,14 +248,14 @@ export const CreateParcelsRequestFoxpostSchema = z.object({
 });
 
 export const CreateLabelRequestFoxpostSchema = z.object({
-  parcelCarrierId: z.string().min(1, 'Parcel carrier ID is required'),
-  credentials: FoxpostCredentialsSchema,
-  options: z.object({
-    useTestApi: z.boolean().optional(),
-    size: z.enum(['A6', 'A7', '_85X85']).default('A7'),
-    startPos: z.number().int().min(1).max(7).optional(),
-    isPortrait: z.boolean().optional().default(false),
-  }).optional()
+   parcelCarrierId: z.string().min(1, 'Parcel carrier ID is required'),
+   credentials: FoxpostCredentialsSchema,
+   options: z.object({
+     useTestApi: z.boolean().optional(),
+     size: z.enum(['A5', 'A6', 'A7', '_85X85']).default('A7'),
+     startPos: z.number().int().min(0).max(7).optional(),
+     isPortrait: z.boolean().optional().default(false),
+   }).optional()
 });
 
 /**
@@ -263,14 +263,14 @@ export const CreateLabelRequestFoxpostSchema = z.object({
  * Similar to CreateParcelsRequest but for labels
  */
 export const CreateLabelsRequestFoxpostSchema = z.object({
-  parcelCarrierIds: z.array(z.string().min(1)).min(1, 'At least one parcel ID is required'),
-  credentials: FoxpostCredentialsSchema,
-  options: z.object({
-    useTestApi: z.boolean().optional(),
-    size: z.enum(['A6', 'A7', '_85X85']).default('A7'),
-    startPos: z.number().int().min(1).max(7).optional(),
-    isPortrait: z.boolean().optional().default(false),
-  }).optional()
+   parcelCarrierIds: z.array(z.string().min(1)).min(1, 'At least one parcel ID is required'),
+   credentials: FoxpostCredentialsSchema,
+   options: z.object({
+     useTestApi: z.boolean().optional(),
+     size: z.enum(['A5', 'A6', 'A7', '_85X85']).default('A7'),
+     startPos: z.number().int().min(0).max(7).optional(),
+     isPortrait: z.boolean().optional().default(false),
+   }).optional()
 });
 
 /**
@@ -681,7 +681,132 @@ export function validateFoxpostCreateParcelRequestItem(item: unknown): FoxCreate
  * Returns { success: true, data } or { success: false, error }
  */
 export function safeValidateFoxpostCreateParcelRequestItem(item: unknown) {
-  return CreateParcelRequestItemSchema.safeParse(item);
+   return CreateParcelRequestItemSchema.safeParse(item);
+}
+
+/**
+ * ============================================================================
+ * Foxpost Label Generation Schemas (from OpenAPI /api/label/{pageSize})
+ * ============================================================================
+ * 
+ * Schemas for label generation request parameters, response metadata,
+ * error handling, and label info (from /api/label/info/{barcode})
+ */
+
+/**
+ * ApiError schema (from OpenAPI components/schemas/ApiError)
+ * Carrier returns this on error responses (400, 401, etc.)
+ * Uses lenient validation to accept any structure
+ */
+const ApiErrorSchema = z.object({
+   timestamp: z.string().optional(),
+   error: z.string().optional(),
+   status: z.number().int().optional(),
+ }).loose(); // Allow extra fields from API
+
+export type FoxpostApiError = z.infer<typeof ApiErrorSchema>;
+
+/**
+ * Helper to safely validate a Foxpost API error response without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateFoxpostApiError(res: unknown) {
+   return ApiErrorSchema.safeParse(res);
+}
+
+/**
+ * PDF binary raw response validation
+ * Ensures the PDF buffer is non-empty
+ * Accepts Node Buffer or any object with numeric byteLength > 0
+ */
+const FoxpostLabelPdfRawSchema = z.any().refine(
+   (v) => {
+     return v != null && typeof (v as any).byteLength === 'number' && (v as any).byteLength > 0;
+   },
+   { message: 'Expected non-empty PDF buffer' }
+);
+
+export type FoxpostLabelPdfRaw = unknown; // Runtime-validated via refine
+
+/**
+ * Helper to safely validate PDF raw response without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateFoxpostLabelPdfRaw(raw: unknown) {
+   return FoxpostLabelPdfRawSchema.safeParse(raw);
+}
+
+/**
+ * PDF metadata schema for label generation
+ * Describes the PDF file properties and generation options
+ */
+const FoxpostLabelPdfMetadataSchema = z.object({
+   size: z.enum(['A5', 'A6', 'A7', '_85X85']).optional(),
+   barcodesCount: z.number().int().min(1).optional(),
+   startPos: z.number().int().min(0).max(7).optional(),
+   isPortrait: z.boolean().optional(),
+ }).loose();
+
+export type FoxpostLabelPdfMetadata = z.infer<typeof FoxpostLabelPdfMetadataSchema>;
+
+/**
+ * Helper to validate PDF metadata
+ * Throws ZodError if validation fails
+ */
+export function validateFoxpostLabelPdfMetadata(metadata: unknown): FoxpostLabelPdfMetadata {
+   return FoxpostLabelPdfMetadataSchema.parse(metadata);
+}
+
+/**
+ * Helper to safely validate PDF metadata without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateFoxpostLabelPdfMetadata(metadata: unknown) {
+   return FoxpostLabelPdfMetadataSchema.safeParse(metadata);
+}
+
+/**
+ * LabelInfo schema (from OpenAPI components/schemas/LabelInfo)
+ * Response from GET /api/label/info/{barcode}
+ * Contains pre-label metadata about the parcel
+ */
+const LabelInfoSchema = z.object({
+   senderName: z.string().optional(),
+   senderZip: z.string().optional(),
+   senderCity: z.string().optional(),
+   senderAddress: z.string().optional(),
+   recipientName: z.string().optional(),
+   recipientEmail: z.string().optional(),
+   recipientPhone: z.string().optional(),
+   recipientZip: z.string().optional(),
+   recipientCity: z.string().optional(),
+   recipientAddress: z.string().optional(),
+   apm: z.string().optional(),
+   cod: z.number().int().optional(),
+   isFragile: z.boolean().optional(),
+   barcode: z.string().optional(),
+   refCode: z.string().optional(),
+   depoCode: z.string().optional(),
+   courierCode: z.string().optional(),
+   sendType: z.enum(['APM', 'HD', 'COLLECT']).optional(),
+ }).loose(); // Allow extra fields from API
+
+export type FoxpostLabelInfo = z.infer<typeof LabelInfoSchema>;
+
+/**
+ * Helper to validate a Foxpost LabelInfo response
+ * Throws ZodError if validation fails
+ */
+export function validateFoxpostLabelInfo(res: unknown): FoxpostLabelInfo {
+   return LabelInfoSchema.parse(res);
+}
+
+/**
+ * Helper to safely validate a Foxpost LabelInfo response without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateFoxpostLabelInfo(res: unknown) {
+   return LabelInfoSchema.safeParse(res);
 }
 
 /**

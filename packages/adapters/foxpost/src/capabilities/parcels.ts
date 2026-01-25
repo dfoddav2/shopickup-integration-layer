@@ -161,9 +161,6 @@ export async function createParcels(
        return foxpostRequest;
      });
 
-     // Extract strongly-typed credentials from validated request
-     const { apiKey, basicUsername, basicPassword } = validated.data.credentials;
-
      ctx.logger?.debug("Foxpost: Creating parcels batch", {
        count: req.parcels.length,
        testMode: useTestApi,
