@@ -108,9 +108,10 @@ describe('FoxpostAdapter track', () => {
     expect(result.events).toHaveLength(4);
     
     // Events should be in chronological order (oldest to newest)
-    expect(result.events[0].description).toBe('Parcel created');
-    expect(result.events[1].description).toBe('Handed to courier');
-    expect(result.events[2].description).toBe('Out for delivery');
+    // Descriptions should be from mapped status, not API's longName
+    expect(result.events[0].description).toBe('Order created');
+    expect(result.events[1].description).toBe('Home delivery sent');
+    expect(result.events[2].description).toBe('Out for home delivery');
     expect(result.events[3].description).toBe('Delivered to recipient');
   });
 
@@ -140,22 +141,25 @@ describe('FoxpostAdapter track', () => {
     expect(rawResponse.sendType).toBe('HD');
   });
 
-   it('maps all trace fields to TrackingEvent', async () => {
-     const req: TrackingRequest = {
-       trackingNumber: 'CLFOX0000000001',
-       credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
-     };
-     const result = await adapter.track!(req, ctx);
+    it('maps all trace fields to TrackingEvent', async () => {
+      const req: TrackingRequest = {
+        trackingNumber: 'CLFOX0000000001',
+        credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+      };
+      const result = await adapter.track!(req, ctx);
 
-     // Check that all traces were properly mapped
-     const lastEvent = result.events[result.events.length - 1];
-     expect(lastEvent.timestamp).toBeInstanceOf(Date);
-     expect(lastEvent.status).toBe('DELIVERED');
-     expect(lastEvent.description).toBe('Delivered to recipient');
-     expect(lastEvent.raw).toBeDefined();
-     // Verify carrierStatusCode preserves original Foxpost status
-     expect(lastEvent.carrierStatusCode).toBe('RECEIVE');
-   });
+      // Check that all traces were properly mapped
+      const lastEvent = result.events[result.events.length - 1];
+      expect(lastEvent.timestamp).toBeInstanceOf(Date);
+      expect(lastEvent.status).toBe('DELIVERED');
+      // Should use mapped description from status map, not API's longName
+      expect(lastEvent.description).toBe('Delivered to recipient');
+      expect(lastEvent.raw).toBeDefined();
+      // Verify carrierStatusCode preserves original Foxpost status
+      expect(lastEvent.carrierStatusCode).toBe('RECEIVE');
+      // Verify Hungarian description is included
+      expect(lastEvent.descriptionLocalLanguage).toBe('Átvéve');
+    });
 
    it('uses test API when useTestApi option is true', async () => {
      const req: TrackingRequest = {
@@ -242,18 +246,74 @@ describe('FoxpostAdapter track', () => {
      expect(deliveredEvent!.carrierStatusCode).toBe('RECEIVE');
    });
 
-   it('preserves carrierStatusCode for all events', async () => {
-     const req: TrackingRequest = {
-       trackingNumber: 'CLFOX0000000001',
-       credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
-     };
-     const result = await adapter.track!(req, ctx);
+    it('preserves carrierStatusCode for all events', async () => {
+      const req: TrackingRequest = {
+        trackingNumber: 'CLFOX0000000001',
+        credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+      };
+      const result = await adapter.track!(req, ctx);
 
-      result.events.forEach((event, idx) => {
-        expect(event.carrierStatusCode).toBeDefined();
-        // carrierStatusCode should be a non-empty string
-        expect(typeof event.carrierStatusCode).toBe('string');
-        expect(event.carrierStatusCode!.length).toBeGreaterThan(0);
+       result.events.forEach((event, idx) => {
+         expect(event.carrierStatusCode).toBeDefined();
+         // carrierStatusCode should be a non-empty string
+         expect(typeof event.carrierStatusCode).toBe('string');
+         expect(event.carrierStatusCode!.length).toBeGreaterThan(0);
+       });
+    });
+
+    it('includes human-readable descriptions for all events', async () => {
+      const req: TrackingRequest = {
+        trackingNumber: 'CLFOX0000000001',
+        credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+      };
+      const result = await adapter.track!(req, ctx);
+
+      result.events.forEach(event => {
+        expect(event.description).toBeDefined();
+        expect(typeof event.description).toBe('string');
+        expect(event.description.length).toBeGreaterThan(0);
       });
-   });
+    });
+
+    it('includes Hungarian descriptions (descriptionLocalLanguage) for known statuses', async () => {
+      const req: TrackingRequest = {
+        trackingNumber: 'CLFOX0000000001',
+        credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+      };
+      const result = await adapter.track!(req, ctx);
+
+      // Should have mapped descriptions for known Foxpost codes
+      const events = result.events;
+      expect(events).toHaveLength(4);
+
+      // CREATE should have Hungarian description
+      const createEvent = events.find(e => e.carrierStatusCode === 'CREATE');
+      expect(createEvent).toBeDefined();
+      expect(createEvent!.descriptionLocalLanguage).toBe('Rendelés létrehozva');
+
+      // RECEIVE should have Hungarian description
+      const receiveEvent = events.find(e => e.carrierStatusCode === 'RECEIVE');
+      expect(receiveEvent).toBeDefined();
+      expect(receiveEvent!.descriptionLocalLanguage).toBe('Átvéve');
+
+      // HDINTRANSIT should have Hungarian description
+      const hdintransitEvent = events.find(e => e.carrierStatusCode === 'HDINTRANSIT');
+      expect(hdintransitEvent).toBeDefined();
+      expect(hdintransitEvent!.descriptionLocalLanguage).toBe('Házhoz szállítás alatt');
+    });
+
+    it('maps status with mapped descriptions instead of API longName', async () => {
+      const req: TrackingRequest = {
+        trackingNumber: 'CLFOX0000000001',
+        credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+      };
+      const result = await adapter.track!(req, ctx);
+
+      // The mock returns longName: "Out for delivery" for HDINTRANSIT
+      // But we should map to "Out for home delivery" from the status map
+      const hdintransitEvent = result.events.find(e => e.carrierStatusCode === 'HDINTRANSIT');
+      expect(hdintransitEvent).toBeDefined();
+      // Should use mapped description, not API's longName
+      expect(hdintransitEvent!.description).toBe('Out for home delivery');
+    });
 });

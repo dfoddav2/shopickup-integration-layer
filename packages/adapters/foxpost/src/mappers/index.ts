@@ -10,6 +10,7 @@ import type {
   TraceDTO as FoxpostTraceDTO,
 } from '../types/generated.js';
 import type { FoxpostParcel, FoxpostPackageSize, FoxCreateParcelRequestItem } from '../validation.js';
+import { mapFoxpostStatusCode, getFoxpostStatusDescription } from './trackStatus.js';
 
 const FOXPOST_SIZES = ["xs", "s", "m", "l", "xl"] as const;
 type FoxpostSize = typeof FOXPOST_SIZES[number]; // "xs" | "s" | "m" | "l" | "xl"
@@ -198,51 +199,14 @@ export function mapParcelToFoxpost(
 
 /**
  * Map Foxpost tracking status code to canonical TrackingStatus
+ * Uses comprehensive status mapping from trackStatus.ts
+ * Unknown codes default to PENDING.
  */
 export function mapFoxpostStatusToCanonical(
   foxpostStatus: string
 ): "PENDING" | "IN_TRANSIT" | "OUT_FOR_DELIVERY" | "DELIVERED" | "EXCEPTION" | "RETURNED" | "CANCELLED" {
-  // Foxpost status codes from OpenAPI
-  const statusMapping: Record<string, "PENDING" | "IN_TRANSIT" | "OUT_FOR_DELIVERY" | "DELIVERED" | "EXCEPTION" | "RETURNED" | "CANCELLED"> = {
-    CREATE: "PENDING",
-    OPERIN: "IN_TRANSIT",
-    OPEROUT: "IN_TRANSIT",
-    RECEIVE: "DELIVERED",
-    RETURN: "RETURNED",
-    REDIRECT: "IN_TRANSIT",
-    OVERTIMEOUT: "EXCEPTION",
-    SORTIN: "IN_TRANSIT",
-    SORTOUT: "IN_TRANSIT",
-    SLOTCHANGE: "IN_TRANSIT",
-    OVERTIMED: "EXCEPTION",
-    MPSIN: "IN_TRANSIT",
-    C2CIN: "IN_TRANSIT",
-    HDSENT: "OUT_FOR_DELIVERY",
-    HDDEPO: "IN_TRANSIT",
-    HDINTRANSIT: "OUT_FOR_DELIVERY",
-    HDRETURN: "RETURNED",
-    HDRECEIVE: "DELIVERED",
-    WBXREDIRECT: "IN_TRANSIT",
-    BACKTOSENDER: "RETURNED",
-    HDHUBIN: "IN_TRANSIT",
-    HDHUBOUT: "OUT_FOR_DELIVERY",
-    HDCOURIER: "OUT_FOR_DELIVERY",
-    HDUNDELIVERABLE: "EXCEPTION",
-    PREPAREDFORPD: "IN_TRANSIT",
-    INWAREHOUSE: "IN_TRANSIT",
-    COLLECTSENT: "IN_TRANSIT",
-    C2BIN: "IN_TRANSIT",
-    RETURNED: "DELIVERED",
-    COLLECTED: "DELIVERED",
-    BACKLOGINFULL: "EXCEPTION",
-    BACKLOGINFAIL: "EXCEPTION",
-    MISSORT: "EXCEPTION",
-    EMPTYSLOT: "EXCEPTION",
-    RESENT: "IN_TRANSIT",
-    PREREDIRECT: "IN_TRANSIT",
-  };
-
-  return statusMapping[foxpostStatus] || "PENDING";
+  const mapping = mapFoxpostStatusCode(foxpostStatus);
+  return mapping.canonical as any; // Safe cast: trackStatus map returns valid canonical values
 }
 
 /**
@@ -270,13 +234,15 @@ export function mapFoxpostTrackToCanonical(
  * Normalizes the Foxpost status code to a canonical TrackingStatus while preserving
  * the original carrier-specific code in `carrierStatusCode`.
  * 
+ * Includes both English and Hungarian human-readable descriptions from the status map.
+ * 
  * Accepts both string and Date types for statusDate to support both raw API responses
  * and validated Zod-parsed responses (which transform to Date).
  * 
  * Example mapping:
- * - Foxpost "CREATE" -> canonical "PENDING" (carrierStatusCode: "CREATE")
- * - Foxpost "HDINTRANSIT" -> canonical "OUT_FOR_DELIVERY" (carrierStatusCode: "HDINTRANSIT")
- * - Foxpost "RECEIVE" -> canonical "DELIVERED" (carrierStatusCode: "RECEIVE")
+ * - Foxpost "CREATE" -> canonical "PENDING" (carrierStatusCode: "CREATE", description: "Order created")
+ * - Foxpost "HDINTRANSIT" -> canonical "OUT_FOR_DELIVERY" (carrierStatusCode: "HDINTRANSIT", description: "Out for home delivery")
+ * - Foxpost "RECEIVE" -> canonical "DELIVERED" (carrierStatusCode: "RECEIVE", description: "Delivered to recipient")
  */
 export function mapFoxpostTraceToCanonical(
   trace: FoxpostTraceDTO | { statusDate: string | Date; status?: string; shortName?: string; longName?: string }
@@ -284,31 +250,25 @@ export function mapFoxpostTraceToCanonical(
   const statusDate = typeof trace.statusDate === 'string' 
     ? new Date(trace.statusDate) 
     : trace.statusDate;
+  
+  const statusCode = (trace.status as string) || "PENDING";
+  const statusMapping = mapFoxpostStatusCode(statusCode);
+
+  // Prefer mapped human description; fall back to API data if available
+  const humanDescription = statusMapping.human_en 
+    || ((trace as any).longName || (trace as any).shortName || null)
+    || `Foxpost: ${statusCode}`;
+
+  const humanDescriptionHu = statusMapping.human_hu || null;
     
   return {
     timestamp: statusDate || new Date(),
-    status: mapFoxpostStatusToCanonical((trace.status as string) || "PENDING"),
-    carrierStatusCode: (trace.status as string) || undefined,
-    description: ((trace as any).longName || (trace as any).shortName || (trace.status as string) || "Unknown status"),
+    status: mapFoxpostStatusToCanonical(statusCode),
+    carrierStatusCode: statusCode || undefined,
+    description: humanDescription,
+    descriptionLocalLanguage: humanDescriptionHu || undefined,
     raw: trace,
   };
-}
-
-/**
- * Generate short description for Foxpost status
- */
-export function getFoxpostStatusDescription(status: string): string {
-  const descriptions: Record<string, string> = {
-    CREATE: "Parcel created",
-    RECEIVE: "Parcel received at facility",
-    HDSENT: "Home delivery initiated",
-    HDDELIVERY: "Out for delivery",
-    DELIVERED: "Delivered",
-    RETURNED: "Returned to sender",
-    EXCEPTION: "Exception occurred",
-  };
-
-  return descriptions[status] || status;
 }
 
 /**

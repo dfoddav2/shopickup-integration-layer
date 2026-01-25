@@ -40,8 +40,15 @@ export interface TrackingEvent {
     longitude?: number;
   };
 
-  /** Human-readable description of the event */
+  /** Human-readable description of the event (typically English) */
   description: string;
+
+  /**
+   * Human-readable description in alternative language (e.g., Hungarian for Foxpost)
+   * Provided by carriers/adapters that support localized descriptions.
+   * If not provided, fall back to `description` field.
+   */
+  descriptionLocalLanguage?: string;
 
   /** Raw carrier data for debugging/reference */
   raw?: unknown;

@@ -386,7 +386,14 @@ export const TRACKING_RESPONSE_SCHEMA = {
             status: { type: 'string' },
             carrierStatusCode: { type: 'string' },
             location: { type: 'object' },
-            description: { type: 'string' },
+            description: { 
+              type: 'string',
+              description: 'Human-readable description (English)'
+            },
+            descriptionLocalLanguage: {
+              type: 'string',
+              description: 'Human-readable description in local language (e.g., Hungarian for Foxpost)',
+            },
             raw: {
               type: 'object',
               additionalProperties: true,
@@ -397,6 +404,10 @@ export const TRACKING_RESPONSE_SCHEMA = {
       status: { type: 'string' },
       lastUpdate: { type: 'string', format: 'date-time' },
       raw: {
+        type: 'object',
+        additionalProperties: true,
+      },
+      rawCarrierResponse: {
         type: 'object',
         additionalProperties: true,
       },
