@@ -496,3 +496,60 @@ export function safeValidateShipmentCreateRequest(input: unknown) {
 export function safeValidateShipmentCreateResult(input: unknown) {
      return ShipmentCreateResultSchema.safeParse(input);
 }
+
+// ===== LABEL TYPES (CREATE_LABEL capability) =====
+
+/**
+ * Label order type from OpenAPI
+ * SENDING - Order by sending sequence
+ * IDENTIFIER - Order by tracking number identifier
+ */
+export const LabelOrderBySchema = z.enum(['SENDING', 'IDENTIFIER']);
+export type LabelOrderBy = z.infer<typeof LabelOrderBySchema>;
+
+/**
+ * Single label query result from MPL API
+ * Response for each tracking number requested
+ */
+export const LabelQueryResultSchema = z.object({
+     trackingNumber: z.string().optional(),
+     label: z.string().optional(),  // base64 encoded PDF/ZPL
+     errors: z.array(ErrorDescriptorSchema).optional(),
+     warnings: z.array(WarningDescriptorSchema).optional(),
+});
+export type LabelQueryResult = z.infer<typeof LabelQueryResultSchema>;
+
+/**
+ * Request for creating labels via GET /shipments/label
+ * 
+ * Required:
+ * - parcelCarrierIds: array of tracking numbers
+ * - credentials: MPLCredentials
+ * - accountingCode: string
+ * 
+ * Optional:
+ * - labelType: label format (default: A5)
+ * - labelFormat: file format (default: PDF)
+ * - orderBy: sorting order in PDF
+ * - singleFile: combine all labels in single file
+ */
+export const CreateLabelsMPLRequestSchema = z.object({
+     parcelCarrierIds: z.array(z.string().min(1)).min(1),
+     credentials: MPLCredentialsSchema,
+     accountingCode: z.string().min(1),
+     options: z.object({
+          useTestApi: z.boolean().optional(),
+          labelType: LabelTypeSchema.optional(),
+          labelFormat: LabelFormatSchema.optional(),
+          orderBy: LabelOrderBySchema.optional(),
+          singleFile: z.boolean().optional(),
+     }).optional(),
+});
+export type CreateLabelsMPLRequest = z.infer<typeof CreateLabelsMPLRequestSchema>;
+
+/**
+ * Helper: validate label creation request
+ */
+export function safeValidateCreateLabelsRequest(input: unknown) {
+     return CreateLabelsMPLRequestSchema.safeParse(input);
+}

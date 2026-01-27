@@ -83,6 +83,9 @@ Create a `.env` file in this directory (see `.env.example` as a template). All v
 | `SERVER_PORT` | `3000` | Server port |
 | `FOXPOST_API_KEY` | (empty) | Foxpost API key for real API testing (optional) |
 | `FOXPOST_USE_TEST_API` | `true` | Use Foxpost test API: `true` or `false` |
+| `MPL_API_KEY` | (empty) | MPL API key for real API testing (optional) |
+| `MPL_API_SECRET` | (empty) | MPL API secret for real API testing (optional) |
+| `MPL_USE_TEST_API` | `true` | Use MPL test/sandbox API: `true` or `false` |
 
 ### Debug Logging Example
 
@@ -495,15 +498,298 @@ The batch endpoint uses semantic HTTP status codes to communicate different outc
 }
 ```
 
+### Create MPL Label (Dev)
+
+**POST /api/dev/mpl/create-label**
+
+Creates a single label for an MPL parcel.
+
+**Features:**
+
+- Validates request against OpenAPI schema
+- Supports label size, format, and ordering options (A5, A4, PDF, ZPL, etc.)
+- Requires `accountingCode` for label generation
+- Returns LabelResult with file metadata or structured error
+- Full debug logging for troubleshooting
+
+#### Request Example
+
+```json
+{
+  "parcelCarrierId": "MLHUN12345671234567",
+  "credentials": {
+    "authType": "apiKey",
+    "apiKey": "demo-api-key-12345",
+    "apiSecret": "demo-api-secret-67890"
+  },
+  "options": {
+    "labelType": "A5",
+    "labelFormat": "PDF",
+    "accountingCode": "ACC123",
+    "useTestApi": true
+  }
+}
+```
+
+#### cURL Example
+
+```bash
+curl -X POST http://localhost:3000/api/dev/mpl/create-label \
+  -H "Content-Type: application/json" \
+  -d '{
+    "parcelCarrierId": "MLHUN12345671234567",
+    "credentials": {
+      "authType": "apiKey",
+      "apiKey": "YOUR_API_KEY",
+      "apiSecret": "YOUR_API_SECRET"
+    },
+    "options": {
+      "labelType": "A5",
+      "labelFormat": "PDF",
+      "accountingCode": "ACC123"
+    }
+  }'
+```
+
+#### Success Response (200)
+
+```json
+{
+  "inputId": "MLHUN12345671234567",
+  "status": "created",
+  "fileId": "label-uuid-1",
+  "pageRange": {
+    "start": 1,
+    "end": 1
+  },
+  "errors": null,
+  "raw": {
+    "label": "base64EncodedPdfData..."
+  }
+}
+```
+
+#### Error Response (400 - Validation)
+
+```json
+{
+  "message": "Validation error: accountingCode is required for label creation",
+  "category": "Validation",
+  "errors": [
+    {
+      "field": "accountingCode",
+      "code": "REQUIRED",
+      "message": "accountingCode is required"
+    }
+  ]
+}
+```
+
+#### Error Response (401 - Auth)
+
+```json
+{
+  "message": "MPL API error: The provided access token is not valid (INVALID_TOKEN)",
+  "category": "Auth",
+  "mplErrorCode": "INVALID_TOKEN"
+}
+```
+
+### Create MPL Labels Batch (Dev)
+
+**POST /api/dev/mpl/create-labels**
+
+Creates labels for multiple MPL parcels in a single batch request.
+
+**Features:**
+
+- Accepts array of tracking numbers in single request
+- Returns appropriate HTTP status based on batch results:
+  - **200 OK**: All labels created successfully
+  - **207 Multi-Status**: Some succeeded, some failed (mixed results)
+  - **400 Bad Request**: All labels failed with validation errors
+- Includes `summary` field for quick status understanding
+- Each result includes file mapping and metadata if successful
+- Shared credentials and options for the entire batch
+
+#### Request Example
+
+```json
+{
+  "parcelCarrierIds": [
+    "MLHUN12345671234567",
+    "MLHUN12345671234568",
+    "MLHUN12345671234569"
+  ],
+  "credentials": {
+    "authType": "apiKey",
+    "apiKey": "demo-api-key-12345",
+    "apiSecret": "demo-api-secret-67890"
+  },
+  "options": {
+    "labelType": "A5",
+    "labelFormat": "PDF",
+    "accountingCode": "ACC123",
+    "singleFile": false,
+    "useTestApi": true
+  }
+}
+```
+
+#### cURL Example
+
+```bash
+curl -X POST http://localhost:3000/api/dev/mpl/create-labels \
+  -H "Content-Type: application/json" \
+  -d '{
+    "parcelCarrierIds": ["MLHUN12345671234567", "MLHUN12345671234568"],
+    "credentials": {
+      "authType": "apiKey",
+      "apiKey": "YOUR_API_KEY",
+      "apiSecret": "YOUR_API_SECRET"
+    },
+    "options": {
+      "labelType": "A5",
+      "labelFormat": "PDF",
+      "accountingCode": "ACC123"
+    }
+  }'
+```
+
+#### Success Response (200 - All Succeeded)
+
+```json
+{
+  "files": [
+    {
+      "id": "label-uuid-1",
+      "contentType": "application/pdf",
+      "byteLength": 24576,
+      "pages": 3,
+      "orientation": "portrait",
+      "url": null,
+      "dataUrl": null,
+      "metadata": {
+        "size": "A5",
+        "testMode": true
+      }
+    }
+  ],
+  "results": [
+    {
+      "inputId": "MLHUN12345671234567",
+      "status": "created",
+      "fileId": "label-uuid-1",
+      "pageRange": { "start": 1, "end": 1 },
+      "error": null
+    },
+    {
+      "inputId": "MLHUN12345671234568",
+      "status": "created",
+      "fileId": "label-uuid-1",
+      "pageRange": { "start": 2, "end": 2 },
+      "error": null
+    },
+    {
+      "inputId": "MLHUN12345671234569",
+      "status": "created",
+      "fileId": "label-uuid-1",
+      "pageRange": { "start": 3, "end": 3 },
+      "error": null
+    }
+  ],
+  "successCount": 3,
+  "failureCount": 0,
+  "totalCount": 3,
+  "allSucceeded": true,
+  "allFailed": false,
+  "someFailed": false,
+  "summary": "All 3 labels created successfully",
+  "rawCarrierResponse": {
+    "labels": ["base64..."]
+  }
+}
+```
+
+#### Mixed Results Response (207 - Partial Success)
+
+```json
+{
+  "files": [
+    {
+      "id": "label-uuid-1",
+      "contentType": "application/pdf",
+      "byteLength": 16384,
+      "pages": 2,
+      "orientation": "portrait",
+      "metadata": { "size": "A5", "testMode": true }
+    }
+  ],
+  "results": [
+    {
+      "inputId": "MLHUN12345671234567",
+      "status": "created",
+      "fileId": "label-uuid-1",
+      "pageRange": { "start": 1, "end": 1 },
+      "error": null
+    },
+    {
+      "inputId": "MLHUN12345671234568",
+      "status": "failed",
+      "fileId": null,
+      "pageRange": null,
+      "error": {
+        "message": "Invalid tracking number format",
+        "category": "Validation",
+        "carrierCode": "INVALID_FORMAT"
+      }
+    }
+  ],
+  "successCount": 1,
+  "failureCount": 1,
+  "totalCount": 2,
+  "allSucceeded": false,
+  "allFailed": false,
+  "someFailed": true,
+  "summary": "Mixed: 1 succeeded, 1 failed",
+  "rawCarrierResponse": { "labels": ["base64..."] }
+}
+```
+
+#### Failed Response (400 - All Failed)
+
+```json
+{
+  "summary": "All 2 labels failed with validation errors",
+  "results": [
+    {
+      "inputId": "INVALID",
+      "status": "failed",
+      "fileId": null,
+      "error": {
+        "message": "Validation error: accountingCode is required",
+        "category": "Validation"
+      }
+    }
+  ]
+}
+```
+
+
+
 ## Testing via Swagger UI
 
 1. Start the server: `pnpm run dev`
 2. Open Swagger UI: `http://localhost:3000/docs`
-3. Expand the "POST /api/dev/foxpost/create-parcel" or "POST /api/dev/foxpost/create-parcels" endpoint
+3. Expand the endpoint you want to test (Foxpost or MPL)
 4. Click "Try it out"
-5. Fill in the request body with your parcels and credentials
+5. Fill in the request body with your data and credentials
 6. Click "Execute"
 7. See the response and response headers
+
+**Available endpoints in Swagger UI:**
+- Foxpost: Create Parcel (single), Create Parcels (batch), Exchange Auth Token, Fetch Pickup Points
+- MPL: Create Label (single), Create Labels (batch), Create Parcel (single), Create Parcels (batch), Exchange Auth Token, Fetch Pickup Points
 
 ## Running E2E Tests
 
@@ -545,11 +831,25 @@ The dev endpoint:
 server.ts
 ├── Registers Fastify plugins (logger, CORS, swagger)
 ├── Registers foxpost-routes.ts
+├── Registers mpl-routes.ts
 └── Starts server on port 3000
 
 foxpost-routes.ts
 ├── Creates FoxpostAdapter instance
 ├── Registers POST /api/dev/foxpost/create-parcel
+├── Registers POST /api/dev/foxpost/create-parcels
+├── Registers POST /api/dev/foxpost/create-label
+├── Registers POST /api/dev/foxpost/create-labels
+└── Handles request -> adapter -> response mapping
+
+mpl-routes.ts
+├── Creates MPLAdapter instance
+├── Registers POST /api/dev/mpl/create-parcel
+├── Registers POST /api/dev/mpl/create-parcels
+├── Registers POST /api/dev/mpl/create-label
+├── Registers POST /api/dev/mpl/create-labels
+├── Registers POST /api/dev/mpl/exchange-auth-token
+├── Registers POST /api/dev/mpl/pickup-points
 └── Handles request -> adapter -> response mapping
 
 http-client.ts
@@ -594,10 +894,11 @@ Tips:
 ## Next Steps
 
 1. Read [RAW_FIELD.md](./RAW_FIELD.md) for a deep dive into the `raw` field and debugging strategies
-2. Add more dev endpoints for other adapter methods (already present: `track`, `createLabel`, etc.)
+2. Test label endpoints with Swagger UI (`/docs`) or cURL
 3. Implement your own `Store` interface for your database of choice (Postgres, MongoDB, DynamoDB, etc.)
 4. Add webhook receiver for carrier events (scaffold is available)
-5. Deploy to staging/production environment
+5. Integrate additional carriers by adding new adapter packages
+6. Deploy to staging/production environment
 
 ## Support & Resources
 
@@ -605,6 +906,7 @@ Tips:
 - [Environment Variables](#environment-variables) — Reference for `.env` configuration
 - [Debugging](#debugging) — Tips for troubleshooting and inspecting requests
 - Foxpost adapter source: `packages/adapters/foxpost/src/`
+- MPL adapter source: `packages/adapters/MPL/src/`
 - Core types: `packages/core/src/types/`
 
 ## License

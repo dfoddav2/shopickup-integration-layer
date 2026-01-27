@@ -511,15 +511,350 @@ export const MPL_PICKUP_POINTS_RESPONSE_SCHEMA = {
       raw: { type: 'object', additionalProperties: true }
     }
   },
+   500: {
+     description: 'Server error',
+     type: 'object',
+     properties: {
+       message: { type: 'string', example: 'MPL API error: Internal server error (INTERNAL_ERROR)' },
+       category: { type: 'string', enum: ['Transient'], example: 'Transient' },
+       mplErrorCode: { type: 'string' },
+       mplFaultString: { type: 'string' },
+       raw: { type: 'object', additionalProperties: true }
+     }
+   }
+};
+
+/**
+ * MPL label options schema for OpenAPI documentation
+ * Describes optional parameters for label generation
+ */
+export const MPL_LABEL_OPTIONS_SCHEMA = {
+  type: 'object',
+  description: 'Optional label generation parameters',
+  properties: {
+    useTestApi: {
+      type: 'boolean',
+      description: 'Use test/sandbox API endpoint',
+      default: false,
+    },
+    labelType: {
+      type: 'string',
+      enum: ['A4', 'A5', 'A5inA4', 'A5E', 'A5E_EXTRA', 'A5E_STAND', 'A6', 'A6inA4', 'A4ONE'],
+      description: 'Label format/size',
+      default: 'A5',
+    },
+    labelFormat: {
+      type: 'string',
+      enum: ['PDF', 'ZPL'],
+      description: 'Output format (PDF for printing, ZPL for thermal printers)',
+      default: 'PDF',
+    },
+    orderBy: {
+      type: 'string',
+      enum: ['SENDING', 'IDENTIFIER'],
+      description: 'Sort order for labels in batch',
+      default: 'SENDING',
+    },
+    singleFile: {
+      type: 'boolean',
+      description: 'If true, combine all labels into single file; if false, individual files',
+      default: false,
+    },
+  },
+};
+
+/**
+ * Response schema for create label (single)
+ * Describes the structure returned by MPL label creation endpoint
+ */
+export const MPL_CREATE_LABEL_RESPONSE_SCHEMA = {
+  200: {
+    description: 'Successfully created label for single parcel',
+    type: 'object',
+    properties: {
+      files: {
+        type: 'array',
+        description: 'Array of label file resources',
+        items: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'Unique identifier for this label file',
+              example: 'label-uuid-1',
+            },
+            contentType: {
+              type: 'string',
+              description: 'MIME type of the file',
+              enum: ['application/pdf', 'application/x-zpl'],
+              example: 'application/pdf',
+            },
+            byteLength: {
+              type: 'number',
+              description: 'Size of the label file in bytes',
+              example: 24576,
+            },
+            pages: {
+              type: 'number',
+              description: 'Number of pages in the label',
+              example: 1,
+            },
+            orientation: {
+              type: 'string',
+              description: 'Page orientation',
+              enum: ['portrait', 'landscape'],
+              example: 'portrait',
+            },
+            url: {
+              type: ['string', 'null'],
+              description: 'URL to download the label (populated by integrator)',
+              example: null,
+            },
+            dataUrl: {
+              type: ['string', 'null'],
+              description: 'Data URL with embedded label content (populated by integrator)',
+              example: null,
+            },
+            metadata: {
+              type: 'object',
+              description: 'Label-specific metadata',
+              properties: {
+                size: {
+                  type: 'string',
+                  example: 'A5',
+                },
+                testMode: {
+                  type: 'boolean',
+                  example: false,
+                },
+              },
+              additionalProperties: true,
+            },
+          },
+        },
+      },
+      results: {
+        type: 'array',
+        description: 'Per-parcel label creation results',
+        items: {
+          type: 'object',
+          properties: {
+            inputId: {
+              type: 'string',
+              description: 'Original tracking number / input identifier',
+              example: 'MLHUN12345671234567',
+            },
+            status: {
+              type: 'string',
+              enum: ['created', 'failed'],
+              example: 'created',
+            },
+            fileId: {
+              type: ['string', 'null'],
+              description: 'Reference to file in files array (null if failed)',
+              example: 'label-uuid-1',
+            },
+            pageRange: {
+              type: 'object',
+              description: 'Page range within file (null if failed)',
+              properties: {
+                start: {
+                  type: 'number',
+                  example: 1,
+                },
+                end: {
+                  type: 'number',
+                  example: 1,
+                },
+              },
+              nullable: true,
+            },
+            error: {
+              type: 'object',
+              description: 'Error details if status is failed',
+              properties: {
+                message: {
+                  type: 'string',
+                  example: 'Invalid tracking number format',
+                },
+                category: {
+                  type: 'string',
+                  enum: ['Validation', 'Auth', 'Transient', 'RateLimit', 'Permanent'],
+                  example: 'Validation',
+                },
+                carrierCode: {
+                  type: 'string',
+                  example: 'INVALID_FORMAT',
+                },
+              },
+              nullable: true,
+            },
+          },
+        },
+      },
+      successCount: {
+        type: 'number',
+        description: 'Number of successfully created labels',
+        example: 1,
+      },
+      failureCount: {
+        type: 'number',
+        description: 'Number of failed label creations',
+        example: 0,
+      },
+      totalCount: {
+        type: 'number',
+        description: 'Total number of requested labels',
+        example: 1,
+      },
+      allSucceeded: {
+        type: 'boolean',
+        example: true,
+      },
+      allFailed: {
+        type: 'boolean',
+        example: false,
+      },
+      someFailed: {
+        type: 'boolean',
+        example: false,
+      },
+      summary: {
+        type: 'string',
+        description: 'Human-readable summary of batch results',
+        example: '1 label created successfully',
+      },
+      rawCarrierResponse: {
+        type: 'object',
+        description: 'Raw base64-encoded PDF data or raw carrier response',
+        additionalProperties: true,
+      },
+    },
+    examples: [
+      {
+        files: [
+          {
+            id: 'label-uuid-1',
+            contentType: 'application/pdf',
+            byteLength: 24576,
+            pages: 1,
+            orientation: 'portrait',
+            url: null,
+            dataUrl: null,
+            metadata: {
+              size: 'A5',
+              testMode: false,
+            },
+          },
+        ],
+        results: [
+          {
+            inputId: 'MLHUN12345671234567',
+            status: 'created',
+            fileId: 'label-uuid-1',
+            pageRange: {
+              start: 1,
+              end: 1,
+            },
+            error: null,
+          },
+        ],
+        successCount: 1,
+        failureCount: 0,
+        totalCount: 1,
+        allSucceeded: true,
+        allFailed: false,
+        someFailed: false,
+        summary: '1 label created successfully',
+        rawCarrierResponse: {
+          label: 'base64EncodedPdfData...',
+        },
+      },
+    ],
+  },
+  400: {
+    description: 'Validation error',
+    type: 'object',
+    properties: {
+      message: {
+        type: 'string',
+        example: 'Validation error: accountingCode is required for label creation',
+      },
+      category: {
+        type: 'string',
+        enum: ['Validation', 'Transient', 'Permanent'],
+        example: 'Validation',
+      },
+      errors: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: true,
+        },
+      },
+      raw: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
+  },
+  401: MPL_AUTHENTICATION_ERROR_SCHEMA,
+  207: {
+    description: 'Partial success - some labels created, some failed',
+    type: 'object',
+    properties: {
+      files: {
+        type: 'array',
+        description: 'File resources for successfully created labels',
+        items: { type: 'object', additionalProperties: true },
+      },
+      results: {
+        type: 'array',
+        description: 'Per-parcel results with successes and failures mixed',
+        items: { type: 'object', additionalProperties: true },
+      },
+      successCount: { type: 'number' },
+      failureCount: { type: 'number' },
+      totalCount: { type: 'number' },
+      allSucceeded: { type: 'boolean' },
+      allFailed: { type: 'boolean' },
+      someFailed: { type: 'boolean' },
+      summary: { type: 'string' },
+      rawCarrierResponse: { type: 'object', additionalProperties: true },
+    },
+  },
+  429: {
+    description: 'Rate limit exceeded',
+    type: 'object',
+    properties: {
+      message: { type: 'string', example: 'MPL API error: Too many requests (RATE_LIMIT_EXCEEDED)' },
+      category: { type: 'string', enum: ['RateLimit'], example: 'RateLimit' },
+      retryAfterMs: { type: 'number', example: 60000 },
+      raw: { type: 'object', additionalProperties: true },
+    },
+  },
   500: {
     description: 'Server error',
     type: 'object',
     properties: {
-      message: { type: 'string', example: 'MPL API error: Internal server error (INTERNAL_ERROR)' },
-      category: { type: 'string', enum: ['Transient'], example: 'Transient' },
+      message: {
+        type: 'string',
+        example: 'MPL API error: Internal server error (INTERNAL_ERROR)',
+      },
+      category: {
+        type: 'string',
+        enum: ['Transient'],
+        example: 'Transient',
+      },
       mplErrorCode: { type: 'string' },
       mplFaultString: { type: 'string' },
-      raw: { type: 'object', additionalProperties: true }
-    }
-  }
+      raw: { type: 'object', additionalProperties: true },
+    },
+  },
 };
+
+/**
+ * Response schema for create labels (batch)
+ * Same structure as single label response, typically with multiple file resources
+ */
+export const MPL_CREATE_LABELS_RESPONSE_SCHEMA = MPL_CREATE_LABEL_RESPONSE_SCHEMA;

@@ -11,6 +11,7 @@ import { registerPickupPointsRoute } from './pickup-points.js';
 import { registerPickupPointsOAuthFallbackRoute } from './pickup-points-oauth-fallback.js';
 import { registerExchangeAuthTokenRoute } from './auth.js';
 import { registerCreateParcelRoute, registerCreateParcelsRoute } from './parcels.js';
+import { registerCreateLabelRoute, registerCreateLabelsRoute } from './labels.js';
 
 /**
  * Register all MPL routes to the Fastify instance
@@ -21,6 +22,8 @@ import { registerCreateParcelRoute, registerCreateParcelsRoute } from './parcels
  * - POST /api/dev/mpl/pickup-points-oauth-fallback (fetch delivery places with automatic OAuth fallback)
  * - POST /api/dev/mpl/create-parcel (create a single parcel)
  * - POST /api/dev/mpl/create-parcels (create multiple parcels in batch)
+ * - POST /api/dev/mpl/create-label (create label for single parcel)
+ * - POST /api/dev/mpl/create-labels (create labels for multiple parcels in batch)
  * 
  * ### Adapter Wrappers
  * 
@@ -68,11 +71,13 @@ export async function registerMPLRoutes(fastify: FastifyInstance) {
   );
 
   // Register individual route handlers
-  await registerExchangeAuthTokenRoute(fastify, adapter);
-  await registerPickupPointsRoute(fastify, adapter);
-  await registerPickupPointsOAuthFallbackRoute(fastify, adapter, resolveBaseUrl, resolveOAuthUrl);
-  await registerCreateParcelRoute(fastify, adapter);
-  await registerCreateParcelsRoute(fastify, adapter);
+  await registerExchangeAuthTokenRoute(fastify, adapter as unknown as MPLAdapter);
+  await registerPickupPointsRoute(fastify, adapter as unknown as MPLAdapter);
+  await registerPickupPointsOAuthFallbackRoute(fastify, adapter as unknown as MPLAdapter, resolveBaseUrl, resolveOAuthUrl);
+  await registerCreateParcelRoute(fastify, adapter as unknown as MPLAdapter);
+  await registerCreateParcelsRoute(fastify, adapter as unknown as MPLAdapter);
+  await registerCreateLabelRoute(fastify, adapter as unknown as MPLAdapter);
+  await registerCreateLabelsRoute(fastify, adapter as unknown as MPLAdapter);
 }
 
 // Export common utilities for tests or external use

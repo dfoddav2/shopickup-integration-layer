@@ -3,6 +3,7 @@ import { createResolveBaseUrl, createResolveOAuthUrl, ResolveBaseUrl, ResolveOAu
 import { fetchPickupPoints as fetchPickupPointsImpl } from './capabilities/index.js';
 import { exchangeAuthToken as exchangeAuthTokenImpl } from './capabilities/auth.js';
 import { createParcel as createParcelImpl, createParcels as createParcelsImpl } from './capabilities/parcels.js';
+import { createLabel as createLabelImpl, createLabels as createLabelsImpl } from './capabilities/label.js';
 import type { ExchangeAuthTokenRequest, ExchangeAuthTokenResponse } from './validation.js';
 
 /**
@@ -103,23 +104,17 @@ export class MPLAdapter implements CarrierAdapter {
     }
 
     async createLabel(
-        _req: CreateLabelRequest,
-        _ctx: AdapterContext
+        req: CreateLabelRequest,
+        ctx: AdapterContext
     ): Promise<LabelResult> {
-        throw new CarrierError(
-            "createLabel not yet implemented for MPL adapter",
-            "Permanent"
-        );
+        return createLabelImpl(req, ctx);
     }
 
     async createLabels(
-        _req: CreateLabelsRequest,
-        _ctx: AdapterContext
+        req: CreateLabelsRequest,
+        ctx: AdapterContext
     ): Promise<CreateLabelsResponse> {
-        throw new CarrierError(
-            "createLabels not yet implemented for MPL adapter",
-            "Permanent"
-        );
+        return createLabelsImpl(req, ctx);
     }
 
     async track(
