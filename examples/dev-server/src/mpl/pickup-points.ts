@@ -1,6 +1,21 @@
 /**
- * MPL: Fetch Pickup Points Route Handler
+ * MPL: Fetch Pickup Points Route Handler (Direct API Credentials)
  * POST /api/dev/mpl/pickup-points
+ * 
+ * This endpoint handles authentication directly:
+ * - Accepts either API credentials (apiKey+apiSecret) for Basic auth
+ *   OR a pre-obtained OAuth2 Bearer token
+ * - You must provide one or the other, not both
+ * - The adapter sends credentials directly to the MPL API
+ * 
+ * Use this endpoint when:
+ * - You want to manage authentication yourself
+ * - You already have an OAuth token and want to use it directly
+ * - Basic auth is enabled on your MPL account
+ * 
+ * If you need automatic OAuth fallback (transparent retry with token exchange
+ * when Basic auth fails), use /api/dev/mpl/pickup-points-oauth-fallback instead.
+ * That endpoint handles the OAuth fallback mechanism automatically.
  */
 
 import { FastifyInstance } from 'fastify';
@@ -17,24 +32,24 @@ export async function registerPickupPointsRoute(
 ) {
   fastify.post('/api/dev/mpl/pickup-points', {
     schema: {
-      description: 'Fetch list of MPL pickup points (delivery places)',
+      description: 'Fetch list of MPL pickup points using direct API credentials (Basic auth or OAuth2 token)',
       tags: ['MPL', 'Dev'],
-      summary: 'Fetch pickup points',
+      summary: 'Fetch pickup points (direct credentials)',
       body: {
         type: 'object',
         properties: {
           credentials: {
             type: 'object',
-            description: 'MPL API credentials (apiKey+apiSecret OR oAuth2Token)',
+            description: 'MPL API credentials - provide either apiKey+apiSecret (for Basic auth) OR oAuth2Token (for Bearer auth)',
             properties: {
               authType: {
                 type: 'string',
                 enum: ['apiKey', 'oauth2'],
                 description: 'Authentication method (auto-detected if omitted)'
               },
-              apiKey: { type: 'string', description: 'For apiKey auth' },
-              apiSecret: { type: 'string', description: 'For apiKey auth' },
-              oAuth2Token: { type: 'string', description: 'For oauth2 auth' },
+              apiKey: { type: 'string', description: 'For apiKey auth (Basic auth)' },
+              apiSecret: { type: 'string', description: 'For apiKey auth (Basic auth)' },
+              oAuth2Token: { type: 'string', description: 'For oauth2 auth (Bearer token)' },
             }
           },
           accountingCode: {

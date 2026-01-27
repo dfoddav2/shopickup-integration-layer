@@ -4,10 +4,11 @@
  */
 
 import { FastifyInstance } from 'fastify';
-import { MPLAdapter } from '@shopickup/adapters-mpl';
+import { MPLAdapter, createResolveBaseUrl, createResolveOAuthUrl } from '@shopickup/adapters-mpl';
 import type { CarrierAdapter } from '@shopickup/core';
 import { withOperationName, withCallTracing, composeAdapterWrappers } from '@shopickup/core';
 import { registerPickupPointsRoute } from './pickup-points.js';
+import { registerPickupPointsOAuthFallbackRoute } from './pickup-points-oauth-fallback.js';
 import { registerExchangeAuthTokenRoute } from './auth.js';
 
 /**
@@ -15,7 +16,8 @@ import { registerExchangeAuthTokenRoute } from './auth.js';
  * 
  * Routes registered:
  * - POST /api/dev/mpl/exchange-auth-token (exchange API credentials for OAuth token)
- * - POST /api/dev/mpl/pickup-points (fetch delivery places / pickup points)
+ * - POST /api/dev/mpl/pickup-points (fetch delivery places using direct credentials)
+ * - POST /api/dev/mpl/pickup-points-oauth-fallback (fetch delivery places with automatic OAuth fallback)
  * 
  * ### Adapter Wrappers
  * 
@@ -50,9 +52,22 @@ export async function registerMPLRoutes(fastify: FastifyInstance) {
     (a: CarrierAdapter) => withCallTracing(a, fastify.log),
   ]);
 
+  // Create resolver for API base URLs (production vs. test)
+  const resolveBaseUrl = createResolveBaseUrl(
+    'https://core.api.posta.hu/v2/mplapi',
+    'https://sandbox.api.posta.hu/v2/mplapi'
+  );
+
+  // Create resolver for OAuth2 token endpoints (production vs. test)
+  const resolveOAuthUrl = createResolveOAuthUrl(
+    'https://core.api.posta.hu/oauth2/token',
+    'https://sandbox.api.posta.hu/oauth2/token'
+  );
+
   // Register individual route handlers
   await registerExchangeAuthTokenRoute(fastify, adapter);
   await registerPickupPointsRoute(fastify, adapter);
+  await registerPickupPointsOAuthFallbackRoute(fastify, adapter, resolveBaseUrl, resolveOAuthUrl);
 }
 
 // Export common utilities for tests or external use

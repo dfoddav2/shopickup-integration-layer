@@ -254,6 +254,189 @@ If credentials are invalid (400):
 }
 ```
 
-### HTTP Client Automatic Fallback
+### HTTP Client Automatic Fallback with `withOAuthFallback`
 
-When the HTTP client receives a 401 "Basic auth disabled" error, it can automatically exchange credentials for an OAuth token and retry the request. This is handled by the `withOAuthFallback` HTTP client wrapper (optional enhancement).
+**Reference Implementation of Retry Mechanism Wrapper**
+
+When Basic auth is disabled at your MPL account level, the `withOAuthFallback` wrapper automatically handles OAuth fallback transparently. This is a **reference implementation** showing how to build a retry mechanism wrapper. Integrators are free to:
+
+- Use this wrapper directly as-is
+- Adapt it as a base for custom retry logic
+- Implement their own alternative solutions
+
+#### How It Works
+
+The wrapper intercepts HTTP requests and automatically:
+
+1. **Detects 401 "Basic auth disabled" errors** - Checks for the specific `RaiseFault.BasicAuthNotEnabled` error code
+2. **Exchanges credentials for OAuth token** - Uses `exchangeAuthToken` capability with correct test/production endpoint
+3. **Caches the token** - With 30-second expiry buffer to minimize token exchanges
+4. **Retries the original request** - With new Bearer token, replacing original Basic auth
+5. **Returns the successful response** - Transparent to caller, request succeeds without retry visibility
+
+#### Key Features
+
+- **Transparent retries** - No client code changes needed; retry happens inside wrapper
+- **Test/Production awareness** - Respects `useTestApi` flag for correct OAuth endpoint selection
+- **Token caching** - Reduces OAuth exchanges during token lifetime
+- **Fail-fast on second 401** - Won't loop; only one OAuth exchange attempt per request
+- **Structured logging** - Logs all OAuth fallback steps with `[OAuth Fallback]` prefix
+
+#### Usage
+
+```typescript
+import { createAxiosHttpClient } from '@shopickup/core/http/axios-client';
+import { withOAuthFallback, createResolveOAuthUrl } from '@shopickup/adapters-mpl';
+import { MPLAdapter } from '@shopickup/adapters-mpl';
+
+const adapter = new MPLAdapter();
+const baseHttpClient = createAxiosHttpClient();
+
+// Create OAuth URL resolver for test vs. production
+const resolveOAuthUrl = createResolveOAuthUrl(
+  'https://core.api.posta.hu/oauth2/token',      // Production
+  'https://sandbox.api.posta.hu/oauth2/token'    // Test/Sandbox
+);
+
+// Wrap HTTP client with OAuth fallback
+const wrappedHttpClient = withOAuthFallback(
+  baseHttpClient,
+  {
+    authType: 'apiKey',
+    apiKey: 'your-api-key',
+    apiSecret: 'your-api-secret',
+  },
+  'YOUR_ACCOUNTING_CODE',
+  resolveOAuthUrl,
+  console,           // Optional logger
+  true               // useTestApi: true for sandbox, false for production
+);
+
+// Use wrapped HTTP client in adapter context
+const ctx = {
+  http: wrappedHttpClient,
+  logger: console,
+};
+
+// Make API calls - OAuth fallback happens transparently
+const pickupPoints = await adapter.fetchPickupPoints(
+  {
+    accountingCode: 'YOUR_ACCOUNTING_CODE',
+    postCode: '',
+    city: '',
+    servicePointType: [],
+    options: { useTestApi: true },
+  },
+  ctx
+);
+
+// If Basic auth is disabled:
+// 1. Initial request gets 401 "Basic auth not enabled"
+// 2. Wrapper exchanges credentials for OAuth token
+// 3. Wrapper retries with Bearer token
+// 4. Response returned successfully
+// All transparent to this code!
+```
+
+#### Implementing Your Own Retry Wrapper
+
+To build your own retry mechanism wrapper, follow this pattern:
+
+```typescript
+import type { HttpClient, HttpResponse, HttpClientConfig } from '@shopickup/core';
+
+export function withYourCustomRetry(baseHttpClient: HttpClient): HttpClient {
+  return {
+    async post<T>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
+      try {
+        // Try the original request
+        return await baseHttpClient.post<T>(url, data, config);
+      } catch (err) {
+        // Check if error is your specific retry condition
+        if (shouldRetry(err)) {
+          // Implement your custom recovery logic
+          const recoveryData = await performRecovery(err);
+          
+          // Retry with recovered state
+          return await baseHttpClient.post<T>(url, data, {
+            ...config,
+            headers: {
+              ...config?.headers,
+              ...recoveryData.headers,  // Updated headers
+            },
+          });
+        }
+        
+        // Re-throw non-retry errors
+        throw err;
+      }
+    },
+    // Implement other methods (get, put, patch, delete) similarly
+    async get<T>(url: string, config?: HttpClientConfig): Promise<HttpResponse<T>> { /* ... */ },
+    async put<T>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> { /* ... */ },
+    async patch<T>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> { /* ... */ },
+    async delete<T>(url: string, config?: HttpClientConfig): Promise<HttpResponse<T>> { /* ... */ },
+  };
+}
+```
+
+**Key Points for Custom Implementations:**
+
+1. **Wrap all HTTP methods** - `get`, `post`, `put`, `patch`, `delete`
+2. **Handle response.data for errors** - Axios wraps errors in `HttpError` with `response.data`
+3. **Spread config.headers first** - Then override with new headers to ensure your changes take precedence
+4. **Fail-fast on repeated errors** - Avoid infinite loops; track retry state and don't retry twice
+5. **Log recovery steps** - Help integrators debug retry behavior
+6. **Return consistent types** - Always return `HttpResponse<T>`
+
+#### Example: Dev Server Integration
+
+The dev server includes an example of using `withOAuthFallback`:
+
+```
+POST /api/dev/mpl/pickup-points-oauth-fallback
+```
+
+Request:
+```json
+{
+  "credentials": {
+    "apiKey": "sandbox-key",
+    "apiSecret": "sandbox-secret"
+  },
+  "accountingCode": "0020300734",
+  "postCode": "",
+  "city": "",
+  "options": {
+    "useTestApi": true
+  }
+}
+```
+
+Response (200 on success):
+```json
+{
+  "points": [
+    {
+      "id": "MP001",
+      "name": "Main Post Office",
+      "latitude": 47.4979,
+      "longitude": 19.0402,
+      "address": { /* ... */ },
+      "pickupAllowed": true,
+      "dropoffAllowed": true
+    }
+  ],
+  "summary": { "totalCount": 1 }
+}
+```
+
+If Basic auth is disabled, the wrapper automatically handles the OAuth fallback internally.
+
+#### Important Notes
+
+- **This is a reference implementation** - Not required for use. Integrators can implement their own solutions.
+- **Single retry only** - Wrapper doesn't chain retries; it attempts one OAuth exchange and fails if that fails
+- **Token caching is local** - In-memory only; each wrapper instance has its own cache. For distributed systems, consider external token storage
+- **Error handling** - All errors (OAuth exchange, second-attempt 401, etc.) are wrapped in `CarrierError` with appropriate category
+- **Logging control** - Pass `logger` parameter for debugging; logs have `[OAuth Fallback]` prefix for easy filtering

@@ -146,3 +146,8 @@ export class MPLAdapter implements CarrierAdapter {
         return fetchPickupPointsImpl(req, ctx, this.resolveBaseUrl);
     }
 }
+
+// Export utilities for use with dev server or other integrations
+export { withOAuthFallback } from './utils/oauthFallback.js';
+export { createResolveBaseUrl, createResolveOAuthUrl };
+export type { ResolveBaseUrl, ResolveOAuthUrl };
