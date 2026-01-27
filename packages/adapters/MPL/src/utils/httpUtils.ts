@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import type { MPLCredentials } from '../validation.js';
+import type { MPLCredentials, MPLAPIGatewayErrorResponse } from '../validation.js';
 
 /**
  * Build standard MPL auth headers
@@ -50,4 +50,42 @@ export function buildMPLHeaders(
     }
 
     return headers;
+}
+
+/**
+ * Check if an error response indicates Basic authentication is disabled
+ * 
+ * When Basic auth is disabled at the MPL account level, the API returns a 401 with:
+ * {
+ *   "fault": {
+ *     "faultstring": "Basic authentication is not enabled for this proxy or client.",
+ *     "detail": {
+ *       "errorcode": "RaiseFault.BasicAuthNotEnabled"
+ *     }
+ *   }
+ * }
+ * 
+ * This helper detects this specific error to trigger OAuth token exchange fallback.
+ * 
+ * @param body Response body (likely parsed JSON)
+ * @returns true if the error is "Basic auth not enabled"
+ */
+export function isBasicAuthDisabledError(body: unknown): boolean {
+    if (!body || typeof body !== 'object') return false;
+
+    const gatewayError = body as Record<string, any>;
+    const fault = gatewayError.fault;
+    
+    if (!fault || typeof fault !== 'object') return false;
+
+    const faultString = fault.faultstring || '';
+    const errorCode = fault.detail?.errorcode || '';
+
+    // Check for the specific error message
+    const hasBasicAuthMessage = typeof faultString === 'string' &&
+        faultString.includes('Basic authentication is not enabled');
+    
+    const hasBasicAuthCode = errorCode === 'RaiseFault.BasicAuthNotEnabled';
+
+    return hasBasicAuthMessage || hasBasicAuthCode;
 }

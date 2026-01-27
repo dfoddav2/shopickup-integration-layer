@@ -15,6 +15,7 @@ export const Capabilities = {
   WEBHOOKS: "WEBHOOKS",
   TEST_MODE_SUPPORTED: "TEST_MODE_SUPPORTED",
   LIST_PICKUP_POINTS: "LIST_PICKUP_POINTS",
+  EXCHANGE_AUTH_TOKEN: "EXCHANGE_AUTH_TOKEN",
 } as const;
 
 export type Capability = (typeof Capabilities)[keyof typeof Capabilities];

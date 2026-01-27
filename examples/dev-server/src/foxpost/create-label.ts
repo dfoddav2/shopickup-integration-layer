@@ -22,7 +22,7 @@ export async function registerCreateLabelRoute(
    fastify.post('/api/dev/foxpost/create-label', {
      schema: {
        description: 'Create a single Foxpost label (dev endpoint for testing)',
-       tags: ['Foxpost', 'Dev'],
+       tags: ['Foxpost'],
        summary: 'Create a label for a single parcel',
        body: {
          type: 'object',

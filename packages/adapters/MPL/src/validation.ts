@@ -65,15 +65,60 @@ export type PickupServicePointType = z.infer<typeof PickupServicePointTypeSchema
 export const FetchPickupPointsMPLSchema = z.object({
     credentials: MPLCredentialsSchema,
     accountingCode: z.string().min(1),
-    postCode: z.string().length(4).optional(),
-    city: z.string().optional(),
-    servicePointType: PickupServicePointTypeSchema.optional(),
+    postCode: z.preprocess((val) => {
+        if (typeof val === 'string' && val.trim() === '') return undefined;
+        return val;
+    }, z.string().length(4).optional()),
+    city: z.preprocess((val) => {
+        if (typeof val === 'string' && val.trim() === '') return undefined;
+        return val;
+    }, z.string().optional()),
+    servicePointType: z.array(PickupServicePointTypeSchema).optional(),
     options: z.object({
         useTestApi: z.boolean().optional(),
     }).optional(),
 });
 
 export type FetchPickupPointsMPLRequest = z.infer<typeof FetchPickupPointsMPLSchema>;
+
+/**
+ * Schema for exchangeAuthToken request
+ * 
+ * Requires Basic auth credentials (apiKey + apiSecret)
+ * Optional: useTestApi flag to use sandbox OAuth endpoint
+ */
+export const ExchangeAuthTokenRequestSchema = z.object({
+    credentials: MPLCredentialsSchema.refine(
+        (cred) => cred.authType === 'apiKey',
+        { message: "exchangeAuthToken requires apiKey credentials, not oauth2 token" }
+    ),
+    options: z.object({
+        useTestApi: z.boolean().optional(),
+    }).optional(),
+});
+
+export type ExchangeAuthTokenRequest = z.infer<typeof ExchangeAuthTokenRequestSchema>;
+
+/**
+ * OAuth token response from MPL /oauth2/token endpoint
+ */
+export interface MPLOAuthTokenResponse {
+    access_token: string;
+    token_type: 'Bearer';
+    expires_in: number;     // seconds (typically 3600)
+    issued_at?: number;     // timestamp in ms (optional in response)
+}
+
+/**
+ * Normalized response for exchangeAuthToken capability
+ */
+export interface ExchangeAuthTokenResponse {
+    access_token: string;
+    token_type: 'Bearer';
+    expires_in: number;     // seconds
+    issued_at?: number;     // timestamp in ms when token was issued
+    raw: MPLOAuthTokenResponse;
+}
 
 /**
  * Types for the MPL fetchPickupPoints response
@@ -157,6 +202,13 @@ export function safeValidateCredentials(input: unknown) {
  */
 export function safeValidateFetchPickupPointsRequest(input: unknown) {
     return FetchPickupPointsMPLSchema.safeParse(input);
+}
+
+/**
+ * Helper: validate exchangeAuthToken request
+ */
+export function safeValidateExchangeAuthTokenRequest(input: unknown) {
+    return ExchangeAuthTokenRequestSchema.safeParse(input);
 }
 
 /**

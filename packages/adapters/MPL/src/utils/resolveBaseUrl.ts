@@ -19,7 +19,38 @@ export function createResolveBaseUrl(prodBaseUrl: string, testBaseUrl: string) {
 }
 
 /**
+ * Factory that creates a resolver function for OAuth2 token endpoints.
+ * 
+ * MPL OAuth2 endpoints are separate from the main API:
+ * - Production: https://core.api.posta.hu/oauth2/token
+ * - Test/Sandbox: https://sandbox.api.posta.hu/oauth2/token
+ * 
+ * Usage:
+ *   const resolveOAuthUrl = createResolveOAuthUrl(
+ *     'https://core.api.posta.hu/oauth2/token',
+ *     'https://sandbox.api.posta.hu/oauth2/token'
+ *   );
+ *   const url = resolveOAuthUrl(req.options); // returns test or prod endpoint
+ * 
+ * @param prodOAuthUrl Production OAuth2 token endpoint
+ * @param testOAuthUrl Test/sandbox OAuth2 token endpoint
+ * @returns A pure resolver function that accepts request options and returns the appropriate OAuth URL
+ */
+export function createResolveOAuthUrl(prodOAuthUrl: string, testOAuthUrl: string) {
+  return (opts?: { useTestApi?: boolean }): string => {
+    return opts?.useTestApi ? testOAuthUrl : prodOAuthUrl;
+  };
+}
+
+/**
  * Type definition for the resolver function returned by createResolveBaseUrl.
  * Useful for typing capability function parameters.
  */
 export type ResolveBaseUrl = ReturnType<typeof createResolveBaseUrl>;
+
+/**
+ * Type definition for the resolver function returned by createResolveOAuthUrl.
+ * Useful for typing capability function parameters.
+ */
+export type ResolveOAuthUrl = ReturnType<typeof createResolveOAuthUrl>;
+

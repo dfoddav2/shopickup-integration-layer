@@ -24,7 +24,7 @@ export async function registerCreateParcelsRoute(
   fastify.post('/api/dev/foxpost/create-parcels', {
     schema: {
       description: 'Create multiple Foxpost parcels in one call (dev endpoint)',
-      tags: ['Foxpost', 'Dev'],
+      tags: ['Foxpost'],
       summary: 'Create multiple parcels in batch',
       body: {
         type: 'object',

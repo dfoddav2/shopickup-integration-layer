@@ -1,6 +1,12 @@
 /**
- * MPL: Fetch Pickup Points Route Handler
- * POST /api/dev/mpl/pickup-points
+ * MPL: Exchange Auth Token Route Handler
+ * POST /api/dev/mpl/exchange-auth-token
+ * 
+ * Allows exchanging API credentials (apiKey + apiSecret) for an OAuth2 Bearer token.
+ * Useful when:
+ * - Basic auth is disabled at the MPL account level
+ * - You want to cache tokens to reduce network calls
+ * - You need explicit control over token lifecycle
  */
 
 import { FastifyInstance } from 'fastify';
@@ -8,24 +14,28 @@ import type { CarrierAdapter } from '@shopickup/core';
 import { CarrierError, type AdapterContext } from '@shopickup/core';
 import { wrapPinoLogger } from '../http-client.js';
 import {
-  MPL_PICKUP_POINTS_RESPONSE_SCHEMA,
+  MPL_EXCHANGE_AUTH_TOKEN_RESPONSE_SCHEMA,
+  EXAMPLE_MPL_CREDENTIALS_APIKEY,
 } from './common.js';
 
-export async function registerPickupPointsRoute(
+export async function registerExchangeAuthTokenRoute(
   fastify: FastifyInstance,
   adapter: CarrierAdapter
 ) {
-  fastify.post('/api/dev/mpl/pickup-points', {
+  fastify.post('/api/dev/mpl/exchange-auth-token', {
     schema: {
-      description: 'Fetch list of MPL pickup points (delivery places)',
-      tags: ['MPL', 'Dev'],
-      summary: 'Fetch pickup points',
+      description: 'Exchange API credentials for OAuth2 Bearer token',
+      tags: ['MPL', 'Dev', 'Auth'],
+      summary: 'Exchange auth token',
+      consumes: ['application/json'],  // Explicitly declare what we accept
       body: {
         type: 'object',
+        additionalProperties: false,  // Disallow extra properties
         properties: {
           credentials: {
             type: 'object',
             description: 'MPL API credentials (apiKey+apiSecret OR oAuth2Token)',
+            additionalProperties: false,
             properties: {
               authType: {
                 type: 'string',
@@ -37,28 +47,9 @@ export async function registerPickupPointsRoute(
               oAuth2Token: { type: 'string', description: 'For oauth2 auth' },
             }
           },
-          accountingCode: {
-            type: 'string',
-            description: 'MPL accounting code for the request',
-          },
-          postCode: {
-            type: 'string',
-            description: 'Optional: filter by postal code (4 characters)',
-          },
-          city: {
-            type: 'string',
-            description: 'Optional: filter by city name',
-          },
-          servicePointType: {
-            type: 'array',
-            items: {
-              type: 'string',
-              enum: ['PM', 'PP', 'CS'],
-            },
-            description: 'Optional: filter by service point type (PM=Post Office, PP=Post Point, CS=Parcel Locker)',
-          },
           options: {
             type: 'object',
+            additionalProperties: false,
             properties: {
               useTestApi: {
                 type: 'boolean',
@@ -68,21 +59,17 @@ export async function registerPickupPointsRoute(
             }
           }
         },
-        required: ['credentials', 'accountingCode'],
+        required: ['credentials'],
         examples: [
           {
-            credentials: {
-              apiKey: 'your-api-key',
-              apiSecret: 'your-api-secret',
+            credentials: EXAMPLE_MPL_CREDENTIALS_APIKEY,
+            options: {
+              useTestApi: false,
             },
-            accountingCode: 'ACC123456',
-            postCode: '',
-            city: '',
-            servicePointType: [],
           }
         ]
       },
-      response: MPL_PICKUP_POINTS_RESPONSE_SCHEMA,
+      response: MPL_EXCHANGE_AUTH_TOKEN_RESPONSE_SCHEMA,
     },
     async handler(request: any, reply: any) {
       try {
@@ -98,10 +85,8 @@ export async function registerPickupPointsRoute(
         const ctx: AdapterContext = {
           http: httpClient,
           logger: wrapPinoLogger(fastify.log),
-          operationName: 'fetchPickupPoints',
+          operationName: 'exchangeAuthToken',
           loggingOptions: {
-            // Silent by default to prevent verbose pickup point list logging
-            silentOperations: ['fetchPickupPoints'],
             maxArrayItems: 10,
             maxDepth: 2,
             logRawResponse: 'summary',
@@ -110,9 +95,9 @@ export async function registerPickupPointsRoute(
         };
 
         // Call adapter with full request body
-        const pickupPointsResponse = await adapter.fetchPickupPoints!(request.body, ctx);
+        const tokenResponse = await (adapter as any).exchangeAuthToken(request.body, ctx);
 
-        return reply.status(200).send(pickupPointsResponse);
+        return reply.status(200).send(tokenResponse);
       } catch (error) {
         fastify.log.error(error);
 

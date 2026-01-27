@@ -225,7 +225,7 @@ export async function fetchPickupPoints(
     const useTestApi = validated.data.options?.useTestApi ?? false;
     const postCode = validated.data.postCode || "";
     const city = validated.data.city || "";
-    const servicePointType = validated.data.servicePointType || "";
+    const servicePointType = validated.data.servicePointType || [];
     const filters = { postCode, city, servicePointType };
     const credentialType = validated.data.credentials.authType;
     const baseUrl = resolveBaseUrl(validated.data.options);

@@ -1,6 +1,8 @@
 import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelsRequest, CreateLabelsResponse, LabelResult, CreateParcelRequest, CreateParcelsRequest, TrackingRequest, TrackingUpdate, FetchPickupPointsRequest, FetchPickupPointsResponse } from '@shopickup/core';
-import { createResolveBaseUrl, ResolveBaseUrl } from './utils/resolveBaseUrl.js';
+import { createResolveBaseUrl, createResolveOAuthUrl, ResolveBaseUrl, ResolveOAuthUrl } from './utils/resolveBaseUrl.js';
 import { fetchPickupPoints as fetchPickupPointsImpl } from './capabilities/index.js';
+import { exchangeAuthToken as exchangeAuthTokenImpl } from './capabilities/auth.js';
+import type { ExchangeAuthTokenRequest, ExchangeAuthTokenResponse } from './validation.js';
 
 /**
  * MPLAdapter
@@ -12,6 +14,7 @@ import { fetchPickupPoints as fetchPickupPointsImpl } from './capabilities/index
  * - CREATE_PARCELS: Batch create multiple parcels
  * - CREATE_LABEL: Generate PDF labels for parcels
  * - TRACK: Track parcels by barcode
+ * - EXCHANGE_AUTH_TOKEN: Exchange API credentials for OAuth2 Bearer token
  * - TEST_MODE_SUPPORTED: Can switch to test API for sandbox testing
  * 
  * Test API:
@@ -19,6 +22,17 @@ import { fetchPickupPoints as fetchPickupPointsImpl } from './capabilities/index
  * - Test/Sandbox: 	https://sandbox.api.posta.hu/v2/mplapi
  * - Pass options.useTestApi = true in request to switch to test endpoint for that call
  * - Test API requires separate test credentials
+ * 
+ * OAuth Token Exchange:
+ * - Call exchangeAuthToken() to exchange API credentials for a Bearer token
+ * - Cached internally within the adapter; TTL is ~1 hour
+ * - Returns access_token, expires_in, and token_type
+ * - Useful when Basic auth is disabled at account level
+ * 
+ * OAuth Fallback:
+ * - Wrap HTTP client with withOAuthFallback() to automatically exchange credentials
+ *   when receiving 401 "Basic auth not enabled" error
+ * - No explicit calls needed; fallback is transparent
  * 
  * Notes:
  * - MPL does NOT have a shipment concept; parcels are created directly
@@ -37,6 +51,7 @@ export class MPLAdapter implements CarrierAdapter {
         Capabilities.TRACK,
         Capabilities.CLOSE_SHIPMENT,
         Capabilities.TEST_MODE_SUPPORTED,
+        Capabilities.EXCHANGE_AUTH_TOKEN,
     ];
 
     // MPL requires close before label generation
@@ -46,12 +61,20 @@ export class MPLAdapter implements CarrierAdapter {
 
     private prodBaseUrl = "https://core.api.posta.hu/v2/mplapi";
     private testBaseUrl = "https://sandbox.api.posta.hu/v2/mplapi";
+    private prodOAuthUrl = "https://core.api.posta.hu/oauth2/token";
+    private testOAuthUrl = "https://sandbox.api.posta.hu/oauth2/token";
     private resolveBaseUrl: ResolveBaseUrl;
+    private resolveOAuthUrl: ResolveOAuthUrl;
+    private accountingCode: string = "";
 
-    constructor(baseUrl: string = "https://core.api.posta.hu/v2/mplapi") {
+    constructor(baseUrl: string = "https://core.api.posta.hu/v2/mplapi", accountingCode: string = "") {
         this.prodBaseUrl = "https://core.api.posta.hu/v2/mplapi";
         this.testBaseUrl = "https://sandbox.api.posta.hu/v2/mplapi";
+        this.prodOAuthUrl = "https://core.api.posta.hu/oauth2/token";
+        this.testOAuthUrl = "https://sandbox.api.posta.hu/oauth2/token";
         this.resolveBaseUrl = createResolveBaseUrl(this.prodBaseUrl, this.testBaseUrl);
+        this.resolveOAuthUrl = createResolveOAuthUrl(this.prodOAuthUrl, this.testOAuthUrl);
+        this.accountingCode = accountingCode;
     }
 
     /**
@@ -107,6 +130,13 @@ export class MPLAdapter implements CarrierAdapter {
             "track not yet implemented for MPL adapter",
             "Permanent"
         );
+    }
+
+    async exchangeAuthToken(
+        req: ExchangeAuthTokenRequest,
+        ctx: AdapterContext,
+    ): Promise<ExchangeAuthTokenResponse> {
+        return exchangeAuthTokenImpl(req, ctx, this.resolveOAuthUrl, this.accountingCode);
     }
 
     async fetchPickupPoints(

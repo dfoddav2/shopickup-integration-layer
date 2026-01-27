@@ -107,6 +107,110 @@ export const EXAMPLE_MPL_CREDENTIALS_OAUTH = {
 };
 
 /**
+ * Response schema for OAuth token exchange
+ */
+export const MPL_EXCHANGE_AUTH_TOKEN_RESPONSE_SCHEMA = {
+  200: {
+    description: 'Successfully exchanged API credentials for OAuth2 Bearer token',
+    type: 'object',
+    properties: {
+      access_token: {
+        type: 'string',
+        description: 'OAuth2 access token to use in subsequent API calls',
+        example: 'APRug5AE4VGAzNKDPAoxugLiDp0b'
+      },
+      token_type: {
+        type: 'string',
+        description: 'Token type (always "Bearer")',
+        example: 'Bearer'
+      },
+      expires_in: {
+        type: 'number',
+        description: 'Token expiration time in seconds',
+        example: 1799
+      },
+      issued_at: {
+        type: 'number',
+        description: 'Token issue timestamp (milliseconds since epoch)',
+        example: 1592910455065
+      },
+      raw: {
+        type: 'object',
+        description: 'Full raw response from MPL OAuth2 endpoint',
+        additionalProperties: true
+      }
+    },
+    examples: [
+      {
+        access_token: 'APRug5AE4VGAzNKDPAoxugLiDp0b',
+        token_type: 'Bearer',
+        expires_in: 1799,
+        issued_at: 1592910455065,
+        raw: {
+          access_token: 'APRug5AE4VGAzNKDPAoxugLiDp0b',
+          token_type: 'Bearer',
+          expires_in: 1799,
+          issued_at: 1592910455065
+        }
+      }
+    ]
+  },
+  400: {
+    description: 'Validation error',
+    type: 'object',
+    properties: {
+      message: {
+        type: 'string',
+        example: 'Invalid request: exchangeAuthToken requires apiKey credentials, not oauth2 token'
+      },
+      category: {
+        type: 'string',
+        enum: ['Validation', 'Transient', 'Permanent'],
+        example: 'Validation'
+      },
+      raw: { type: 'object', additionalProperties: true }
+    }
+  },
+  401: {
+    description: 'Authentication error - invalid API credentials',
+    type: 'object',
+    properties: {
+      message: {
+        type: 'string',
+        example: 'OAuth token exchange failed: Unauthorized (INVALID_CREDENTIALS)'
+      },
+      category: {
+        type: 'string',
+        enum: ['Auth'],
+        example: 'Auth'
+      },
+      carrierCode: {
+        type: 'string',
+        example: 'INVALID_CREDENTIALS'
+      },
+      raw: { type: 'object', additionalProperties: true }
+    }
+  },
+  500: {
+    description: 'Server error',
+    type: 'object',
+    properties: {
+      message: {
+        type: 'string',
+        example: 'OAuth token exchange failed: Internal server error'
+      },
+      category: {
+        type: 'string',
+        enum: ['Transient'],
+        example: 'Transient'
+      },
+      raw: { type: 'object', additionalProperties: true }
+    }
+  }
+};
+
+
+/**
  * Response schema for pickup points list
  * Describes the structure returned by MPL /deliveryplace endpoint
  * Includes one comprehensive example with 3 different delivery place types

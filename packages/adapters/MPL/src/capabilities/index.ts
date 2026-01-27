@@ -4,3 +4,4 @@
  */
 
 export { fetchPickupPoints } from './pickup-points.js';
+export { exchangeAuthToken } from './auth.js';

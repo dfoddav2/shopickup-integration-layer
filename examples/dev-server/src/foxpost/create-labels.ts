@@ -21,7 +21,7 @@ export async function registerCreateLabelsRoute(
   fastify.post('/api/dev/foxpost/create-labels', {
     schema: {
       description: 'Create labels for multiple Foxpost parcels (dev endpoint for testing)',
-      tags: ['Foxpost', 'Dev'],
+      tags: ['Foxpost'],
       summary: 'Batch create labels for multiple parcels',
       body: {
         type: 'object',

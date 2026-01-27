@@ -25,7 +25,7 @@ export async function registerCreateParcelRoute(
   fastify.post('/api/dev/foxpost/create-parcel', {
     schema: {
       description: 'Create a Foxpost parcel (dev endpoint for testing)',
-      tags: ['Foxpost', 'Dev'],
+      tags: ['Foxpost'],
       summary: 'Create a single parcel in Foxpost',
       body: {
         type: 'object',

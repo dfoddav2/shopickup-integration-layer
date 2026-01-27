@@ -18,7 +18,7 @@ export async function registerPickupPointsRoute(
   fastify.get('/api/dev/foxpost/pickup-points', {
     schema: {
       description: 'Fetch list of Foxpost pickup points (APMs)',
-      tags: ['Foxpost', 'Dev'],
+      tags: ['Foxpost'],
       summary: 'Fetch pickup points',
       response: PICKUP_POINTS_RESPONSE_SCHEMA,
     },

@@ -8,11 +8,13 @@ import { MPLAdapter } from '@shopickup/adapters-mpl';
 import type { CarrierAdapter } from '@shopickup/core';
 import { withOperationName, withCallTracing, composeAdapterWrappers } from '@shopickup/core';
 import { registerPickupPointsRoute } from './pickup-points.js';
+import { registerExchangeAuthTokenRoute } from './auth.js';
 
 /**
  * Register all MPL routes to the Fastify instance
  * 
  * Routes registered:
+ * - POST /api/dev/mpl/exchange-auth-token (exchange API credentials for OAuth token)
  * - POST /api/dev/mpl/pickup-points (fetch delivery places / pickup points)
  * 
  * ### Adapter Wrappers
@@ -49,6 +51,7 @@ export async function registerMPLRoutes(fastify: FastifyInstance) {
   ]);
 
   // Register individual route handlers
+  await registerExchangeAuthTokenRoute(fastify, adapter);
   await registerPickupPointsRoute(fastify, adapter);
 }
 

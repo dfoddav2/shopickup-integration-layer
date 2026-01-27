@@ -23,7 +23,7 @@ export async function registerTrackRoute(
   fastify.post('/api/dev/foxpost/track', {
     schema: {
       description: 'Track a Foxpost parcel by clFoxId or uniqueBarcode (barcode)',
-      tags: ['Foxpost', 'Dev'],
+      tags: ['Foxpost'],
       summary: 'Track parcel',
       body: {
         type: 'object',

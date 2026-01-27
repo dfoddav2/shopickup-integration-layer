@@ -71,15 +71,30 @@ await fastify.register(fastifySwaggerUi, {
 // Register custom error handler for validation errors
 // IMPORTANT: Register BEFORE routes so it catches all errors
 fastify.setErrorHandler((error: any, request, reply) => {
-    // Log the error
-    fastify.log.error(error);
+    // Log the error with full context
+    fastify.log.error({
+        error,
+        method: request.method,
+        url: request.url,
+        statusCode: error.statusCode,
+        code: error.code,
+        message: error.message,
+        validationContext: error.validationContext,
+    });
 
     // Check if it's a Fastify validation error
     if (error.statusCode === 400 && error.validation) {
+        const validationDetails = error.validation?.map((v: any) => ({
+            path: v.instancePath || 'root',
+            message: v.message,
+            keyword: v.keyword,
+        })) || [];
+
         return reply.status(400).send({
-            message: 'Validation error',
+            message: `Request validation failed: ${error.message || 'Invalid request body'}`,
             category: 'Validation',
-            errors: error.validation,
+            validationContext: error.validationContext,
+            validationErrors: validationDetails,
             statusCode: 400,
         });
     }
@@ -89,6 +104,7 @@ fastify.setErrorHandler((error: any, request, reply) => {
         return reply.status(400).send({
             message: error.message || 'Validation error',
             category: 'Validation',
+            code: error.code,
             statusCode: 400,
         });
     }
