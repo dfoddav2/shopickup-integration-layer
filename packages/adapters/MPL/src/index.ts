@@ -1,6 +1,7 @@
-import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelsRequest, CreateLabelsResponse, LabelResult, CreateParcelRequest, CreateParcelsRequest, CreateParcelsResponse, TrackingRequest, TrackingUpdate, FetchPickupPointsRequest, FetchPickupPointsResponse } from '@shopickup/core';
+import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelsRequest, CreateLabelsResponse, LabelResult, CreateParcelRequest, CreateParcelsRequest, CreateParcelsResponse, TrackingRequest, TrackingUpdate, ShipmentDetailsRequest, ShipmentDetailsResponse, FetchPickupPointsRequest, FetchPickupPointsResponse } from '@shopickup/core';
 import { createResolveBaseUrl, createResolveOAuthUrl, ResolveBaseUrl, ResolveOAuthUrl } from './utils/resolveBaseUrl.js';
 import { fetchPickupPoints as fetchPickupPointsImpl } from './capabilities/index.js';
+import { getShipmentDetails as getShipmentDetailsImpl } from './capabilities/get-shipment-details.js';
 import { exchangeAuthToken as exchangeAuthTokenImpl } from './capabilities/auth.js';
 import { createParcel as createParcelImpl, createParcels as createParcelsImpl } from './capabilities/parcels.js';
 import { createLabel as createLabelImpl, createLabels as createLabelsImpl } from './capabilities/label.js';
@@ -51,6 +52,7 @@ export class MPLAdapter implements CarrierAdapter {
         Capabilities.CREATE_PARCELS,
         Capabilities.CREATE_LABEL,
         Capabilities.TRACK,
+        Capabilities.GET_SHIPMENT_DETAILS,
         Capabilities.CLOSE_SHIPMENT,
         Capabilities.TEST_MODE_SUPPORTED,
         Capabilities.EXCHANGE_AUTH_TOKEN,
@@ -125,6 +127,13 @@ export class MPLAdapter implements CarrierAdapter {
             "track not yet implemented for MPL adapter",
             "Permanent"
         );
+    }
+
+    async getShipmentDetails(
+        req: ShipmentDetailsRequest,
+        ctx: AdapterContext
+    ): Promise<ShipmentDetailsResponse> {
+        return getShipmentDetailsImpl(req, ctx, this.resolveBaseUrl);
     }
 
     async exchangeAuthToken(

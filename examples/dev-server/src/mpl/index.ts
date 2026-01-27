@@ -12,6 +12,7 @@ import { registerPickupPointsOAuthFallbackRoute } from './pickup-points-oauth-fa
 import { registerExchangeAuthTokenRoute } from './auth.js';
 import { registerCreateParcelRoute, registerCreateParcelsRoute } from './parcels.js';
 import { registerCreateLabelRoute, registerCreateLabelsRoute } from './labels.js';
+import { registerShipmentDetailsRoute } from './shipment-details.js';
 
 /**
  * Register all MPL routes to the Fastify instance
@@ -24,6 +25,8 @@ import { registerCreateLabelRoute, registerCreateLabelsRoute } from './labels.js
  * - POST /api/dev/mpl/create-parcels (create multiple parcels in batch)
  * - POST /api/dev/mpl/create-label (create label for single parcel)
  * - POST /api/dev/mpl/create-labels (create labels for multiple parcels in batch)
+ * - POST /api/dev/mpl/track (track parcel by tracking number)
+ * - POST /api/dev/mpl/shipment-details (get shipment metadata by tracking number)
  * 
  * ### Adapter Wrappers
  * 
@@ -70,14 +73,15 @@ export async function registerMPLRoutes(fastify: FastifyInstance) {
     'https://sandbox.api.posta.hu/oauth2/token'
   );
 
-  // Register individual route handlers
-  await registerExchangeAuthTokenRoute(fastify, adapter as unknown as MPLAdapter);
-  await registerPickupPointsRoute(fastify, adapter as unknown as MPLAdapter);
-  await registerPickupPointsOAuthFallbackRoute(fastify, adapter as unknown as MPLAdapter, resolveBaseUrl, resolveOAuthUrl);
-  await registerCreateParcelRoute(fastify, adapter as unknown as MPLAdapter);
-  await registerCreateParcelsRoute(fastify, adapter as unknown as MPLAdapter);
-  await registerCreateLabelRoute(fastify, adapter as unknown as MPLAdapter);
-  await registerCreateLabelsRoute(fastify, adapter as unknown as MPLAdapter);
+   // Register individual route handlers
+   await registerExchangeAuthTokenRoute(fastify, adapter as unknown as MPLAdapter);
+   await registerPickupPointsRoute(fastify, adapter as unknown as MPLAdapter);
+   await registerPickupPointsOAuthFallbackRoute(fastify, adapter as unknown as MPLAdapter, resolveBaseUrl, resolveOAuthUrl);
+   await registerCreateParcelRoute(fastify, adapter as unknown as MPLAdapter);
+   await registerCreateParcelsRoute(fastify, adapter as unknown as MPLAdapter);
+   await registerCreateLabelRoute(fastify, adapter as unknown as MPLAdapter);
+   await registerCreateLabelsRoute(fastify, adapter as unknown as MPLAdapter);
+   await registerShipmentDetailsRoute(fastify, adapter as unknown as MPLAdapter);
 }
 
 // Export common utilities for tests or external use

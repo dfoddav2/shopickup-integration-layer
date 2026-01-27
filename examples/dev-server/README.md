@@ -775,10 +775,125 @@ curl -X POST http://localhost:3000/api/dev/mpl/create-labels \
 }
 ```
 
+### Get MPL Shipment Details (Dev)
 
+**POST /api/dev/mpl/shipment-details**
+
+Retrieves shipment metadata and details by tracking/shipment number. Returns sender, recipient, items, and shipment state information.
+
+**Note:** This is different from tracking. Tracking returns event history; shipment details returns metadata and current state.
+
+**Features:**
+
+- Validates request against OpenAPI schema
+- Supports both production and test APIs via `options.useTestApi`
+- Returns normalized shipment metadata (sender, recipient, items, dates)
+- Requires `accountingCode` in credentials
+- Full debug logging for troubleshooting
+
+#### Request Example
+
+```json
+{
+  "trackingNumber": "12345678",
+  "credentials": {
+    "apiKey": "your-api-key",
+    "apiSecret": "your-api-secret",
+    "accountingCode": "ACC123456"
+  },
+  "options": {
+    "useTestApi": true
+  }
+}
+```
+
+#### cURL Example
+
+```bash
+curl -X POST http://localhost:3000/api/dev/mpl/shipment-details \
+  -H "Content-Type: application/json" \
+  -d '{
+    "trackingNumber": "12345678",
+    "credentials": {
+      "apiKey": "YOUR_API_KEY",
+      "apiSecret": "YOUR_API_SECRET",
+      "accountingCode": "ACC123"
+    },
+    "options": {
+      "useTestApi": true
+    }
+  }'
+```
+
+#### Success Response (200)
+
+```json
+{
+  "trackingNumber": "12345678",
+  "orderId": "ORDER-001",
+  "shipmentDate": "2025-01-20T10:30:00Z",
+  "sender": {
+    "name": "Acme Corp",
+    "street": "123 Business Ave",
+    "city": "Budapest",
+    "postalCode": "1011",
+    "country": "HU",
+    "phone": "+36301234567"
+  },
+  "recipient": {
+    "name": "John Doe",
+    "street": "456 Main St",
+    "city": "Debrecen",
+    "postalCode": "4024",
+    "country": "HU",
+    "phone": "+36302222222"
+  },
+  "items": [
+    {
+      "id": "ITEM-1",
+      "weight": 500
+    },
+    {
+      "id": "ITEM-2",
+      "weight": 300
+    }
+  ],
+  "raw": {
+    "shipmentId": "12345678",
+    "status": "IN_TRANSIT",
+    "createdAt": "2025-01-20T10:30:00Z"
+  }
+}
+```
+
+#### Error Response (400 - Validation)
+
+```json
+{
+  "message": "accountingCode is required in credentials",
+  "category": "Validation"
+}
+```
+
+#### Error Response (401 - Auth)
+
+```json
+{
+  "message": "MPL API error: The provided access token is not valid",
+  "category": "Auth"
+}
+```
+
+#### Error Response (404 - Not Found)
+
+```json
+{
+  "message": "Shipment not found: 12345678",
+  "category": "Validation"
+}
+```
 
 ## Testing via Swagger UI
-
 1. Start the server: `pnpm run dev`
 2. Open Swagger UI: `http://localhost:3000/docs`
 3. Expand the endpoint you want to test (Foxpost or MPL)
@@ -789,7 +904,7 @@ curl -X POST http://localhost:3000/api/dev/mpl/create-labels \
 
 **Available endpoints in Swagger UI:**
 - Foxpost: Create Parcel (single), Create Parcels (batch), Exchange Auth Token, Fetch Pickup Points
-- MPL: Create Label (single), Create Labels (batch), Create Parcel (single), Create Parcels (batch), Exchange Auth Token, Fetch Pickup Points
+- MPL: Create Label (single), Create Labels (batch), Create Parcel (single), Create Parcels (batch), Exchange Auth Token, Fetch Pickup Points, Get Shipment Details
 
 ## Running E2E Tests
 
@@ -850,6 +965,7 @@ mpl-routes.ts
 ├── Registers POST /api/dev/mpl/create-labels
 ├── Registers POST /api/dev/mpl/exchange-auth-token
 ├── Registers POST /api/dev/mpl/pickup-points
+├── Registers POST /api/dev/mpl/shipment-details
 └── Handles request -> adapter -> response mapping
 
 http-client.ts

@@ -1,7 +1,7 @@
 import type { Capability } from './capabilities.js';
 import type { AdapterContext } from './adapter-context.js';
 import type { CarrierResource } from './carrier-resource.js';
-import type { Parcel, RatesResponse, TrackingUpdate, CreateParcelsResponse, CreateLabelsResponse, LabelResult, FetchPickupPointsRequest, FetchPickupPointsResponse } from '../types/index.js';
+import type { Parcel, RatesResponse, TrackingUpdate, CreateParcelsResponse, CreateLabelsResponse, LabelResult, FetchPickupPointsRequest, FetchPickupPointsResponse, ShipmentDetailsResponse } from '../types/index.js';
 
 /**
  * Request options
@@ -189,6 +189,24 @@ export interface TrackingRequest {
   options?: RequestOptions;
 }
 
+export interface ShipmentDetailsRequest {
+  /**
+   * Tracking/shipment number to get details for
+   */
+  trackingNumber: string;
+  /**
+   * Credentials for the carrier API (if required)
+   * 
+   * Structure varies by carrier - see CreateParcelRequest.credentials for details.
+   * Optional for some carriers (e.g., public tracking endpoints).
+   */
+  credentials?: Record<string, unknown>;
+  /**
+   * Per-call options (e.g., useTestApi)
+   */
+  options?: RequestOptions;
+}
+
 /**
  * CarrierAdapter interface
  * The single contract all carriers must implement
@@ -331,6 +349,18 @@ export interface CarrierAdapter {
     req: TrackingRequest,
     ctx: AdapterContext
   ): Promise<TrackingUpdate>;
+
+  /**
+   * Get shipment details/metadata by tracking number
+   * Capability: GET_SHIPMENT_DETAILS
+   * 
+   * Returns shipment metadata (sender, recipient, items, etc.)
+   * Note: This is different from tracking which returns tracking events
+   */
+  getShipmentDetails?(
+    req: ShipmentDetailsRequest,
+    ctx: AdapterContext
+  ): Promise<ShipmentDetailsResponse>;
 
   /**
    * Fetch list of pickup points (APMs, lockers, etc.) from the carrier

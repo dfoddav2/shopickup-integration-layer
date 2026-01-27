@@ -8,6 +8,79 @@ import type { CreateLabelsResponse } from './label.js';
 export type { CreateLabelsResponse, LabelFileResource, LabelResult } from './label.js';
 
 /**
+ * Response from getting shipment details
+ * Contains normalized shipment metadata (sender, recipient, items, etc.)
+ * 
+ * Note: This returns shipment metadata, NOT tracking event history.
+ * For tracking events, use the track() method.
+ * 
+ * @example
+ * ```typescript
+ * const response: ShipmentDetailsResponse = await adapter.getShipmentDetails(req, ctx);
+ * 
+ * console.log('Sender:', response.sender?.name);
+ * console.log('Recipient:', response.recipient?.name);
+ * console.log('Items:', response.items?.length);
+ * ```
+ */
+export interface ShipmentDetailsResponse {
+  /**
+   * Tracking/shipment number
+   */
+  trackingNumber?: string;
+
+  /**
+   * Order ID if applicable
+   */
+  orderId?: string;
+
+  /**
+   * Shipment date if available
+   */
+  shipmentDate?: string;
+
+  /**
+   * Sender details
+   */
+  sender?: {
+    name?: string;
+    street?: string;
+    city?: string;
+    postalCode?: string;
+    country?: string;
+    phone?: string;
+  };
+
+  /**
+   * Recipient details
+   */
+  recipient?: {
+    name?: string;
+    street?: string;
+    city?: string;
+    postalCode?: string;
+    country?: string;
+    phone?: string;
+  };
+
+  /**
+   * Items in shipment
+   */
+  items?: Array<{
+    id?: string;
+    weight?: number;
+    [key: string]: any;
+  }>;
+
+  /**
+   * Full raw response from carrier API
+   * Contains status code, headers, and parsed body
+   * Useful for debugging, auditing, and later typing against carrier schemas
+   */
+  raw?: unknown;
+}
+
+/**
  * Response from batch parcel creation operations
  * Provides per-item results and an overall summary
  * 

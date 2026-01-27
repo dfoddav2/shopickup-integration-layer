@@ -10,11 +10,13 @@ const ApiKeyBranch = z.object({
     authType: z.literal('apiKey'),
     apiKey: z.string().min(1),
     apiSecret: z.string().min(1),
+    accountingCode: z.string().optional(),
 });
 
 const OAuthBranch = z.object({
     authType: z.literal('oauth2'),
     oAuth2Token: z.string().min(1),
+    accountingCode: z.string().optional(),
 });
 
 /**
@@ -553,3 +555,73 @@ export type CreateLabelsMPLRequest = z.infer<typeof CreateLabelsMPLRequestSchema
 export function safeValidateCreateLabelsRequest(input: unknown) {
      return CreateLabelsMPLRequestSchema.safeParse(input);
 }
+/**
+ * Schema for GET_SHIPMENT_DETAILS request
+ * Retrieves shipment metadata by tracking number
+ */
+export const GetShipmentDetailsRequestSchema = z.object({
+     trackingNumber: z.string().min(1, 'trackingNumber is required'),
+     credentials: MPLCredentialsSchema,
+     options: z.object({
+          useTestApi: z.boolean().optional(),
+     }).optional(),
+});
+export type GetShipmentDetailsRequest = z.infer<typeof GetShipmentDetailsRequestSchema>;
+
+/**
+ * Helper: validate get shipment details request
+ */
+export function safeValidateGetShipmentDetailsRequest(input: unknown) {
+     return GetShipmentDetailsRequestSchema.safeParse(input);
+}
+
+/**
+ * Helper: validate shipment query response
+ */
+export function safeValidateShipmentQueryResponse(input: unknown) {
+     return MPLShipmentQueryResultSchema.safeParse(input);
+}
+
+/**
+ * Schema for Shipment query response
+ * Response from GET /shipments/{trackingNumber}
+ */
+export const ShipmentStateSchema = z.object({
+     trackingNumber: z.string().optional(),
+     orderId: z.string().optional(),
+     tag: z.string().optional(),
+     shipmentDate: z.string().optional(),
+     packageRetention: z.number().optional(),
+     paymentMode: z.enum(['UV_AT', 'UV_KP']).optional(),
+     sender: z.object({
+          name: z.string().optional(),
+          street: z.string().optional(),
+          city: z.string().optional(),
+          postalCode: z.string().optional(),
+          country: z.string().optional(),
+          phone: z.string().optional(),
+     }).optional(),
+     recipient: z.object({
+          name: z.string().optional(),
+          street: z.string().optional(),
+          city: z.string().optional(),
+          postalCode: z.string().optional(),
+          country: z.string().optional(),
+          phone: z.string().optional(),
+     }).optional(),
+     items: z.array(z.object({
+          id: z.string().optional(),
+          weight: z.number().optional(),
+     }).passthrough()).optional(),
+});
+export type ShipmentState = z.infer<typeof ShipmentStateSchema>;
+
+/**
+ * Schema for the response from GET /shipments/{trackingNumber}
+ */
+export const MPLShipmentQueryResultSchema = z.object({
+     shipment: ShipmentStateSchema.optional().nullable(),
+     errors: z.array(ErrorDescriptorSchema).optional().nullable(),
+     metadata: z.any().optional(),
+});
+export type MPLShipmentQueryResult = z.infer<typeof MPLShipmentQueryResultSchema>;
