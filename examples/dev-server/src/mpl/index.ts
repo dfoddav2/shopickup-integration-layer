@@ -10,6 +10,7 @@ import { withOperationName, withCallTracing, composeAdapterWrappers } from '@sho
 import { registerPickupPointsRoute } from './pickup-points.js';
 import { registerPickupPointsOAuthFallbackRoute } from './pickup-points-oauth-fallback.js';
 import { registerExchangeAuthTokenRoute } from './auth.js';
+import { registerCreateParcelRoute, registerCreateParcelsRoute } from './parcels.js';
 
 /**
  * Register all MPL routes to the Fastify instance
@@ -18,6 +19,8 @@ import { registerExchangeAuthTokenRoute } from './auth.js';
  * - POST /api/dev/mpl/exchange-auth-token (exchange API credentials for OAuth token)
  * - POST /api/dev/mpl/pickup-points (fetch delivery places using direct credentials)
  * - POST /api/dev/mpl/pickup-points-oauth-fallback (fetch delivery places with automatic OAuth fallback)
+ * - POST /api/dev/mpl/create-parcel (create a single parcel)
+ * - POST /api/dev/mpl/create-parcels (create multiple parcels in batch)
  * 
  * ### Adapter Wrappers
  * 
@@ -68,6 +71,8 @@ export async function registerMPLRoutes(fastify: FastifyInstance) {
   await registerExchangeAuthTokenRoute(fastify, adapter);
   await registerPickupPointsRoute(fastify, adapter);
   await registerPickupPointsOAuthFallbackRoute(fastify, adapter, resolveBaseUrl, resolveOAuthUrl);
+  await registerCreateParcelRoute(fastify, adapter);
+  await registerCreateParcelsRoute(fastify, adapter);
 }
 
 // Export common utilities for tests or external use

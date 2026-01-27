@@ -1,7 +1,8 @@
-import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelsRequest, CreateLabelsResponse, LabelResult, CreateParcelRequest, CreateParcelsRequest, TrackingRequest, TrackingUpdate, FetchPickupPointsRequest, FetchPickupPointsResponse } from '@shopickup/core';
+import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelsRequest, CreateLabelsResponse, LabelResult, CreateParcelRequest, CreateParcelsRequest, CreateParcelsResponse, TrackingRequest, TrackingUpdate, FetchPickupPointsRequest, FetchPickupPointsResponse } from '@shopickup/core';
 import { createResolveBaseUrl, createResolveOAuthUrl, ResolveBaseUrl, ResolveOAuthUrl } from './utils/resolveBaseUrl.js';
 import { fetchPickupPoints as fetchPickupPointsImpl } from './capabilities/index.js';
 import { exchangeAuthToken as exchangeAuthTokenImpl } from './capabilities/auth.js';
+import { createParcel as createParcelImpl, createParcels as createParcelsImpl } from './capabilities/parcels.js';
 import type { ExchangeAuthTokenRequest, ExchangeAuthTokenResponse } from './validation.js';
 
 /**
@@ -78,28 +79,27 @@ export class MPLAdapter implements CarrierAdapter {
     }
 
     /**
-     * Placeholder implementations - not yet implemented
-     * These methods are declared in capabilities but will throw NotImplementedError if called
-     * without a proper implementation.
+     * Create a single parcel in MPL
      */
     async createParcel(
-        _req: CreateParcelRequest,
-        _ctx: AdapterContext
+        req: CreateParcelRequest,
+        ctx: AdapterContext
     ): Promise<CarrierResource> {
-        throw new CarrierError(
-            "createParcel not yet implemented for MPL adapter",
-            "Permanent"
+        return createParcelImpl(
+            req,
+            ctx,
+            (batchReq, batchCtx) => this.createParcels(batchReq, batchCtx)
         );
     }
 
+    /**
+     * Create multiple parcels in MPL (batch operation)
+     */
     async createParcels(
-        _req: CreateParcelsRequest,
-        _ctx: AdapterContext
-    ): Promise<any> {
-        throw new CarrierError(
-            "createParcels not yet implemented for MPL adapter",
-            "Permanent"
-        );
+        req: CreateParcelsRequest,
+        ctx: AdapterContext
+    ): Promise<CreateParcelsResponse> {
+        return createParcelsImpl(req, ctx, this.resolveBaseUrl);
     }
 
     async createLabel(
