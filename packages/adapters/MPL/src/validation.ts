@@ -625,3 +625,89 @@ export const MPLShipmentQueryResultSchema = z.object({
      metadata: z.any().optional(),
 });
 export type MPLShipmentQueryResult = z.infer<typeof MPLShipmentQueryResultSchema>;
+
+// ===== TRACKING TYPES (TRACK capability) =====
+
+/**
+ * Schema for tracking request (Pull-1 endpoint)
+ * Retrieves tracking/trace information for one or more parcels
+ * 
+ * Required:
+ * - trackingNumbers: array of one or more tracking numbers
+ * - credentials: MPLCredentials
+ * 
+ * Optional:
+ * - state: 'last' (latest event only, faster) or 'all' (complete history)
+ * - useRegisteredEndpoint: false (Guest) or true (Registered with financial data)
+ * - useTestApi: use sandbox API instead of production
+ */
+export const TrackingRequestMPLSchema = z.object({
+  trackingNumbers: z.array(z.string().min(1)).min(1, 'At least one tracking number is required'),
+  credentials: MPLCredentialsSchema,
+  state: z.enum(['last', 'all']).optional().default('last'),
+  useRegisteredEndpoint: z.boolean().optional().default(false),
+  options: z.object({
+    useTestApi: z.boolean().optional(),
+  }).optional(),
+});
+export type TrackingRequestMPL = z.infer<typeof TrackingRequestMPLSchema>;
+
+/**
+ * Helper: validate tracking request
+ */
+export function safeValidateTrackingRequest(input: unknown) {
+  return TrackingRequestMPLSchema.safeParse(input);
+}
+
+/**
+ * MPL C-Code Tracking Record from Pull-1 API response
+ * 
+ * Contains C0-C63 fields representing different tracking data.
+ * Guest endpoint excludes financial data (C2, C5, C41, C42, C58)
+ * Registered endpoint includes all fields
+ */
+export const MPLTrackingRecordSchema = z.object({
+  c0: z.string().optional(),   // System ID
+  c1: z.string(),               // Consignment ID (Tracking number) - REQUIRED
+  c2: z.string().optional(),    // Service Code (Registered only)
+  c4: z.string().optional(),    // Delivery Mode
+  c5: z.string().optional(),    // Weight (Registered only)
+  c6: z.string().optional(),    // Service Description
+  c8: z.string().optional(),    // Location
+  c9: z.string().optional(),    // Last Event Status (CRITICAL)
+  c10: z.string().optional(),   // Timestamp
+  c11: z.string().optional(),   // Location Details
+  c12: z.string().optional(),   // Event Description
+  c13: z.string().optional(),   // Event Notes
+  c38: z.string().optional(),   // Service Name
+  c39: z.string().optional(),   // Service Details
+  c41: z.string().optional(),   // Size Length (Registered only)
+  c42: z.string().optional(),   // Size Width (Registered only)
+  c43: z.string().optional(),   // Size Height
+  c49: z.string().optional(),   // Destination
+  c53: z.string().optional(),   // Signature/Receiver
+  c55: z.string().optional(),   // Insurance flag
+  c56: z.string().optional(),   // COD flag
+  c57: z.string().optional(),   // Signature required flag
+  c59: z.string().optional(),   // Additional flag 1
+  c60: z.string().optional(),   // Additional flag 2
+  c61: z.string().optional(),   // Additional flag 3
+  c63: z.string().optional(),   // Custom/Reference data
+}).passthrough();  // Allow additional fields
+export type MPLTrackingRecord = z.infer<typeof MPLTrackingRecordSchema>;
+
+/**
+ * Schema for tracking response from Pull-1 API
+ * Returns array of tracking records (one per tracking number) or error
+ */
+export const TrackingResponseMPLSchema = z.object({
+  trackAndTrace: z.array(MPLTrackingRecordSchema).optional(),
+}).passthrough();
+export type TrackingResponseMPL = z.infer<typeof TrackingResponseMPLSchema>;
+
+/**
+ * Helper: validate tracking response
+ */
+export function safeValidateTrackingResponse(input: unknown) {
+  return TrackingResponseMPLSchema.safeParse(input);
+}

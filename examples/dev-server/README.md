@@ -893,7 +893,173 @@ curl -X POST http://localhost:3000/api/dev/mpl/shipment-details \
 }
 ```
 
+### Track MPL Parcel (Dev)
+
+**Endpoint:** `POST /api/dev/mpl/track`
+
+**Description:** Track a parcel by tracking number using MPL's Pull-1 tracking endpoint.
+
+Returns current tracking status and events (typically one event representing the latest state). Supports both guest endpoint (public, no financial data) and registered endpoint (authenticated, includes weight/dimensions).
+
+**Request Body:**
+
+```json
+{
+  "trackingNumber": "CL12345678901",
+  "credentials": {
+    "apiKey": "your-api-key",
+    "apiSecret": "your-api-secret",
+    "accountingCode": "ACC123456"
+  },
+  "options": {
+    "useTestApi": false
+  }
+}
+```
+
+**Optional: Use OAuth2 Token Instead of API Key**
+
+```json
+{
+  "trackingNumber": "CL12345678901",
+  "credentials": {
+    "oAuth2Token": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "accountingCode": "ACC123456"
+  },
+  "options": {
+    "useTestApi": false
+  }
+}
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "trackingNumber": "CL12345678901",
+  "status": "DELIVERED",
+  "events": [
+    {
+      "timestamp": "2025-01-27T14:30:00Z",
+      "status": "DELIVERED",
+      "location": {
+        "city": "Budapest",
+        "country": null
+      },
+      "description": "Delivered to recipient",
+      "carrierStatusCode": "KÉZBESÍTVE",
+      "raw": {
+        "c1": "CL12345678901",
+        "c9": "KÉZBESÍTVE",
+        "c10": "2025-01-27 14:30:00",
+        "c8": "Budapest",
+        "c12": "Delivered to recipient"
+      }
+    }
+  ],
+  "lastUpdate": "2025-01-27T14:30:00Z",
+  "rawCarrierResponse": {
+    "record": {
+      "c1": "CL12345678901",
+      "c9": "KÉZBESÍTVE",
+      "c10": "2025-01-27 14:30:00",
+      "c8": "Budapest",
+      "c12": "Delivered to recipient"
+    }
+  }
+}
+```
+
+**Status Values:**
+- `PENDING` - Parcel received, awaiting processing
+- `IN_TRANSIT` - In transit between facilities
+- `OUT_FOR_DELIVERY` - Out for delivery today
+- `DELIVERED` - Successfully delivered
+- `EXCEPTION` - Exception (delay, damage, etc.)
+- `RETURNED` - Returned to sender
+
+**Example: Using Test API**
+
+```bash
+curl -X POST http://localhost:3000/api/dev/mpl/track \
+  -H "Content-Type: application/json" \
+  -d '{
+    "trackingNumber": "CL12345678901",
+    "credentials": {
+      "apiKey": "test-key",
+      "apiSecret": "test-secret",
+      "accountingCode": "ACC123456"
+    },
+    "options": {
+      "useTestApi": true
+    }
+  }'
+```
+
+#### Tracking Status Codes (C-Codes)
+
+MPL API returns C-code tracking data which is normalized to canonical statuses:
+
+**Hungarian:**
+- `BEÉRKEZETT` → PENDING
+- `FELDOLGOZÁS` → PENDING
+- `SZÁLLÍTÁS` → IN_TRANSIT
+- `KÉZBESÍTÉS_ALATT` → OUT_FOR_DELIVERY
+- `KÉZBESÍTVE` → DELIVERED
+- `VISSZAKÜLDVE` → RETURNED
+- `HIBA` → EXCEPTION
+
+**English & German equivalents are also supported.**
+
+The `carrierStatusCode` field in the response preserves the original MPL status code for debugging.
+
+#### Error Response (400 - Validation)
+
+```json
+{
+  "message": "Invalid tracking request: trackingNumber is required",
+  "category": "Validation"
+}
+```
+
+#### Error Response (401 - Auth)
+
+```json
+{
+  "message": "Unauthorized (401): Invalid credentials",
+  "category": "Auth"
+}
+```
+
+#### Error Response (404 - Not Found)
+
+```json
+{
+  "message": "No tracking information found for: CL12345678901",
+  "category": "Validation"
+}
+```
+
+#### Error Response (429 - Rate Limited)
+
+```json
+{
+  "message": "Rate limited (429): Too many requests",
+  "category": "RateLimit"
+}
+```
+
+#### Error Response (503 - Service Unavailable)
+
+```json
+{
+  "message": "Server error (503): Temporary service unavailable",
+  "category": "Transient"
+}
+```
+
 ## Testing via Swagger UI
+
 1. Start the server: `pnpm run dev`
 2. Open Swagger UI: `http://localhost:3000/docs`
 3. Expand the endpoint you want to test (Foxpost or MPL)
@@ -904,7 +1070,7 @@ curl -X POST http://localhost:3000/api/dev/mpl/shipment-details \
 
 **Available endpoints in Swagger UI:**
 - Foxpost: Create Parcel (single), Create Parcels (batch), Exchange Auth Token, Fetch Pickup Points
-- MPL: Create Label (single), Create Labels (batch), Create Parcel (single), Create Parcels (batch), Exchange Auth Token, Fetch Pickup Points, Get Shipment Details
+- MPL: Create Label (single), Create Labels (batch), Create Parcel (single), Create Parcels (batch), Exchange Auth Token, Fetch Pickup Points, Get Shipment Details, Track Parcel
 
 ## Running E2E Tests
 

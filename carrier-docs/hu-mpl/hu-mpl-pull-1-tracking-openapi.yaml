@@ -1,0 +1,392 @@
+﻿openapi: 3.0.1
+info:
+  title: PULL Nyomkövetés 1 csomagra / PULL Tracking only for 1 item
+  description: "<div style='width: 100%;margin: 0px auto;'>\r\n<div style='float: left; width:47%'>\r\n<h1>PULL Nyomkövetés</h1>\r\n<h2>- csomagonkénti nyomkövetés -</h2>\r\n<div>&nbsp;</div>\r\n<p>Csomagok egyesével történő lekérdezése szolgáló API. Célja, hogy a csomagok utolsó tranzakciójáról, vagy akár a teljes életútjáról szinkron módon információt adjon (PULL).</p>\r\n<p>(Ha olyan nyomkövetést keres, aminél beküldhető, hogy pontosan mely csomagok legutolsó eseményeire kíváncsi, akkor arra egy másik API szolgáltatásunk alkalmas: Több csomagos pull nyomkövetés.)</p>\r\n<p>(Ha olyan nyomkövetést keres, ami csomagazonosítók beküldése nélkül is alkalmas az információk fogadására, akkor arra egy másik API szolgáltatásunk alkalmas: Feliratkozás push nyomkövetésre.)</p>\r\n<p>Erről az API-ról itt talál részletes leírást: <a href='https://devportal.posta.hu/sites/default/files/2020-11/MPLAPI_nyomkovetes_leiras_1.pdf'>MPLAPI_nyomkovetes_leiras_1.pdf</a></p>\r\n<p>A végpontok működését leíró dokumentációt lentebb találja.</p>\r\n</div>\r\n<div style='float:right; width:47%'>\r\n<h1>PULL TRACKING</h1>\r\n<h2>- tracking only for 1 item -</h2>\r\n<div>&nbsp;</div>\r\n<p>An API enabling single tracking only for 1 parcel. Its purpose is to provide synchronous information about the last or all transactions of a given parcel (polling).</p>\r\n<p>(If you're looking for a tracking service for large volumes of parcels, you can use our other API service, called “Pull Tracking up to 500 items”.)</p>\r\n<p>(If you're looking for a tracking service which can be performed without submitting any tracking number, you can use our other API service, called “Push Tracking subscription”.)</p>\r\n<p>Documentation, describing how this API work, can be found here: <a href='https://devportal.posta.hu/sites/default/files/2020-11/MPLAPI_tracking_technical_description_3.pdf'>MPLAPI_tracking_technical_description_3.pdf</a></p>\r\n<p>Documentation describing how the endpoints work can be found below.</p>\r\n</div>\r\n</div>\r\n<div style='clear: both;'>\r\n\r\n### Az API a következő URL-eken érhető el: / This API can be accessed at the following URLs: ###\r\n<div><table><tr><td><b>Környezet / Environment</b></td><td><b>API URL</b></td><td><b>OAuth2 Token URL</b></td></tr><tr><td>Sandbox</td><td>https://sandbox.api.posta.hu/v2/nyomkovetes</td><td>https://sandbox.api.posta.hu/oauth2/token</td></tr><tr><td>Production</td><td>https://core.api.posta.hu/v2/nyomkovetes</td><td>https://core.api.posta.hu/oauth2/token</td></tr></table>\r\nAz API ezen az oldalon a Sandbox környezetben tesztelhető. / You can test the API on this page in the Sandbox environment."
+  version: v2
+externalDocs:
+  description: Detailed desciption of the tracking functionality.
+  url: https://www.posta.hu/nyomkovetes/nyitooldal
+servers:
+  - url: 'https://sandbox.api.posta.hu/v2/nyomkovetes'
+    description: 'Sandbox'
+paths:
+  /registered:
+    post:
+      summary: Maximum 1 küldeményazonosító beküldése. A korábban beküldött küldeményazonosítót nem javasoljuk újra beküldeni négy órán belül. A beküldött paramétertől (last, all) függően az információ előállítása több másodpercet is igénybe vehet. A kapott adatban a legfontosabb mező a C9 (utolsó esemény), melyről a Dokumentáció menüben részletesen tájékozódhat. / Submit only 1 mail item IDs. We do not recommend resubmitting a previously submitted mail item ID within four hours. Depending on the parameter of request (last, all), it may take several seconds to response the information. The most important field in the received data is the C9 (last event), about which detailed explanations can be found in the Documentation menu.
+      operationId: registered
+      tags:
+        - registered
+      parameters:
+        - in: header
+          name: X-Request-Id
+          schema:
+            type: string
+          required: false
+          description: |
+            The unique request ID
+        - in: header
+          name: X-Correlation-Id
+          schema:
+            type: string
+          required: false
+          description: |
+            The unique correlation ID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Request'
+        required: true
+      responses:
+        200:
+          description: |
+            OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisteredResponse'
+        400:
+          description: |
+            Bad request. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway. 
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+        401:
+          description: |
+            Unauthorized. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway. 
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+        403:
+          description: |
+            Forbidden. The caller client is not configured to call the APIs pubilshed on the requested host:port.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+        404:
+          description: |
+            Not found. The given path is not mapped to any valid path in the API Proxy. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+        429:
+          description: |
+            Too many requests. Spike Arrest Fault or Quota Limit Fault (https://docs.apigee.com/api-platform/reference/policies/spike-arrest-policy#runtime-errors, https://docs.apigee.com/api-platform/reference/policies/concurrent-rate-limit-policy#errorcodes). Check the X-Quota-Reset (when the quota counter will be reset), X-Quota-Allowed (quota limit for the time period), X-Quota-Available (number of actually available API calls) response headers.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+        500:
+          description: |
+            Internal server error. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+        503:
+          description: |
+            Service unavailable. The backend service is unavailable for some reason. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.            
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+      security:
+        - oauth2_client_credentials: []
+        - basic_auth: []
+  /guest:
+    post:
+      summary: A „registered” végponttal megegyező működés. Ugyanakkor a kiadott adat nem tartalmaz súly, méret és érték információkat. / The same operation as the ‘registered’ endpoint. However, the published data does not contain weight, size and value information.
+      operationId: guest
+      tags:
+        - guest
+      parameters:
+        - in: header
+          name: X-Request-Id
+          schema:
+            type: string
+          required: false
+          description: |
+            The unique request ID
+        - in: header
+          name: X-Correlation-Id
+          schema:
+            type: string
+          required: false
+          description: |
+            The unique correlation ID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Request'
+        required: true
+      responses:
+        200:
+          description: |
+            OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestResponse'
+        400:
+          description: |
+            Bad request. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway. 
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+        401:
+          description: |
+            Unauthorized. The provided access token is not valid. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway. 
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+        403:
+          description: |
+            Forbidden. The caller client is not configured to call the APIs pubilshed on the requested host:port.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+        404:
+          description: |
+            Not found. The given path is not mapped to any valid path in the API Proxy. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+        429:
+          description: |
+            Too many requests. Spike Arrest Fault or Quota Limit Fault (https://docs.apigee.com/api-platform/reference/policies/spike-arrest-policy#runtime-errors, https://docs.apigee.com/api-platform/reference/policies/concurrent-rate-limit-policy#errorcodes). Check the X-Quota-Reset (when the quota counter will be reset), X-Quota-Allowed (quota limit for the time period), X-Quota-Available (number of actually available API calls) response headers.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+        500:
+          description: |
+            Internal server error. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+        503:
+          description: |
+            Service unavailable. The backend service is unavailable for some reason. Check the value of the X-Error-Source response header. If it is Backend, then the error was generated in the backend system. If it is Gateway, then the error was generated in the API Gateway.            
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ApiGatewayErrorResponse'
+                  - $ref: '#/components/schemas/BackendErrorResponse'
+      security:
+        - oauth2_client_credentials: []
+        - basic_auth: []
+components:
+  schemas:
+    Request:
+      type: object
+      properties:
+        language:
+          type: string
+          enum: 
+            - 'hu' 
+            - 'en'
+            - 'de'
+          default: 'hu'
+          description: Language of response
+        ids:
+          type: string
+          description: Comma separated id list
+        state:
+          type: string
+          enum: 
+            - 'last'
+            - 'all'
+          default: 'last'
+    RegisteredResponse:
+      type: object
+      properties:
+        trackAndTrace:
+          type: array
+          items:
+            type: object
+            properties:
+              c0:
+                type: string
+                description: System ID
+              c1:
+                type: string
+                description: Consignment ID
+              c2:
+                type: string
+              c4:
+                type: string
+              c5:
+                type: string
+              c6:
+                type: string              
+              c8:
+                type: string
+              c9:
+                type: string
+              c10:
+                type: string
+              c11:
+                type: string
+              c12:
+                type: string
+              c13:
+                type: string              
+              c38:
+                type: string
+              c39:
+                type: string              
+              c41:
+                type: string
+              c42:
+                type: string
+              c43:
+                type: string              
+              c49:
+                type: string              
+              c53:
+                type: string              
+              c55:
+                type: string
+              c56:
+                type: string
+              c57:
+                type: string
+              c58:
+                type: string
+              c59:
+                type: string
+              c60:
+                type: string
+              c61:
+                type: string              
+              c63:
+                type: string
+    GuestResponse:
+      type: object
+      properties:
+        trackAndTrace:
+          type: array
+          items:
+            type: object
+            properties:
+              c0:
+                type: string
+                description: System ID
+              c1:
+                type: string
+                description: Consignment ID
+              c2:
+                type: string
+              c4:
+                type: string              
+              c6:
+                type: string              
+              c8:
+                type: string
+              c9:
+                type: string
+              c10:
+                type: string
+              c11:
+                type: string
+              c12:
+                type: string
+              c13:
+                type: string              
+              c38:
+                type: string
+              c39:
+                type: string
+              c43:
+                type: string              
+              c49:
+                type: string              
+              c53:
+                type: string              
+              c55:
+                type: string
+              c56:
+                type: string
+              c57:
+                type: string              
+              c59:
+                type: string
+              c60:
+                type: string
+              c61:
+                type: string              
+              c63:
+                type: string
+    BackendErrorResponse:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                description: Error code
+              message:
+                type: string
+                description: Error description
+    ApiGatewayErrorResponse:
+      type: object
+      properties:
+        fault:
+          type: object
+          properties:
+            faultstring:
+              type: string
+            detail:
+              type: object
+              properties:
+                errorcode:
+                  type: string
+  securitySchemes:
+    oauth2_client_credentials:
+      type: oauth2
+      flows: 
+        clientCredentials:
+          tokenUrl: https://sandbox.api.posta.hu/oauth2/token
+    basic_auth:
+      type: http
+      scheme: basic

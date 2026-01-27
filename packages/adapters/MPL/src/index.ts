@@ -2,6 +2,7 @@ import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError,
 import { createResolveBaseUrl, createResolveOAuthUrl, ResolveBaseUrl, ResolveOAuthUrl } from './utils/resolveBaseUrl.js';
 import { fetchPickupPoints as fetchPickupPointsImpl } from './capabilities/index.js';
 import { getShipmentDetails as getShipmentDetailsImpl } from './capabilities/get-shipment-details.js';
+import { track as trackImpl } from './capabilities/track.js';
 import { exchangeAuthToken as exchangeAuthTokenImpl } from './capabilities/auth.js';
 import { createParcel as createParcelImpl, createParcels as createParcelsImpl } from './capabilities/parcels.js';
 import { createLabel as createLabelImpl, createLabels as createLabelsImpl } from './capabilities/label.js';
@@ -120,13 +121,29 @@ export class MPLAdapter implements CarrierAdapter {
     }
 
     async track(
-        _req: TrackingRequest,
-        _ctx: AdapterContext
+        req: TrackingRequest,
+        ctx: AdapterContext
     ): Promise<TrackingUpdate> {
-        throw new CarrierError(
-            "track not yet implemented for MPL adapter",
-            "Permanent"
-        );
+        // MPL supports batch tracking, but core interface expects single TrackingUpdate
+        // Convert single TrackingRequest to internal batch format and return first result
+        const batchRequest = {
+            trackingNumbers: [req.trackingNumber],
+            credentials: (req.credentials || {}) as any,
+            state: 'last' as const,
+            useRegisteredEndpoint: false,
+            options: req.options,
+        };
+        
+        const results = await trackImpl(batchRequest, ctx, this.resolveBaseUrl);
+        
+        if (results.length === 0) {
+            throw new CarrierError(
+                `No tracking information found for: ${req.trackingNumber}`,
+                'Validation'
+            );
+        }
+        
+        return results[0];
     }
 
     async getShipmentDetails(
