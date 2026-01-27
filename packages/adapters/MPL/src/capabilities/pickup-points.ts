@@ -22,7 +22,6 @@ import {
   isGatewayError,
   isSuccessResponse,
   type MPLPickupPointResponse,
-  type MPLPickupPointResponse200,
   type MPLPickupPointEntry,
   type MPLAPIGatewayErrorResponse,
 } from "../validation.js";
@@ -282,24 +281,41 @@ export async function fetchPickupPoints(
       }
     }
 
-    // Validate 200 response structure
+    // Validate 200 response structure - strict array check
     const body = httpResponse.body;
     if (!isSuccessResponse(body)) {
       throw new CarrierError(
-        "Invalid response format from MPL API: expected {deliveryplaces: Array}",
+        "Invalid response format from MPL API: expected array of pickup points",
         "Permanent",
         { raw: body }
       );
     }
 
-    // Extract delivery places array
-    const apmData = body.deliveryplaces;
-    if (!Array.isArray(apmData)) {
-      throw new CarrierError(
-        "Invalid response format: deliveryplaces is not an array",
-        "Permanent",
-        { raw: body }
+    // Body is now guaranteed to be an array of MPLPickupPointEntry
+    const apmData = body;
+    if (apmData.length === 0) {
+      safeLog(
+        ctx.logger,
+        'debug',
+        'MPL API returned empty pickup points array',
+        createLogEntry(
+          { count: 0, filters },
+          null,
+          ctx,
+          ['fetchPickupPoints']
+        ),
+        ctx,
+        ['fetchPickupPoints']
       );
+
+      return {
+        points: [],
+        summary: {
+          totalCount: 0,
+          updatedAt: new Date().toISOString(),
+        },
+        rawCarrierResponse: apmData,
+      };
     }
 
     safeLog(
@@ -316,15 +332,36 @@ export async function fetchPickupPoints(
       ['fetchPickupPoints']
     );
 
-    // Map each delivery place to canonical PickupPoint
+    // Map each delivery place to canonical PickupPoint with per-entry validation
     const points: PickupPoint[] = apmData
-      .map((entry: MPLPickupPointEntry) => {
+      .map((entry: unknown, index: number) => {
         try {
-          return mapMplDeliveryPlaceToPickupPoint(entry);
+          // Validate entry structure - lenient approach like Foxpost
+          if (!entry || typeof entry !== 'object') {
+            ctx.logger?.warn("Skipping invalid delivery place entry: not an object", {
+              index,
+              entryType: typeof entry,
+            });
+            return null;
+          }
+
+          const typedEntry = entry as MPLPickupPointEntry;
+          
+          // Validate that required fields are present
+          if (!typedEntry.deliveryplacesQueryResult || !typedEntry.servicePointType) {
+            ctx.logger?.warn("Skipping invalid delivery place entry: missing required fields", {
+              index,
+              hasQueryResult: !!typedEntry.deliveryplacesQueryResult,
+              hasServicePointType: !!typedEntry.servicePointType,
+            });
+            return null;
+          }
+
+          return mapMplDeliveryPlaceToPickupPoint(typedEntry);
         } catch (err) {
           ctx.logger?.warn("Failed to map delivery place entry", {
-            id: entry.deliveryplacesQueryResult?.id,
-            error: String(err),
+            index,
+            error: err instanceof Error ? err.message : String(err),
           });
           // Skip entries that can't be mapped
           return null;

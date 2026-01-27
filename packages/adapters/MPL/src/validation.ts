@@ -122,16 +122,9 @@ export interface ExchangeAuthTokenResponse {
 
 /**
  * Types for the MPL fetchPickupPoints response
- * Union of either a 200 OK response or a gateway error (4xx/5xx)
+ * Returns either an array of pickup points (200 OK) or a gateway error (4xx/5xx)
  */
-export type MPLPickupPointResponse = MPLAPIGatewayErrorResponse | MPLPickupPointResponse200;
-
-/**
- * 200 OK response structure
- */
-export interface MPLPickupPointResponse200 {
-    deliveryplaces: MPLPickupPointEntry[];
-}
+export type MPLPickupPointResponse = MPLAPIGatewayErrorResponse | MPLPickupPointEntry[];
 
 /**
  * Single delivery place entry from the 200 response
@@ -227,12 +220,10 @@ export function isGatewayError(response: unknown): response is MPLAPIGatewayErro
 
 /**
  * Type guard: check if response is a successful 200 response
+ * 
+ * Strict validation: response MUST be an array of MPL pickup point entries.
+ * Follows Foxpost pattern for consistency across adapters.
  */
-export function isSuccessResponse(response: unknown): response is MPLPickupPointResponse200 {
-    return (
-        response !== null &&
-        typeof response === 'object' &&
-        'deliveryplaces' in response &&
-        Array.isArray((response as any).deliveryplaces)
-    );
+export function isSuccessResponse(response: unknown): response is MPLPickupPointEntry[] {
+    return Array.isArray(response);
 }
