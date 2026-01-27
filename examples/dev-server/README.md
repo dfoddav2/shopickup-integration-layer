@@ -1058,7 +1058,308 @@ The `carrierStatusCode` field in the response preserves the original MPL status 
 }
 ```
 
-## Testing via Swagger UI
+### Track MPL Parcel (Registered - Authenticated)
+
+**Endpoint:** `POST /api/dev/mpl/track-registered`
+
+**Description:** Track a parcel using MPL's registered endpoint with authentication. Returns tracking status plus financial data (weight, dimensions, declared value, service code). Intended for power users and internal/admin use.
+
+**Request Body:**
+
+```json
+{
+  "trackingNumbers": ["CL12345678901"],
+  "credentials": {
+    "apiKey": "your-api-key",
+    "apiSecret": "your-api-secret",
+    "accountingCode": "ACC123456"
+  },
+  "state": "last",
+  "options": {
+    "useTestApi": false
+  }
+}
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "trackingNumber": "CL12345678901",
+  "status": "DELIVERED",
+  "events": [
+    {
+      "timestamp": "2025-01-27T14:30:00Z",
+      "status": "DELIVERED",
+      "location": {
+        "city": "Budapest",
+        "country": null
+      },
+      "description": "Delivered to recipient",
+      "carrierStatusCode": "KÉZBESÍTVE",
+      "raw": {
+        "c1": "CL12345678901",
+        "c2": "A_175_UZL",
+        "c5": "2.5",
+        "c9": "KÉZBESÍTVE",
+        "c10": "2025-01-27 14:30:00",
+        "c41": "20",
+        "c42": "15",
+        "c43": "10",
+        "c58": "50000",
+        "c8": "Budapest",
+        "c12": "Delivered to recipient"
+      }
+    }
+  ],
+  "lastUpdate": "2025-01-27T14:30:00Z",
+  "rawCarrierResponse": {
+    "record": {
+      "c1": "CL12345678901",
+      "c2": "A_175_UZL",
+      "c5": "2.5",
+      "c9": "KÉZBESÍTVE",
+      "c10": "2025-01-27 14:30:00",
+      "c41": "20",
+      "c42": "15",
+      "c43": "10",
+      "c58": "50000",
+      "c8": "Budapest",
+      "c12": "Delivered to recipient"
+    },
+    "weight": "2.5",
+    "dimensions": {
+      "length": "20",
+      "width": "15",
+      "height": "10"
+    },
+    "value": "50000"
+  }
+}
+```
+
+**Key Differences from Guest Endpoint:**
+- Includes financial data (weight C5, dimensions C41/C42/C43, declared value C58)
+- Requires authentication
+- More detailed service information
+- Better suited for internal/admin tracking
+
+**Example: Using Registered Endpoint**
+
+```bash
+curl -X POST http://localhost:3000/api/dev/mpl/track-registered \
+  -H "Content-Type: application/json" \
+  -d '{
+    "trackingNumbers": ["CL12345678901"],
+    "credentials": {
+      "apiKey": "test-key",
+      "apiSecret": "test-secret",
+      "accountingCode": "ACC123456"
+    },
+    "state": "last",
+    "options": {
+      "useTestApi": true
+    }
+  }'
+```
+
+### Track MPL Parcels Batch (Pull-500) - Two-Phase Protocol
+
+**Endpoints:**
+- `POST /api/dev/mpl/track-pull500-start` — Submit batch (up to 500 parcels)
+- `POST /api/dev/mpl/track-pull500-check` — Poll for results
+
+**Description:** Efficiently track large batches (up to 500 parcels) in a single request. MPL processes the request asynchronously, returning a tracking GUID for polling. Results take 1-5 minutes to generate.
+
+**Use Case:** Batch tracking for daily reconciliation, large shipment monitoring, or bulk parcel status updates.
+
+#### Phase 1: Submit Batch Request
+
+**Endpoint:** `POST /api/dev/mpl/track-pull500-start`
+
+**Request Body:**
+
+```json
+{
+  "trackingNumbers": [
+    "CL12345678901",
+    "CL98765432109",
+    "CLABCD123456"
+  ],
+  "credentials": {
+    "apiKey": "your-api-key",
+    "apiSecret": "your-api-secret"
+  },
+  "language": "hu",
+  "options": {
+    "useTestApi": false
+  }
+}
+```
+
+**Success Response (200 OK):**
+
+```json
+{
+  "trackingGUID": "550e8400-e29b-41d4-a716-446655440000",
+  "errors": null
+}
+```
+
+**Example: Submit Batch**
+
+```bash
+curl -X POST http://localhost:3000/api/dev/mpl/track-pull500-start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "trackingNumbers": ["CL12345678901", "CL98765432109"],
+    "credentials": {
+      "apiKey": "test-key",
+      "apiSecret": "test-secret"
+    },
+    "language": "hu",
+    "options": {
+      "useTestApi": false
+    }
+  }'
+```
+
+#### Phase 2: Poll for Results
+
+**Endpoint:** `POST /api/dev/mpl/track-pull500-check`
+
+**Important:** Allow 1+ minute before first poll. Results can take several minutes to generate. Recommend polling every 30-60 seconds with exponential backoff.
+
+**Request Body:**
+
+```json
+{
+  "trackingGUID": "550e8400-e29b-41d4-a716-446655440000",
+  "credentials": {
+    "apiKey": "your-api-key",
+    "apiSecret": "your-api-secret"
+  },
+  "options": {
+    "useTestApi": false
+  }
+}
+```
+
+**Response: Status NEW (still queued)**
+
+```json
+{
+  "status": "NEW"
+}
+```
+
+**Response: Status INPROGRESS (processing)**
+
+```json
+{
+  "status": "INPROGRESS"
+}
+```
+
+**Response: Status READY (results available)**
+
+```json
+{
+  "status": "READY",
+  "report_fields": "tracking_number;status;location;date;description",
+  "report": "CL12345678901;DELIVERED;Budapest;2025-01-27;Delivered to recipient\nCL98765432109;IN_TRANSIT;Debrecen;2025-01-27;In transit\nCLABCD123456;PENDING;Unknown;2025-01-27;Awaiting processing"
+}
+```
+
+**Response: Status ERROR (processing failed)**
+
+```json
+{
+  "status": "ERROR",
+  "errors": [
+    {
+      "code": "BATCH_PROCESSING_ERROR",
+      "text": "Failed to process batch due to server error"
+    }
+  ]
+}
+```
+
+**Example: Poll for Results**
+
+```bash
+# First poll (after 1+ minute delay)
+curl -X POST http://localhost:3000/api/dev/mpl/track-pull500-check \
+  -H "Content-Type: application/json" \
+  -d '{
+    "trackingGUID": "550e8400-e29b-41d4-a716-446655440000",
+    "credentials": {
+      "apiKey": "test-key",
+      "apiSecret": "test-secret"
+    },
+    "options": {
+      "useTestApi": false
+    }
+  }'
+
+# Response: {"status": "INPROGRESS"}
+
+# Wait 30-60 seconds, then poll again...
+
+# Response when ready:
+# {"status": "READY", "report_fields": "...", "report": "..."}
+```
+
+**Polling Recommendations:**
+
+1. Wait 1+ minute after submitting batch before first poll
+2. Poll every 30-60 seconds
+3. Stop polling after status becomes READY or ERROR
+4. Handle transient errors (429, 503) with backoff
+5. Set a reasonable timeout (e.g., 10-15 minutes) for overall batch processing
+
+**Example: Parsing CSV Report**
+
+When status=READY, the report contains CSV-formatted tracking data:
+
+```javascript
+const response = await fetch('/api/dev/mpl/track-pull500-check', {
+  method: 'POST',
+  body: JSON.stringify(checkRequest)
+});
+
+const data = await response.json();
+
+if (data.status === 'READY') {
+  // Parse CSV-like report
+  const headers = data.report_fields.split(';');
+  const rows = data.report.split('\n');
+  
+  rows.forEach(row => {
+    const cols = row.split(';');
+    const tracking = {
+      tracking_number: cols[0],
+      status: cols[1],
+      location: cols[2],
+      date: cols[3],
+      description: cols[4]
+    };
+    console.log(tracking);
+  });
+}
+```
+
+**Error Responses:**
+
+| Status Code | Category | Meaning |
+|-------------|----------|---------|
+| 400 | Validation | Invalid request (empty array, >500 items, invalid GUID) |
+| 401 | Auth | Invalid credentials |
+| 429 | RateLimit | Too many requests - check Retry-After header |
+| 503 | Transient | Server error - retry with backoff |
+
+```
+
 
 1. Start the server: `pnpm run dev`
 2. Open Swagger UI: `http://localhost:3000/docs`
@@ -1070,7 +1371,7 @@ The `carrierStatusCode` field in the response preserves the original MPL status 
 
 **Available endpoints in Swagger UI:**
 - Foxpost: Create Parcel (single), Create Parcels (batch), Exchange Auth Token, Fetch Pickup Points
-- MPL: Create Label (single), Create Labels (batch), Create Parcel (single), Create Parcels (batch), Exchange Auth Token, Fetch Pickup Points, Get Shipment Details, Track Parcel
+- MPL: Create Label (single), Create Labels (batch), Create Parcel (single), Create Parcels (batch), Exchange Auth Token, Fetch Pickup Points, Get Shipment Details, Track Parcel (guest), Track Parcel (registered), Track Batch (Pull-500 start), Track Batch (Pull-500 check)
 
 ## Running E2E Tests
 

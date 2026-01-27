@@ -14,6 +14,7 @@ import { registerCreateParcelRoute, registerCreateParcelsRoute } from './parcels
 import { registerCreateLabelRoute, registerCreateLabelsRoute } from './labels.js';
 import { registerShipmentDetailsRoute } from './shipment-details.js';
 import { registerTrackRoute } from './track.js';
+import { registerPull500Routes } from './track-pull500.js';
 
 /**
  * Register all MPL routes to the Fastify instance
@@ -27,6 +28,9 @@ import { registerTrackRoute } from './track.js';
  * - POST /api/dev/mpl/create-label (create label for single parcel)
  * - POST /api/dev/mpl/create-labels (create labels for multiple parcels in batch)
  * - POST /api/dev/mpl/track (track parcel by tracking number using Pull-1 endpoint)
+ * - POST /api/dev/mpl/track-registered (track parcel using registered endpoint with financial data)
+ * - POST /api/dev/mpl/track-pull500-start (start batch tracking request - up to 500 parcels)
+ * - POST /api/dev/mpl/track-pull500-check (poll for Pull-500 batch results)
  * - POST /api/dev/mpl/shipment-details (get shipment metadata by tracking number)
  * 
  * ### Adapter Wrappers
@@ -83,6 +87,7 @@ export async function registerMPLRoutes(fastify: FastifyInstance) {
     await registerCreateLabelRoute(fastify, adapter as unknown as MPLAdapter);
     await registerCreateLabelsRoute(fastify, adapter as unknown as MPLAdapter);
     await registerTrackRoute(fastify, adapter as unknown as MPLAdapter);
+    await registerPull500Routes(fastify, adapter as unknown as MPLAdapter);
     await registerShipmentDetailsRoute(fastify, adapter as unknown as MPLAdapter);
 }
 

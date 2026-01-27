@@ -172,3 +172,4 @@ export class MPLAdapter implements CarrierAdapter {
 export { withOAuthFallback } from './utils/oauthFallback.js';
 export { createResolveBaseUrl, createResolveOAuthUrl };
 export type { ResolveBaseUrl, ResolveOAuthUrl };
+export { track, trackPull500Start, trackPull500Check, trackRegistered } from './capabilities/track.js';

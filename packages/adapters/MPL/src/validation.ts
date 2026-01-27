@@ -711,3 +711,105 @@ export type TrackingResponseMPL = z.infer<typeof TrackingResponseMPLSchema>;
 export function safeValidateTrackingResponse(input: unknown) {
   return TrackingResponseMPLSchema.safeParse(input);
 }
+
+// ===== PULL-500 BATCH TRACKING TYPES =====
+
+/**
+ * Schema for Pull-500 start request (batch tracking submission)
+ * 
+ * Required:
+ * - trackingNumbers: array of 1-500 tracking numbers
+ * - credentials: MPLCredentials
+ * 
+ * Optional:
+ * - language: 'hu' (Hungarian, default) or 'en' (English)
+ * - useTestApi: use sandbox API
+ */
+export const Pull500StartRequestSchema = z.object({
+  trackingNumbers: z.array(z.string().min(1)).min(1).max(500, 'Maximum 500 tracking numbers allowed'),
+  credentials: MPLCredentialsSchema,
+  language: z.enum(['hu', 'en']).default('hu').optional(),
+  options: z.object({
+    useTestApi: z.boolean().optional(),
+  }).optional(),
+});
+export type Pull500StartRequest = z.infer<typeof Pull500StartRequestSchema>;
+
+/**
+ * Helper: validate Pull-500 start request
+ */
+export function safeValidatePull500StartRequest(input: unknown) {
+  return Pull500StartRequestSchema.safeParse(input);
+}
+
+/**
+ * Schema for Pull-500 start response
+ * Returns trackingGUID for polling, plus any submission errors
+ */
+export const Pull500StartResponseSchema = z.object({
+  trackingGUID: z.string().min(1),
+  errors: z.array(ErrorDescriptorSchema).optional(),
+}).passthrough();
+export type Pull500StartResponse = z.infer<typeof Pull500StartResponseSchema>;
+
+/**
+ * Helper: validate Pull-500 start response
+ */
+export function safeValidatePull500StartResponse(input: unknown) {
+  return Pull500StartResponseSchema.safeParse(input);
+}
+
+/**
+ * Schema for Pull-500 check request (poll for results)
+ * 
+ * Required:
+ * - trackingGUID: UUID returned from start request
+ * - credentials: MPLCredentials
+ */
+export const Pull500CheckRequestSchema = z.object({
+  trackingGUID: z.string().min(1, 'trackingGUID is required'),
+  credentials: MPLCredentialsSchema,
+  options: z.object({
+    useTestApi: z.boolean().optional(),
+  }).optional(),
+});
+export type Pull500CheckRequest = z.infer<typeof Pull500CheckRequestSchema>;
+
+/**
+ * Helper: validate Pull-500 check request
+ */
+export function safeValidatePull500CheckRequest(input: unknown) {
+  return Pull500CheckRequestSchema.safeParse(input);
+}
+
+/**
+ * Status values for Pull-500 check response
+ * NEW - Request received, queued
+ * INPROGRESS - Processing
+ * READY - Results available
+ * ERROR - Processing failed
+ */
+export const Pull500StatusSchema = z.enum(['NEW', 'INPROGRESS', 'READY', 'ERROR']);
+export type Pull500Status = z.infer<typeof Pull500StatusSchema>;
+
+/**
+ * Schema for Pull-500 check response
+ * 
+ * Status progression: NEW -> INPROGRESS -> READY (or ERROR)
+ * When status=READY, report contains CSV-formatted tracking data
+ * report_fields contains column headers
+ */
+export const Pull500CheckResponseSchema = z.object({
+  status: Pull500StatusSchema,
+  report: z.string().optional(),        // CSV-formatted data (when status=READY)
+  report_fields: z.string().optional(), // CSV header (when status=READY)
+  errors: z.array(ErrorDescriptorSchema).optional(),
+}).passthrough();
+export type Pull500CheckResponse = z.infer<typeof Pull500CheckResponseSchema>;
+
+/**
+ * Helper: validate Pull-500 check response
+ */
+export function safeValidatePull500CheckResponse(input: unknown) {
+  return Pull500CheckResponseSchema.safeParse(input);
+}

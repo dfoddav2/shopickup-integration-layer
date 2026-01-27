@@ -13,13 +13,249 @@ import { CarrierError, serializeForLog } from '@shopickup/core';
 import {
   safeValidateTrackingRequest,
   safeValidateTrackingResponse,
+  safeValidatePull500StartRequest,
+  safeValidatePull500StartResponse,
+  safeValidatePull500CheckRequest,
+  safeValidatePull500CheckResponse,
   type TrackingRequestMPL,
+  type Pull500StartRequest,
+  type Pull500StartResponse,
+  type Pull500CheckRequest,
+  type Pull500CheckResponse,
 } from '../validation.js';
 import {
   mapMPLTrackingToCanonical,
 } from '../mappers/tracking.js';
 import { buildMPLHeaders } from '../utils/httpUtils.js';
 import type { ResolveBaseUrl } from '../utils/resolveBaseUrl.js';
+import { randomUUID } from 'crypto';
+
+/**
+ * Submit batch tracking request using Pull-500 endpoint
+ * 
+ * Submits up to 500 tracking numbers in a single request.
+ * Returns trackingGUID for polling results.
+ * Results are processed asynchronously by MPL (takes 1+ minutes).
+ * 
+ * @param request - Pull-500 request with tracking numbers
+ * @param ctx - Adapter context with HTTP client
+ * @param resolveBaseUrl - Function to resolve API base URL
+ * @returns trackingGUID for use with trackPull500Check()
+ * @throws CarrierError for validation, auth, or network errors
+ */
+export async function trackPull500Start(
+  request: Pull500StartRequest,
+  ctx: AdapterContext,
+  resolveBaseUrl: ResolveBaseUrl
+): Promise<Pull500StartResponse> {
+  // Validate request
+  const validation = safeValidatePull500StartRequest(request);
+  if (!validation.success) {
+    throw new CarrierError(
+      `Invalid Pull-500 start request: ${validation.error.message}`,
+      'Validation',
+      { raw: serializeForLog(validation.error) as any }
+    );
+  }
+
+  if (!ctx.http) {
+    throw new CarrierError(
+      'HTTP client not provided in context',
+      'Permanent'
+    );
+  }
+
+  const validRequest = validation.data;
+
+  // Resolve base URL and extract accounting code
+  const baseUrl = resolveBaseUrl(validRequest.options);
+  const accountingCode = (validRequest.credentials as any)?.accountingCode;
+  const isTestApi = validRequest.options?.useTestApi ?? false;
+
+  ctx.logger?.debug('MPL: Pull-500 start', {
+    count: validRequest.trackingNumbers.length,
+    language: validRequest.language,
+    testMode: isTestApi,
+  });
+
+  // Build request payload
+  const payload = {
+    trackingNumbers: validRequest.trackingNumbers,
+    language: validRequest.language || 'hu',
+  };
+
+  // Build authentication headers with request ID and correlation ID
+  const headers: Record<string, string> = {
+    ...buildMPLHeaders(validRequest.credentials, accountingCode),
+    'X-Request-Id': randomUUID(),
+    'Content-Type': 'application/json',
+  };
+
+  // Add correlation ID if needed (optional)
+  if (validRequest.options?.useTestApi) {
+    headers['X-Correlation-Id'] = `test-${Date.now()}`;
+  }
+
+  // Make request to Pull-500 start endpoint
+  let httpResponse: any;
+  try {
+    const url = new URL('/v2/mplapi-tracking/tracking', baseUrl);
+    httpResponse = await ctx.http.post(url.toString(), payload, { headers });
+  } catch (error) {
+    throw translateTrackingError(error, `Pull-500 start for ${validRequest.trackingNumbers.length} items`);
+  }
+
+  // Extract body from normalized HttpResponse
+  const responseData = httpResponse.body as any;
+
+  // Validate response
+  const responseValidation = safeValidatePull500StartResponse(responseData);
+  if (!responseValidation.success) {
+    throw new CarrierError(
+      `Invalid Pull-500 start response: ${responseValidation.error.message}`,
+      'Transient',
+      { raw: serializeForLog(responseValidation.error) as any }
+    );
+  }
+
+  const validResponse = responseValidation.data;
+
+  if (!validResponse.trackingGUID) {
+    throw new CarrierError(
+      'Pull-500 start response missing trackingGUID',
+      'Transient',
+      { raw: responseData }
+    );
+  }
+
+  ctx.logger?.info('MPL: Pull-500 start completed', {
+    trackingGUID: validResponse.trackingGUID,
+    submitted: validRequest.trackingNumbers.length,
+  });
+
+  return validResponse;
+}
+
+/**
+ * Poll for Pull-500 batch tracking results
+ * 
+ * Checks status of previously submitted batch request.
+ * Status progression: NEW -> INPROGRESS -> READY (or ERROR)
+ * When READY, response includes CSV report with tracking data.
+ * 
+ * Recommendation: Wait 1+ minute before first poll, then poll every 30-60 seconds.
+ * 
+ * @param request - Pull-500 check request with trackingGUID
+ * @param ctx - Adapter context with HTTP client
+ * @param resolveBaseUrl - Function to resolve API base URL
+ * @returns Pull-500 response with status and report (when ready)
+ * @throws CarrierError for validation, auth, or network errors
+ */
+export async function trackPull500Check(
+  request: Pull500CheckRequest,
+  ctx: AdapterContext,
+  resolveBaseUrl: ResolveBaseUrl
+): Promise<Pull500CheckResponse> {
+  // Validate request
+  const validation = safeValidatePull500CheckRequest(request);
+  if (!validation.success) {
+    throw new CarrierError(
+      `Invalid Pull-500 check request: ${validation.error.message}`,
+      'Validation',
+      { raw: serializeForLog(validation.error) as any }
+    );
+  }
+
+  if (!ctx.http) {
+    throw new CarrierError(
+      'HTTP client not provided in context',
+      'Permanent'
+    );
+  }
+
+  const validRequest = validation.data;
+
+  // Resolve base URL and extract accounting code
+  const baseUrl = resolveBaseUrl(validRequest.options);
+  const accountingCode = (validRequest.credentials as any)?.accountingCode;
+  const isTestApi = validRequest.options?.useTestApi ?? false;
+
+  ctx.logger?.debug('MPL: Pull-500 check', {
+    trackingGUID: validRequest.trackingGUID,
+    testMode: isTestApi,
+  });
+
+  // Build authentication headers with request ID
+  const headers = {
+    ...buildMPLHeaders(validRequest.credentials, accountingCode),
+    'X-Request-Id': randomUUID(),
+  };
+
+  // Make request to Pull-500 check endpoint
+  let httpResponse: any;
+  try {
+    const url = new URL(`/v2/mplapi-tracking/tracking/${validRequest.trackingGUID}`, baseUrl);
+    httpResponse = await ctx.http.get(url.toString(), { headers });
+  } catch (error) {
+    throw translateTrackingError(error, `Pull-500 check for GUID ${validRequest.trackingGUID}`);
+  }
+
+  // Extract body from normalized HttpResponse
+  const responseData = httpResponse.body as any;
+
+  // Validate response
+  const responseValidation = safeValidatePull500CheckResponse(responseData);
+  if (!responseValidation.success) {
+    throw new CarrierError(
+      `Invalid Pull-500 check response: ${responseValidation.error.message}`,
+      'Transient',
+      { raw: serializeForLog(responseValidation.error) as any }
+    );
+  }
+
+  const validResponse = responseValidation.data;
+
+  ctx.logger?.info('MPL: Pull-500 check completed', {
+    status: validResponse.status,
+    hasReport: !!validResponse.report,
+  });
+
+  return validResponse;
+}
+
+/**
+ * Track parcels using the registered endpoint (with financial data)
+ * 
+ * Extends the core track() function to use /v2/nyomkovetes/registered
+ * instead of /v2/nyomkovetes/guest. Includes financial data:
+ * - Weight (C5)
+ * - Service Code (C2)
+ * - Dimensions (C41, C42, C43)
+ * - Declared value (C58)
+ * 
+ * Requires authentication and is intended for power users / internal use.
+ * 
+ * @param request - Tracking request with tracking numbers
+ * @param ctx - Adapter context with HTTP client
+ * @param resolveBaseUrl - Function to resolve API base URL
+ * @returns Array of TrackingUpdate objects with financial data included
+ * @throws CarrierError for validation, auth, or network errors
+ */
+export async function trackRegistered(
+  request: TrackingRequestMPL,
+  ctx: AdapterContext,
+  resolveBaseUrl: ResolveBaseUrl
+): Promise<TrackingUpdate[]> {
+  // Use core track() logic but force registered endpoint
+  return track(
+    {
+      ...request,
+      useRegisteredEndpoint: true,
+    },
+    ctx,
+    resolveBaseUrl
+  );
+}
 
 /**
  * Track one or more parcels using the Pull-1 endpoint

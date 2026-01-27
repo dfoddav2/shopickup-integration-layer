@@ -17,6 +17,9 @@ class MockHttpClient {
   private throwError: Error | null = null;
   lastGetUrl?: string;
   lastGetOptions?: any;
+  lastPostUrl?: string;
+  lastPostData?: any;
+  lastPostOptions?: any;
 
   setResponse(url: string, data: any): void {
     this.responses.set(url, data);
@@ -30,8 +33,28 @@ class MockHttpClient {
     this.throwError = error;
   }
 
-  async post<T>(_url: string, _data: any, _options?: any): Promise<HttpResponse<T>> {
-    throw new Error('POST not implemented in mock');
+  async post<T>(url: string, data: any, options?: any): Promise<HttpResponse<T>> {
+    this.lastPostUrl = url;
+    this.lastPostData = data;
+    this.lastPostOptions = options;
+
+    if (this.throwError) {
+      throw this.throwError;
+    }
+
+    // First try exact match
+    const response = this.responses.get(url);
+    if (response) {
+      return response as HttpResponse<T>;
+    }
+
+    // Then try matcher if available
+    const matcher = (this.responses as any).matcher;
+    if (matcher && matcher.matcher(url)) {
+      return matcher.data as HttpResponse<T>;
+    }
+
+    throw new Error(`No mock response configured for POST ${url}`);
   }
 
   async put<T>(_url: string, _data: any, _options?: any): Promise<HttpResponse<T>> {
@@ -605,6 +628,247 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
 
       const result = await adapter.track(request, ctx);
       expect(result.status).toBe('DELIVERED');
+    });
+  });
+
+  describe('Pull-500 batch tracking', () => {
+    it('should submit batch tracking request and get trackingGUID', async () => {
+      const mockResponse: HttpResponse<any> = {
+        status: 200,
+        headers: {},
+        body: {
+          trackingGUID: '550e8400-e29b-41d4-a716-446655440000',
+        },
+      };
+
+      mockHttp.setResponseMatcher(
+        (url) => url.includes('/v2/mplapi-tracking/tracking'),
+        mockResponse
+      );
+
+      const { trackPull500Start } = await import('../capabilities/track.js');
+
+      const request = {
+        trackingNumbers: ['CL12345678901', 'CL98765432109'],
+        credentials: {
+          authType: 'apiKey' as const,
+          apiKey: 'test-key',
+          apiSecret: 'test-secret',
+          accountingCode: 'TEST001',
+        },
+      };
+
+      const result = await trackPull500Start(request, ctx, (opts) => 'https://api.test');
+
+      expect(result).toBeDefined();
+      expect(result.trackingGUID).toBe('550e8400-e29b-41d4-a716-446655440000');
+      expect(mockHttp.lastPostUrl).toContain('/v2/mplapi-tracking/tracking');
+      expect(mockHttp.lastPostData?.trackingNumbers).toEqual(['CL12345678901', 'CL98765432109']);
+    });
+
+    it('should reject Pull-500 start request with >500 tracking numbers', async () => {
+      const { safeValidatePull500StartRequest } = await import('../validation.js');
+
+      const trackingNumbers = Array.from({ length: 501 }, (_, i) => `CL${i.toString().padStart(12, '0')}`);
+      const request = {
+        trackingNumbers,
+        credentials: {
+          authType: 'apiKey' as const,
+          apiKey: 'test-key',
+          apiSecret: 'test-secret',
+        },
+      };
+
+      const validation = safeValidatePull500StartRequest(request);
+      expect(validation.success).toBe(false);
+    });
+
+    it('should validate Pull-500 check request with valid trackingGUID', async () => {
+      const { safeValidatePull500CheckRequest } = await import('../validation.js');
+
+      const request = {
+        trackingGUID: '550e8400-e29b-41d4-a716-446655440000',
+        credentials: {
+          authType: 'apiKey' as const,
+          apiKey: 'test-key',
+          apiSecret: 'test-secret',
+        },
+      };
+
+      const validation = safeValidatePull500CheckRequest(request);
+      expect(validation.success).toBe(true);
+      expect(validation.data?.trackingGUID).toBe('550e8400-e29b-41d4-a716-446655440000');
+    });
+
+    it('should reject Pull-500 check request with empty trackingGUID', async () => {
+      const { safeValidatePull500CheckRequest } = await import('../validation.js');
+
+      const request = {
+        trackingGUID: '',
+        credentials: {
+          authType: 'apiKey' as const,
+          apiKey: 'test-key',
+          apiSecret: 'test-secret',
+        },
+      };
+
+      const validation = safeValidatePull500CheckRequest(request);
+      expect(validation.success).toBe(false);
+    });
+
+    it('should validate Pull-500 check response with NEW status', async () => {
+      const { safeValidatePull500CheckResponse } = await import('../validation.js');
+
+      const response = {
+        status: 'NEW',
+      };
+
+      const validation = safeValidatePull500CheckResponse(response);
+      expect(validation.success).toBe(true);
+      expect(validation.data?.status).toBe('NEW');
+    });
+
+    it('should validate Pull-500 check response with INPROGRESS status', async () => {
+      const { safeValidatePull500CheckResponse } = await import('../validation.js');
+
+      const response = {
+        status: 'INPROGRESS',
+      };
+
+      const validation = safeValidatePull500CheckResponse(response);
+      expect(validation.success).toBe(true);
+      expect(validation.data?.status).toBe('INPROGRESS');
+    });
+
+    it('should validate Pull-500 check response with READY status and report', async () => {
+      const { safeValidatePull500CheckResponse } = await import('../validation.js');
+
+      const response = {
+        status: 'READY',
+        report: 'CL12345678901;DELIVERED;2025-01-27\nCL98765432109;IN_TRANSIT;2025-01-27',
+        report_fields: 'tracking;status;date',
+      };
+
+      const validation = safeValidatePull500CheckResponse(response);
+      expect(validation.success).toBe(true);
+      expect(validation.data?.status).toBe('READY');
+      expect(validation.data?.report).toBeTruthy();
+      expect(validation.data?.report_fields).toBeTruthy();
+    });
+
+    it('should validate Pull-500 check response with ERROR status', async () => {
+      const { safeValidatePull500CheckResponse } = await import('../validation.js');
+
+      const response = {
+        status: 'ERROR',
+        errors: [
+          {
+            code: 'INVALID_GUID',
+            text: 'Invalid tracking GUID',
+          },
+        ],
+      };
+
+      const validation = safeValidatePull500CheckResponse(response);
+      expect(validation.success).toBe(true);
+      expect(validation.data?.status).toBe('ERROR');
+      expect(validation.data?.errors).toHaveLength(1);
+    });
+  });
+
+  describe('trackRegistered() variant', () => {
+    it('should track using registered endpoint when explicitly called', async () => {
+      const trackingNumber = 'CL12345678901';
+      const mockResponse: HttpResponse<any> = {
+        status: 200,
+        headers: {},
+        body: {
+          trackAndTrace: [
+            {
+              c1: trackingNumber,
+              c2: 'A_175_UZL',  // Service code (registered only)
+              c5: '2.5',          // Weight in kg (registered only)
+              c9: 'DELIVERED',
+              c10: '2025-01-27 14:30:00',
+              c41: '20',          // Length (registered only)
+              c42: '15',          // Width (registered only)
+              c43: '10',          // Height
+              c58: '50000',       // Declared value in HUF (registered only)
+            },
+          ],
+        },
+      };
+
+      mockHttp.setResponseMatcher(
+        (url) => url.includes('/nyomkovetes/registered'),
+        mockResponse
+      );
+
+      const { trackRegistered } = await import('../capabilities/track.js');
+
+      const request = {
+        trackingNumbers: [trackingNumber],
+        credentials: {
+          authType: 'apiKey' as const,
+          apiKey: 'test-key',
+          apiSecret: 'test-secret',
+          accountingCode: 'TEST001',
+        },
+        state: 'last' as const,
+        useRegisteredEndpoint: false,
+      };
+
+      const result = await trackRegistered(request, ctx, (opts) => 'https://api.test');
+
+      expect(result).toBeDefined();
+      expect(result).toHaveLength(1);
+      expect(result[0].trackingNumber).toBe(trackingNumber);
+      expect(result[0].status).toBe('DELIVERED');
+      // Check that financial data is included in raw response
+      expect((result[0].rawCarrierResponse as any)?.record?.c2).toBe('A_175_UZL');
+      expect((result[0].rawCarrierResponse as any)?.record?.c5).toBe('2.5');
+      expect((result[0].rawCarrierResponse as any)?.record?.c41).toBe('20');
+    });
+
+    it('should use registered endpoint URL', async () => {
+      const trackingNumber = 'CLREG123456';
+      const mockResponse: HttpResponse<any> = {
+        status: 200,
+        headers: {},
+        body: {
+          trackAndTrace: [
+            {
+              c1: trackingNumber,
+              c9: 'DELIVERED',
+              c10: '2025-01-27 14:30:00',
+            },
+          ],
+        },
+      };
+
+      mockHttp.setResponseMatcher(
+        (url) => url.includes('/nyomkovetes/registered'),
+        mockResponse
+      );
+
+      const { trackRegistered } = await import('../capabilities/track.js');
+
+      const request = {
+        trackingNumbers: [trackingNumber],
+        credentials: {
+          authType: 'apiKey' as const,
+          apiKey: 'test-key',
+          apiSecret: 'test-secret',
+          accountingCode: 'TEST001',
+        },
+        state: 'last' as const,
+        useRegisteredEndpoint: false,
+      };
+
+      const result = await trackRegistered(request, ctx, (opts) => 'https://api.test');
+
+      // Verify the URL used contains 'registered' endpoint
+      expect(mockHttp.lastGetUrl).toContain('/nyomkovetes/registered');
     });
   });
 });

@@ -197,4 +197,124 @@ export async function registerTrackRoute(
       }
     },
   });
+
+  /**
+   * Track parcel using registered endpoint (with financial data)
+   */
+  fastify.post('/api/dev/mpl/track-registered', {
+    schema: {
+      description: 'Track a parcel using registered endpoint (includes financial data)',
+      tags: ['MPL', 'Dev'],
+      summary: 'Track parcel (registered - authenticated)',
+      body: {
+        type: 'object',
+        properties: {
+          trackingNumbers: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Array of tracking numbers (use trackingNumber for single)',
+          },
+          trackingNumber: {
+            type: 'string',
+            description: 'Single tracking number (alternative to trackingNumbers array)',
+          },
+          credentials: MPL_CREDENTIALS_SCHEMA,
+          state: {
+            type: 'string',
+            enum: ['last', 'all'],
+            default: 'last',
+            description: 'Return latest event only (last) or full history (all)',
+          },
+          options: {
+            type: 'object',
+            properties: {
+              useTestApi: {
+                type: 'boolean',
+                description: 'Use test/sandbox API endpoint',
+                default: false,
+              },
+            },
+          },
+        },
+        required: ['credentials'],
+        examples: [
+          {
+            trackingNumbers: ['CL12345678901'],
+            credentials: {
+              apiKey: 'your-api-key',
+              apiSecret: 'your-api-secret',
+              accountingCode: 'ACC123456',
+            },
+            state: 'last',
+            options: {
+              useTestApi: false,
+            },
+          },
+        ],
+      },
+      response: MPL_TRACKING_RESPONSE_SCHEMA,
+    },
+    async handler(request: any, reply: any) {
+      try {
+        const httpClient = (fastify as any).httpClient;
+        if (!httpClient) {
+          return reply.status(500).send({
+            message: 'HTTP client not configured',
+            category: 'Internal',
+          });
+        }
+
+        const ctx: AdapterContext = {
+          http: httpClient,
+          logger: wrapPinoLogger(fastify.log),
+          operationName: 'trackRegistered',
+        };
+
+        // Build tracking request (support both single and array)
+        const trackingNumbers = request.body.trackingNumbers || [request.body.trackingNumber];
+
+        const trackingRequest = {
+          trackingNumbers,
+          credentials: request.body.credentials,
+          state: request.body.state || 'last',
+          useRegisteredEndpoint: true,  // Force registered endpoint
+          options: request.body.options,
+        };
+
+        // Dynamic import to get the trackRegistered function
+        const { trackRegistered } = await import('@shopickup/adapters-mpl');
+
+        // Call the trackRegistered function directly
+        const trackingResponse = await trackRegistered(trackingRequest, ctx, (opts: any) =>
+          opts?.useTestApi
+            ? 'https://test.api.mpl.hu'
+            : 'https://api.mpl.hu'
+        );
+
+        return reply.status(200).send(trackingResponse);
+      } catch (error) {
+        fastify.log.error(error);
+
+        if (error instanceof CarrierError) {
+          const statusCode =
+            error.category === 'Auth' ? 401 :
+              error.category === 'RateLimit' ? 429 :
+                error.category === 'Validation' ? 400 :
+                  error.category === 'Transient' ? 503 :
+                    400;
+
+          return reply.status(statusCode).send({
+            message: error.message,
+            category: error.category,
+            ...(error.raw ? { raw: error.raw } : {}),
+          });
+        }
+
+        return reply.status(500).send({
+          message: error instanceof Error ? error.message : String(error),
+          category: 'Internal',
+        });
+      }
+    },
+  });
 }
