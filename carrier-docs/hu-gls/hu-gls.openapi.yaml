@@ -1,0 +1,1980 @@
+openapi: 3.0.1
+info:
+  title: GLS MyGLS API
+  description: |
+    # GLS MyGLS API for system integration (ver. 25.12.11)
+    
+    ## Disclaimer
+    
+    This API documentation serves as a general developer guide for the East-European region and may 
+    include references to services (e.g., AOS, SAT, etc.) that are not yet available in all countries. 
+    Furthermore, the availability of specific services may depend on the terms of your individual customer 
+    agreement with GLS.
+    
+    If you are uncertain about which services are available to your company, please check the signed GLS 
+    contract internally. Or you may contact your local GLS representative to confirm the availability of 
+    features relevant to your integration.
+    
+    ## Getting Started
+    
+    Before you can start using this API for MyGLS system, you must have an agreement with GLS. If you 
+    don't have the required MyGLS login credentials, please contact GLS company.
+    
+    MyGLS API communication is designed for using via HTTPS.
+    
+    MyGLS API supports two approaches: 
+    - **SOAP**: format XML
+    - **REST**: format JSON or XML
+    
+    ### Available Resources
+    
+    API service data assembly and sample code is available for download:
+    - Location: https://api.mygls.hu/
+    - Includes: C#, PHP, and JAVA sample implementations
+    - Contains: GLS.MyGLS.APIServiceData.dll shared assembly with all API request/response classes and enumerations
+    
+    ### HTTP Response Codes
+    
+    Refer to [MDN HTTP Status Codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/) for standard HTTP response codes.
+    
+    ### Print Settings
+    
+    The "Type of printer" property is set in the "Settings" section.
+    
+  version: "25.12.11"
+  contact:
+    name: GLS Customer Support
+    url: https://www.gls-group.eu
+  license:
+    name: Proprietary
+    url: https://www.gls-group.eu
+
+servers:
+  # Hungary - Production
+  - url: 'https://api.mygls.hu/ParcelService.svc'
+    description: Hungary Production (SOAP/REST)
+    x-country: HU
+    x-environment: production
+    x-service-name: ParcelService
+  
+  # Hungary - Testing/Development
+  - url: 'https://api.test.mygls.hu/ParcelService.svc'
+    description: Hungary Testing/Development (SOAP/REST)
+    x-country: HU
+    x-environment: testing
+    x-service-name: ParcelService
+  
+  # Czech Republic - Production
+  - url: 'https://api.mygls.cz/ParcelService.svc'
+    description: Czech Republic Production (SOAP/REST)
+    x-country: CZ
+    x-environment: production
+    x-service-name: ParcelService
+  
+  # Czech Republic - Testing/Development
+  - url: 'https://api.test.mygls.cz/ParcelService.svc'
+    description: Czech Republic Testing/Development (SOAP/REST)
+    x-country: CZ
+    x-environment: testing
+    x-service-name: ParcelService
+  
+  # Croatia - Production
+  - url: 'https://api.mygls.hr/ParcelService.svc'
+    description: Croatia Production (SOAP/REST)
+    x-country: HR
+    x-environment: production
+    x-service-name: ParcelService
+  
+  # Croatia - Testing/Development
+  - url: 'https://api.test.mygls.hr/ParcelService.svc'
+    description: Croatia Testing/Development (SOAP/REST)
+    x-country: HR
+    x-environment: testing
+    x-service-name: ParcelService
+  
+  # Romania - Production
+  - url: 'https://api.mygls.ro/ParcelService.svc'
+    description: Romania Production (SOAP/REST)
+    x-country: RO
+    x-environment: production
+    x-service-name: ParcelService
+  
+  # Romania - Testing/Development
+  - url: 'https://api.test.mygls.ro/ParcelService.svc'
+    description: Romania Testing/Development (SOAP/REST)
+    x-country: RO
+    x-environment: testing
+    x-service-name: ParcelService
+  
+  # Slovenia - Production
+  - url: 'https://api.mygls.si/ParcelService.svc'
+    description: Slovenia Production (SOAP/REST)
+    x-country: SI
+    x-environment: production
+    x-service-name: ParcelService
+  
+  # Slovenia - Testing/Development
+  - url: 'https://api.test.mygls.si/ParcelService.svc'
+    description: Slovenia Testing/Development (SOAP/REST)
+    x-country: SI
+    x-environment: testing
+    x-service-name: ParcelService
+  
+  # Slovakia - Production
+  - url: 'https://api.mygls.sk/ParcelService.svc'
+    description: Slovakia Production (SOAP/REST)
+    x-country: SK
+    x-environment: production
+    x-service-name: ParcelService
+  
+  # Slovakia - Testing/Development
+  - url: 'https://api.test.mygls.sk/ParcelService.svc'
+    description: Slovakia Testing/Development (SOAP/REST)
+    x-country: SK
+    x-environment: testing
+    x-service-name: ParcelService
+  
+  # Serbia - Production
+  - url: 'https://api.mygls.rs/ParcelService.svc'
+    description: Serbia Production (SOAP/REST)
+    x-country: RS
+    x-environment: production
+    x-service-name: ParcelService
+  
+  # Serbia - Testing/Development
+  - url: 'https://api.test.mygls.rs/ParcelService.svc'
+    description: Serbia Testing/Development (SOAP/REST)
+    x-country: RS
+    x-environment: testing
+    x-service-name: ParcelService
+
+  # Public pickup-points map service (Hungary host serves multiple countries)
+  - url: 'https://map.gls-hungary.com'
+    description: Public Pickup Points (JSON feeds per country)
+    x-service-name: DeliveryPoints
+
+
+
+# ============================================
+# Public Pickup Points (deliveryPoints)
+# ============================================
+paths:
+  /data/deliveryPoints/{country}.json:
+    get:
+      summary: Get pickup points (parcel-shops / lockers) for a country
+      description: |
+        Public JSON feed containing pickup points (parcel-shops, lockers) for the specified country.
+        The Hungary-hosted map service exposes per-country JSON at `/data/deliveryPoints/<country>.json`.
+        This is a public, unauthenticated endpoint.
+      parameters:
+        - name: country
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Za-z]{2}$'
+          description: "Two-letter ISO country code (lowercase or uppercase). Examples: hu, sk, ro"
+      responses:
+        '200':
+          description: A JSON object with an `items` array of pickup point records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryPointsFeed'
+        '404':
+          description: Country feed not found
+        '500':
+          description: Server error
+
+components:
+  schemas:
+    # ============================================
+    # Delivery Points Feed (Public map.gls-hungary.com)
+    # ============================================
+    DeliveryPointContact:
+      type: object
+      properties:
+        countryCode:
+          type: string
+          example: "HU"
+        postalCode:
+          type: string
+          example: "1027"
+        city:
+          type: string
+          example: "BUDAPEST II. KER."
+        address:
+          type: string
+          example: "Tölgyfa utca 9"
+        web:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+
+    DeliveryPointHoursItem:
+      type: array
+      items:
+        type: string
+      description: "[ weekdayNumber, from, to ] e.g. [1, \"08:00\", \"20:30\"]"
+
+    DeliveryPointFeature:
+      type: string
+      enum: [acceptsCash, acceptsCard, pickup, delivery]
+
+    DeliveryPoint:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1027-CSOMAGPONT05"
+        goldId:
+          type: integer
+          example: 379
+        name:
+          type: string
+          example: "Tölgyfa ABC"
+        description:
+          type: string
+          nullable: true
+        contact:
+          $ref: '#/components/schemas/DeliveryPointContact'
+        location:
+          type: array
+          items:
+            type: number
+          minItems: 2
+          maxItems: 2
+          description: [ latitude, longitude ]
+        hours:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+          description: "Array of hours entries like [[1,\"08:00\",\"20:30\"], ...]"
+        features:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryPointFeature'
+        type:
+          type: string
+          example: "parcel-shop"
+        externalId:
+          type: string
+          example: "100379"
+        lockerSaturation:
+          type: string
+          example: "lowVolume"
+        hasWheelchairAccess:
+          type: boolean
+      required: [ id, name, contact, location ]
+
+    DeliveryPointsFeed:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryPoint'
+      required: [ items ]
+
+    # Base Request/Response
+    # ============================================
+    
+    APIRequestBase:
+      type: object
+      description: |
+        Base request object for all GLS API calls.
+        
+        Every API method call must include authentication parameters:
+        - Username: MyGLS email address
+        - Password: SHA512-encrypted password converted to byte array
+        - ClientNumberList: List of GLS client/account numbers to operate on
+        - WebshopEngine: Optional identifier for your application
+      properties:
+        username:
+          type: string
+          description: MyGLS username (email address)
+          example: "integration@example.com"
+        password:
+          type: string
+          format: byte
+          description: SHA512-encrypted password converted to byte array
+          example: "hashed_password_bytes"
+        clientNumberList:
+          type: array
+          items:
+            type: integer
+          description: List of GLS client/account numbers to operate on
+          example: [12345]
+        webshopEngine:
+          type: string
+          description: Optional identifier for your webshop/integration system
+          example: "shopickup-adapter/1.0"
+
+    # ============================================
+    # Address Class
+    # ============================================
+    
+    Address:
+      type: object
+      description: |
+        Object containing address of pick up place and parcel destination.
+      properties:
+        name:
+          type: string
+          description: Name of the person or organization
+          example: "John Doe"
+        street:
+          type: string
+          description: Name of the street
+          example: "Main Street"
+        houseNumber:
+          type: string
+          description: Number of the house (ONLY NUMBER)
+          example: "123"
+        houseNumberInfo:
+          type: string
+          description: Additional information (Building, stairway, etc.)
+          example: "Building A, Apt 5"
+        city:
+          type: string
+          description: Name of the town or village
+          example: "Budapest"
+        zipCode:
+          type: string
+          description: Area Zip code
+          example: "1011"
+        countryIsoCode:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          description: Two letter country code defined in ISO 3166-1
+          example: "HU"
+        contactName:
+          type: string
+          description: Name of person to contact about shipment details
+          example: "John Doe"
+        contactPhone:
+          type: string
+          description: Phone number of contact person
+          example: "+36 1 234 5678"
+        contactEmail:
+          type: string
+          format: email
+          description: Email address of contact person
+          example: "john@example.com"
+      required:
+        - name
+        - street
+        - city
+        - zipCode
+        - countryIsoCode
+
+    # ============================================
+    # Service Parameter Classes
+    # ============================================
+    
+    ServiceParameterADR:
+      type: object
+      description: Settings for ADR (Dangerous Goods) service
+      properties:
+        value:
+          type: string
+          description: ADR service value/settings
+
+    ServiceParameterString:
+      type: object
+      description: String-based service parameter
+      properties:
+        value:
+          type: string
+          description: String value for the service parameter
+
+    ServiceParameterDateTime:
+      type: object
+      description: DateTime-based service parameter (e.g., for DDS service)
+      properties:
+        value:
+          type: string
+          format: date-time
+          description: DateTime value for the service parameter
+
+    ServiceParameterStringDecimal:
+      type: object
+      description: String and Decimal based service parameter (e.g., for DPV service)
+      properties:
+        stringValue:
+          type: string
+        decimalValue:
+          type: number
+          format: decimal
+
+    ServiceParameterDecimal:
+      type: object
+      description: Decimal-based service parameter (e.g., for INS, MMP services)
+      properties:
+        value:
+          type: number
+          format: decimal
+          description: Decimal value for the service parameter
+
+    ServiceParameterStringInteger:
+      type: object
+      description: String and Integer based service parameter (e.g., for PSD service)
+      properties:
+        stringValue:
+          type: string
+        integerValue:
+          type: integer
+
+    ServiceParameterTimeRange:
+      type: object
+      description: Time range based service parameter (e.g., for SDS service)
+      properties:
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+
+    # ============================================
+    # Service Class
+    # ============================================
+    
+    Service:
+      type: object
+      description: |
+        Object containing specific service settings.
+        
+        Service codes and their required parameters are defined in Appendix B.
+        Parameter Requirements:
+        - ADRParameter - REQUIRED FOR "ADR" SERVICE CODE
+        - AOSParameter - REQUIRED FOR "AOS" SERVICE CODE
+        - CS1Parameter - REQUIRED FOR "CS1" SERVICE CODE
+        - DDSParameter - REQUIRED FOR "DDS" SERVICE CODE
+        - DPVParameter - REQUIRED FOR "DPV" SERVICE CODE
+        - FDSParameter - REQUIRED FOR "FDS" SERVICE CODE
+        - FSSParameter - REQUIRED FOR "FSS" SERVICE CODE
+        - INSParameter - REQUIRED FOR "INS" SERVICE CODE
+        - MMPParameter - REQUIRED FOR "MMP" SERVICE CODE
+        - PSDParameter - REQUIRED FOR "PSD" SERVICE CODE
+        - SDSParameter - REQUIRED FOR "SDS" SERVICE CODE
+        - SM1Parameter - REQUIRED FOR "SM1" SERVICE CODE
+        - SM2Parameter - REQUIRED FOR "SM2" SERVICE CODE
+        - SZLParameter - REQUIRED FOR "SZL" SERVICE CODE
+      properties:
+        code:
+          type: string
+          description: |
+            Service code (see Appendix B: List of services).
+            Examples: ADR, AOS, CS1, DDS, DPV, FDS, FSS, INS, MMP, PSD, SDS, SM1, SM2, SZL
+          example: "AOS"
+        adrParameter:
+          $ref: '#/components/schemas/ServiceParameterADR'
+        aosParameter:
+          $ref: '#/components/schemas/ServiceParameterString'
+        cs1Parameter:
+          $ref: '#/components/schemas/ServiceParameterString'
+        ddsParameter:
+          $ref: '#/components/schemas/ServiceParameterDateTime'
+        dpvParameter:
+          $ref: '#/components/schemas/ServiceParameterStringDecimal'
+        fdsParameter:
+          $ref: '#/components/schemas/ServiceParameterString'
+        fssParameter:
+          $ref: '#/components/schemas/ServiceParameterString'
+        insParameter:
+          $ref: '#/components/schemas/ServiceParameterDecimal'
+        mmpParameter:
+          $ref: '#/components/schemas/ServiceParameterDecimal'
+        psdParameter:
+          $ref: '#/components/schemas/ServiceParameterStringInteger'
+        sdsParameter:
+          $ref: '#/components/schemas/ServiceParameterTimeRange'
+        sm1Parameter:
+          $ref: '#/components/schemas/ServiceParameterString'
+        sm2Parameter:
+          $ref: '#/components/schemas/ServiceParameterString'
+        szlParameter:
+          $ref: '#/components/schemas/ServiceParameterString'
+        value:
+          type: string
+          description: Service value without previous special service settings
+      required:
+        - code
+
+    # ============================================
+    # ParcelProperty Class
+    # ============================================
+    
+    ParcelProperty:
+      type: object
+      description: |
+        Object containing parcel's dimensions and packaging type.
+      properties:
+        content:
+          type: string
+          description: Description of the parcel contents
+          example: "Books and stationery"
+        packageType:
+          type: integer
+          description: |
+            Type of packaging:
+            - 1 = Colli
+            - 2 = Box
+            - 3 = Roll
+            - 4 = Can
+            - 5 = Case
+            - 6 = Reel
+            - 7 = Sack
+          enum: [1, 2, 3, 4, 5, 6, 7]
+          example: 2
+        height:
+          type: integer
+          description: Height of parcel in cm
+          example: 20
+        length:
+          type: integer
+          description: Length of parcel in cm
+          example: 30
+        width:
+          type: integer
+          description: Width of parcel in cm
+          example: 15
+        weight:
+          type: number
+          format: decimal
+          description: Weight of parcel in kg
+          example: 2.5
+
+    # ============================================
+    # Parcel Class
+    # ============================================
+    
+    Parcel:
+      type: object
+      description: |
+        Object containing necessary data for printing labels.
+      properties:
+        clientNumber:
+          type: integer
+          description: Unique client number provided by GLS company
+          example: 12345
+        clientReference:
+          type: string
+          description: Client custom tag identifying parcel (STRONGLY RECOMMENDED - optionally REQUIRED)
+          example: "ORDER-12345-001"
+        count:
+          type: integer
+          description: Count of parcels sent in one shipment (maximum 99)
+          default: 1
+          example: 1
+        codAmount:
+          type: number
+          format: decimal
+          description: Cash on delivery amount
+          example: 50.00
+        codReference:
+          type: string
+          description: Cash on delivery client reference number used for payment pairing (STRONGLY RECOMMENDED if CODAmount is filled)
+          example: "COD-REF-12345"
+        codCurrency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: ISO code of the currency
+          example: "HUF"
+        content:
+          type: string
+          description: Parcel info printed on label (optionally REQUIRED - depends on user rights, MANDATORY in Serbia)
+          example: "Package contents"
+        pickupDate:
+          type: string
+          format: date-time
+          description: Pick up date
+          default: "actual date"
+          example: "2025-01-29T10:00:00Z"
+        pickupAddress:
+          $ref: '#/components/schemas/Address'
+          description: The address of place where courier picks up the shipment (REQUIRED)
+        deliveryAddress:
+          $ref: '#/components/schemas/Address'
+          description: The address of destination place (REQUIRED)
+        serviceList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Service'
+          description: Services and their special parameters
+        senderIdentityCardNumber:
+          type: string
+          description: Only in Serbia! ID card number or PIB (REQUIRED for Serbia)
+          example: "12345678901"
+        pickupType:
+          type: integer
+          description: Only used for LRS service! Parameter is always 2. Available only in HU!
+          example: 2
+        parcelPropertyList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParcelProperty'
+          description: Optional list where parcel dimensions and packaging properties can be specified
+      required:
+        - clientNumber
+        - pickupAddress
+        - deliveryAddress
+
+    # ============================================
+    # ParcelInfo Class
+    # ============================================
+    
+    ParcelInfo:
+      type: object
+      description: |
+        Information about a successfully prepared parcel/label.
+      properties:
+        clientReference:
+          type: string
+          description: Client custom tag identifying parcel
+          example: "ORDER-12345-001"
+        parcelId:
+          type: integer
+          description: Label/Parcel database record ID
+          example: 987654
+
+    # ============================================
+    # ErrorInfo Class
+    # ============================================
+    
+    ErrorInfo:
+      type: object
+      description: |
+        Error information when parcel processing fails.
+        See Appendix A for error codes and descriptions.
+      properties:
+        errorCode:
+          type: integer
+          description: Error code (see Appendix A)
+          example: 1001
+        errorDescription:
+          type: string
+          description: Error description (see Appendix A)
+          example: "Invalid address data"
+        clientReferenceList:
+          type: array
+          items:
+            type: string
+          description: List of client parcel tags identifying parcels where specific error happened
+        parcelIdList:
+          type: array
+          items:
+            type: integer
+          description: List of database parcel IDs identifying parcel records where specific error happened
+
+    # ============================================
+    # PrepareLabels Request/Response
+    # ============================================
+    
+    PrepareLabelsRequest:
+      allOf:
+        - $ref: '#/components/schemas/APIRequestBase'
+        - type: object
+          properties:
+            parcelList:
+              type: array
+              minItems: 1
+              items:
+                $ref: '#/components/schemas/Parcel'
+              description: List of labels/parcels data (REQUIRED, NOT EMPTY)
+          required:
+            - parcelList
+
+    PrepareLabelsResponse:
+      type: object
+      description: Response from PrepareLabels operation
+      properties:
+        parcelInfoList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParcelInfo'
+          description: List of successfully prepared records (ID and ClientReference) for generating labels
+        prepareLabelsError:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorInfo'
+          description: List of potential errors (see Error lists in response classes)
+
+    # ============================================
+    # PrintDataInfo Class
+    # ============================================
+    
+    PrintDataInfo:
+      type: object
+      description: |
+        Additional label information in label creation process response.
+        Base class used by GetPrintData and PrintLabels operations.
+      properties:
+        b2cChar:
+          type: string
+          description: B2C character code (see Appendix A)
+        clientReference:
+          type: string
+          description: Client custom tag identifying parcel (see Appendix A)
+        depot:
+          type: string
+          description: Depot code
+        depotNumber:
+          type: string
+          description: Depot number
+        driver:
+          type: string
+          description: Driver identification
+        parcel:
+          $ref: '#/components/schemas/Parcel'
+          description: Parcel details
+        parcelId:
+          type: integer
+          description: Parcel identification
+        parcelNumber:
+          type: integer
+          format: int64
+          description: Parcel number without check digit
+        parcelNumberWithCheckdigit:
+          type: integer
+          format: int64
+          description: Parcel number with check digit
+        sort:
+          type: string
+          description: Sorting information
+        displaylanguage:
+          type: string
+          description: Language ISO code
+
+    # ============================================
+    # PrintDataInfo (Versioned 20251022)
+    # ============================================
+    
+    PrintDataInfoV20251022:
+      allOf:
+        - $ref: '#/components/schemas/PrintDataInfo'
+        - type: object
+          properties:
+            pin:
+              type: string
+              description: |
+                If the created parcel includes the P&S service and the PickupType is 
+                LabellessParcelLocker (2), this field contains the PIN code required to open the parcel locker.
+
+    # ============================================
+    # GetPrintData Request/Response
+    # ============================================
+    
+    GetPrintDataRequest:
+      allOf:
+        - $ref: '#/components/schemas/APIRequestBase'
+        - type: object
+          properties:
+            parcelIdList:
+              type: array
+              items:
+                type: integer
+              description: List of parcel IDs
+            parcelList:
+              type: array
+              minItems: 1
+              items:
+                $ref: '#/components/schemas/Parcel'
+              description: List of labels/parcels data (REQUIRED, NOT EMPTY)
+          required:
+            - parcelList
+
+    GetPrintDataResponse:
+      type: object
+      description: Response from GetPrintData operation
+      properties:
+        pdfdocument:
+          type: string
+          format: byte
+          description: PDF document in byte array
+        getPrintDataErrorList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorInfo'
+          description: List of potential errors
+        printDataInfoList:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrintDataInfo'
+          description: List of successfully prepared records for generating labels
+
+    # ============================================
+    # PrintLabelsInfo Class
+    # ============================================
+    
+    PrintLabelsInfo:
+      allOf:
+        - $ref: '#/components/schemas/ParcelInfo'
+        - type: object
+          properties:
+            parcelNumber:
+              type: integer
+              format: int64
+              description: Parcel number
+
+    # ============================================
+    # PrintLabelsInfo (Versioned 20251022)
+    # ============================================
+    
+    PrintLabelsInfoV20251022:
+      allOf:
+        - $ref: '#/components/schemas/ParcelInfo'
+        - type: object
+          properties:
+            parcelNumber:
+              type: integer
+              format: int64
+              description: Parcel number
+            pin:
+              type: string
+              description: |
+                If the created parcel includes the P&S service and the PickupType is 
+                LabellessParcelLocker (2), this field contains the PIN code required to open the parcel locker.
+
+    # ============================================
+    # PrintLabels Request/Response
+    # ============================================
+    
+    PrintLabelsRequest:
+      allOf:
+        - $ref: '#/components/schemas/APIRequestBase'
+        - type: object
+          properties:
+            parcelList:
+              type: array
+              minItems: 1
+              items:
+                $ref: '#/components/schemas/Parcel'
+              description: List of labels/parcels data (REQUIRED, NOT EMPTY)
+            printPosition:
+              type: integer
+              description: |
+                Number of page quarter (ACCEPTED ONLY FOR A4-FORMAT).
+                Possible values: 1, 2, 3, 4
+              enum: [1, 2, 3, 4]
+            showPrintDialog:
+              type: boolean
+              description: |
+                Flag for third party PDF reader. 
+                If supported application shows print dialog immediately after opening document.
+            typeOfPrinter:
+              type: string
+              description: |
+                Type of printer.
+                Possible values: A4_2x2, A4_4x1, Connect, Thermo, ThermoZPL, ShipItThermoPdf, ThermoZPL_300DPI
+              enum: [A4_2x2, A4_4x1, Connect, Thermo, ThermoZPL, ShipItThermoPdf, ThermoZPL_300DPI]
+          required:
+            - parcelList
+
+    PrintLabelsResponse:
+      type: object
+      description: |
+        Response from PrintLabels operation.
+        Under the hood it calls both PrepareLabels and GetPrintedLabels in one step.
+      properties:
+        labels:
+          type: string
+          format: byte
+          description: PDF document in byte array
+        printLabelsErrorList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorInfo'
+          description: List of potential errors
+        printLabelsInfoList:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrintLabelsInfo'
+          description: List of successfully prepared records (ID, ClientReference, and ParcelNumber)
+
+    # ============================================
+    # SuccessfullyDeleted Class
+    # ============================================
+    
+    SuccessfullyDeleted:
+      type: object
+      description: |
+        Information about a successfully deleted parcel/label.
+        When a deleted parcel wasn't the only one in shipment, 
+        there is a filled array of sub-parcels ID.
+      properties:
+        parcelId:
+          type: integer
+          description: Parcel identifier
+        subParcelIdList:
+          type: array
+          items:
+            type: integer
+          description: List of successfully deleted subparcel identifiers
+
+    # ============================================
+    # DeleteLabels Request/Response
+    # ============================================
+    
+    DeleteLabelsRequest:
+      allOf:
+        - $ref: '#/components/schemas/APIRequestBase'
+        - type: object
+          properties:
+            parcelIdList:
+              type: array
+              minItems: 1
+              maxItems: 50
+              items:
+                type: integer
+              description: |
+                List of labels/parcels database ID.
+                REQUIRED, NOT EMPTY
+                MAX. 50 ITEMS PER REQUEST
+          required:
+            - parcelIdList
+
+    DeleteLabelsResponse:
+      type: object
+      description: Response from DeleteLabels operation. Sets DELETED state for labels/parcels with specific database record ID.
+      properties:
+        labels:
+          type: string
+          format: byte
+          description: PDF document in byte array
+        deleteLabelsErrorList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorInfo'
+          description: List of potential errors
+        successfullyDeletedList:
+          type: array
+          items:
+            $ref: '#/components/schemas/SuccessfullyDeleted'
+          description: List of successfully deleted labels/parcels database IDs
+
+    # ============================================
+    # ModifyCOD Request/Response
+    # ============================================
+    
+    ModifyCODRequest:
+      allOf:
+        - $ref: '#/components/schemas/APIRequestBase'
+        - type: object
+          properties:
+            parcelId:
+              type: integer
+              nullable: true
+              description: |
+                Label/parcel database ID.
+                REQUIRED IF ParcelNumber IS NULL
+            parcelNumber:
+              type: integer
+              format: int64
+              nullable: true
+              description: |
+                Parcel number.
+                REQUIRED IF ParcelId IS NULL
+            codAmount:
+              type: number
+              format: decimal
+              description: |
+                Cash on delivery amount.
+                ZERO OR POSITIVE
+
+    ModifyCODResponse:
+      type: object
+      description: Response from ModifyCOD operation. Changes COD amount for specific parcel.
+      properties:
+        successful:
+          type: boolean
+          description: True = modifying COD without error
+        modifyCODError:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorInfo'
+          description: List of potential errors
+
+    # ============================================
+    # GetParcelList Request/Response
+    # ============================================
+    
+    GetParcelListRequest:
+      allOf:
+        - $ref: '#/components/schemas/APIRequestBase'
+        - type: object
+          properties:
+            pickupDateFrom:
+              type: string
+              format: date-time
+              nullable: true
+              description: Pickup date from
+            pickupDateTo:
+              type: string
+              format: date-time
+              nullable: true
+              description: Pickup date to
+            printDateFrom:
+              type: string
+              format: date-time
+              nullable: true
+              description: Print date from
+            printDateTo:
+              type: string
+              format: date-time
+              nullable: true
+              description: Print date to
+
+    GetParcelListResponse:
+      type: object
+      description: Response from GetParcelList operation. Get parcel(s) information by date ranges.
+      properties:
+        getParcelListErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorInfo'
+          description: List of potential errors
+        printDataInfoList:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrintDataInfo'
+          description: Parcel(s) information by date ranges
+
+    # ============================================
+    # ParcelStatus Class
+    # ============================================
+    
+    ParcelStatus:
+      type: object
+      description: Parcel status information at a specific depot/time.
+      properties:
+        depotCity:
+          type: string
+          description: Depot city
+        depotNumber:
+          type: string
+          description: Depot number
+        statusCode:
+          type: string
+          description: Status code
+        statusDate:
+          type: string
+          format: date-time
+          description: Status date
+        statusDescription:
+          type: string
+          description: Status description
+        statusInfo:
+          type: string
+          description: Status info
+
+    # ============================================
+    # GetParcelStatuses Request/Response
+    # ============================================
+    
+    GetParcelStatusesRequest:
+      allOf:
+        - $ref: '#/components/schemas/APIRequestBase'
+        - type: object
+          properties:
+            parcelNumber:
+              type: integer
+              format: int64
+              description: Parcel number (REQUIRED)
+            returnPOD:
+              type: boolean
+              description: True = get POD (Proof of Delivery) file in PDF format
+            languageIsoCode:
+              type: string
+              description: |
+                Language ISO code (ISO 639-1).
+                Possible values: HR, CS, HU, RO, SK, SL
+                Default: EN
+          required:
+            - parcelNumber
+
+    GetParcelStatusResponse:
+      type: object
+      description: Response from GetParcelStatuses operation. Get parcel statuses with/or without POD.
+      properties:
+        clientReference:
+          type: string
+          description: Client custom tag identifying parcel
+        deliveryCountryCode:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          description: Two letter country code defined in ISO 3166-1
+        deliveryZipCode:
+          type: string
+          description: Delivery area Zip code
+        getParcelStatusErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorInfo'
+          description: List of potential errors
+        parcelNumber:
+          type: integer
+          format: int64
+          description: Parcel number
+        parcelStatusList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParcelStatus'
+          description: Parcel status list
+        pod:
+          type: string
+          format: byte
+          nullable: true
+          description: PDF document (Proof of Delivery) in byte array
+        weight:
+          type: number
+          format: double
+          nullable: true
+          description: Weight
+
+    # ============================================
+    # GetClientReturnAddress Request/Response
+    # ============================================
+    
+    GetClientReturnAddressRequest:
+      allOf:
+        - $ref: '#/components/schemas/APIRequestBase'
+        - type: object
+          properties:
+            clientNumber:
+              type: integer
+              format: int64
+              description: Unique client number (REQUIRED)
+            languageIsoCode:
+              type: string
+              description: |
+                Language ISO code (ISO 639-1).
+                Possible values: HR, CS, HU, RO, SK, SL
+                REQUIRED
+            linkTypeId:
+              type: integer
+              nullable: true
+              description: |
+                Link type ID.
+                Possible values: 1 = ClientPayment, 2 = ConsigneePayment
+            name:
+              type: string
+              description: Link name (REQUIRED)
+          required:
+            - clientNumber
+            - languageIsoCode
+            - name
+
+    GetClientReturnAddressResponse:
+      type: object
+      description: Response from GetClientReturnAddress operation. Get return address of unique client number.
+      properties:
+        returnAddress:
+          $ref: '#/components/schemas/Address'
+          description: Client return address
+        linkStatus:
+          type: integer
+          description: |
+            Link status.
+            Possible values: 0 = NotExists, 1 = Active, 2 = Inactive, 3 = Deleted
+          enum: [0, 1, 2, 3]
+        getClientReturnAddressErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorInfo'
+          description: List of potential errors
+  securitySchemes:
+    basic_auth:
+      type: http
+      scheme: basic
+      description: |
+        HTTP Basic Authentication with SHA512-encrypted password.
+        
+        The authentication request must include:
+        - Username: MyGLS email address
+        - Password: SHA512-encrypted password converted to byte array, then base64-encoded for HTTP Basic Auth
+        - ClientNumberList: List of GLS client/account numbers to operate on
+        - WebshopEngine: Optional identifier for your application
+        
+        Example request class (C#):
+        ```csharp
+        public class APIRequestBase
+        {
+          public List<int> ClientNumberList { get; set; }
+          public byte[] Password { get; set; }
+          public string Username { get; set; }
+          public string WebshopEngine { get; set; }
+        }
+        ```
+
+security:
+  - basic_auth: []
+
+# ============================================
+# Appendices - Service Codes
+# ============================================
+
+x-service-codes:
+  description: |
+    Service codes and their parameters as defined in Appendix B
+  services:
+    24H:
+      name: "24H Service"
+      parameter: null
+      description: "24-hour service"
+    
+    ADR:
+      name: "Dangerous Goods"
+      parameter: "ServiceParameterADR"
+      required: true
+      description: |
+        Dangerous goods service
+        Required properties: AdrItemType, AmountUnit, InnerCount, PackSize, UnNumber
+    
+    AOS:
+      name: "Alternative Addressee"
+      parameter: "ServiceParameterString"
+      required: true
+      description: "Alternative addressee service"
+    
+    CS1:
+      name: "SMS Confirmation"
+      parameter: "ServiceParameterString"
+      required: true
+      description: "SMS confirmation service - phone number in international format"
+    
+    DDS:
+      name: "Delivery Date Service"
+      parameter: "ServiceParameterDateTime"
+      required: true
+      description: "Delivery date service - specify exact delivery date"
+    
+    DPV:
+      name: "Declared Value"
+      parameter: "ServiceParameterStringDecimal"
+      required: true
+      description: "Declared value service - StringValue (reference) + DecimalValue (amount)"
+    
+    FDS:
+      name: "Email Notification"
+      parameter: "ServiceParameterString"
+      required: true
+      description: "Email notification service - email address"
+    
+    FSS:
+      name: "SMS Notification"
+      parameter: "ServiceParameterString"
+      required: true
+      description: "SMS notification service - phone number in international format"
+    
+    INS:
+      name: "Insurance"
+      parameter: "ServiceParameterDecimal"
+      required: true
+      description: |
+        Insurance service
+        Note: In HU, below 50000 HUF there is default insurance
+    
+    PRS:
+      name: "Personal Service"
+      parameter: null
+      description: "Personal service - no parameter required"
+    
+    PSD:
+      name: "Parcel Shop Delivery"
+      parameter: "ServiceParameterString"
+      required: true
+      description: "Parcel shop delivery - shop ID (format: number-PARCELSHOP)"
+    
+    PSS:
+      name: "Parcel Shop Service"
+      parameter: null
+      description: "Parcel shop service - no parameter required"
+    
+    SAT:
+      name: "Saturday Delivery"
+      parameter: null
+      description: "Saturday delivery service - no parameter required"
+    
+    SDS:
+      name: "Scheduled Delivery"
+      parameter: "ServiceParameterTimeRange"
+      required: true
+      description: "Scheduled delivery service - time range (TimeFrom, TimeTo)"
+    
+    SM1:
+      name: "SMS Service"
+      parameter: "ServiceParameterString"
+      required: true
+      description: |
+        SMS service with custom message
+        Format: "phone|message"
+        Available variables: #ParcelNr#, #COD#, #PickupDate#, #From_Name#, #ClientRef#
+    
+    SM2:
+      name: "SMS Pre-Advice"
+      parameter: "ServiceParameterString"
+      required: true
+      description: "SMS pre-advice service - phone number in international format"
+    
+    SRS:
+      name: "Shop Return Service"
+      parameter: null
+      availability: "HU, SI only"
+      description: "Shop return service - no parameter required"
+    
+    SZL:
+      name: "Document Return Service"
+      parameter: "ServiceParameterString"
+      required: true
+      description: "Document return service (SZáLlítólevél visszaforgatás) - document number (max 15 chars)"
+    
+    T09:
+      name: "Express Service T09"
+      parameter: null
+      description: "Express service T09 - requires PickupDate"
+    
+    T10:
+      name: "Express Service T10"
+      parameter: null
+      description: "Express service T10 - requires PickupDate"
+    
+    T12:
+      name: "Express Service T12"
+      parameter: null
+      description: "Express service T12 - requires PickupDate"
+    
+    TGS:
+      name: "Think Green Service"
+      parameter: null
+      description: "Think green/environmental service - no parameter required"
+    
+    XS:
+      name: "Exchange Service"
+      parameter: null
+      description: "Exchange service - no parameter required"
+    
+    LRS:
+      name: "LockerReturn Service"
+      parameter: null
+      availability: "HU only"
+      description: |
+        Locker return service - PickupType must be set to 2 (LabellessParcelLocker)
+        PIN code will be provided in response for parcel locker access
+
+# ============================================
+# Appendices - GLS Tracking Status Codes
+# ============================================
+
+x-parcel-status-codes:
+  description: |
+    GLS system status codes and their meanings as defined in Appendix G
+  statuses:
+    1:
+      code: 1
+      meaning: "The parcel was handed over to GLS."
+    2:
+      code: 2
+      meaning: "The parcel has left the parcel center."
+    3:
+      code: 3
+      meaning: "The parcel has reached the parcel center."
+    4:
+      code: 4
+      meaning: "The parcel is expected to be delivered during the day."
+    5:
+      code: 5
+      meaning: "The parcel has been delivered."
+    6:
+      code: 6
+      meaning: "The parcel is stored in the parcel center."
+    7:
+      code: 7
+      meaning: "The parcel is stored in the parcel center."
+    8:
+      code: 8
+      meaning: "The parcel is stored in the GLS parcel center. The consignee has agreed to collect the goods himself."
+    9:
+      code: 9
+      meaning: "The parcel is stored in the parcel center to be delivered at a new delivery date."
+    10:
+      code: 10
+      meaning: "Check scan normal."
+    11:
+      code: 11
+      meaning: "The parcel could not be delivered as the consignee is on holidays."
+    12:
+      code: 12
+      meaning: "The parcel could not be delivered as the consignee was absent."
+    13:
+      code: 13
+      meaning: "Sorting error at the depot."
+    14:
+      code: 14
+      meaning: "The parcel could not be delivered as the reception was closed."
+    15:
+      code: 15
+      meaning: "Not delivered lack of time."
+    16:
+      code: 16
+      meaning: "The parcel could not be delivered as the consignee had no cash available/suitable."
+    17:
+      code: 17
+      meaning: "The parcel could not be delivered as the recipient refused acceptance."
+    18:
+      code: 18
+      meaning: "The parcel could not be delivered as further address information is needed."
+    19:
+      code: 19
+      meaning: "The parcel could not be delivered due to the weather condition."
+    20:
+      code: 20
+      meaning: "The parcel could not be delivered due to wrong or incomplete address."
+    21:
+      code: 21
+      meaning: "Forwarded sorting error."
+    22:
+      code: 22
+      meaning: "Parcel is sent from the depot to sorting center."
+    23:
+      code: 23
+      meaning: "The parcel has been returned to sender."
+    24:
+      code: 24
+      meaning: "The changed delivery option has been saved in the GLS system and will be implemented as requested."
+    25:
+      code: 25
+      meaning: "Forwarded misrouted."
+    26:
+      code: 26
+      meaning: "The parcel has reached the parcel center."
+    27:
+      code: 27
+      meaning: "The parcel has reached the parcel center."
+    28:
+      code: 28
+      meaning: "Disposed."
+    29:
+      code: 29
+      meaning: "Parcel is under investigation."
+    30:
+      code: 30
+      meaning: "Inbound damaged."
+    31:
+      code: 31
+      meaning: "Parcel was completely damaged."
+    32:
+      code: 32
+      meaning: "The parcel will be delivered in the evening."
+    33:
+      code: 33
+      meaning: "The parcel could not be delivered due to exceeded time frame."
+    34:
+      code: 34
+      meaning: "The parcel could not be delivered as acceptance has been refused due to delayed delivery."
+    35:
+      code: 35
+      meaning: "Parcel was refused because the goods was not ordered."
+    36:
+      code: 36
+      meaning: "Consignee was not in, contact card couldn't be left."
+    37:
+      code: 37
+      meaning: "Change delivery for shipper's request."
+    38:
+      code: 38
+      meaning: "The parcel could not be delivered due to missing delivery note."
+    39:
+      code: 39
+      meaning: "Delivery note not signed."
+    40:
+      code: 40
+      meaning: "The parcel has been returned to sender."
+    41:
+      code: 41
+      meaning: "Forwarded normal."
+    42:
+      code: 42
+      meaning: "The parcel was disposed upon shipper's request."
+    43:
+      code: 43
+      meaning: "Parcel is not to locate."
+    44:
+      code: 44
+      meaning: "Parcel is excluded from General Terms and Conditions."
+    46:
+      code: 46
+      meaning: "Change completed for Delivery address."
+    47:
+      code: 47
+      meaning: "The parcel has left the parcel center."
+    51:
+      code: 51
+      meaning: "The parcel data was entered into the GLS IT system; the parcel was not yet handed over to GLS."
+    52:
+      code: 52
+      meaning: "The COD data was entered into the GLS IT system."
+    53:
+      code: 53
+      meaning: "Depot transit."
+    54:
+      code: 54
+      meaning: "The parcel has been delivered to the parcel box."
+    55:
+      code: 55
+      meaning: "The parcel has been delivered at the ParcelShop (see ParcelShop information)."
+    56:
+      code: 56
+      meaning: "Parcel is stored in GLS ParcelShop."
+    57:
+      code: 57
+      meaning: "The parcel has reached the maximum storage time in the ParcelShop."
+    58:
+      code: 58
+      meaning: "The parcel has been delivered at the neighbour's (see signature)."
+    59:
+      code: 59
+      meaning: "Parcelshop pickup."
+    60:
+      code: 60
+      meaning: "Customs clearance is delayed due to a missing invoice."
+    61:
+      code: 61
+      meaning: "The customs documents are being prepared."
+    62:
+      code: 62
+      meaning: "Customs clearance is delayed as the consignee's phone number is not available."
+    64:
+      code: 64
+      meaning: "The parcel was released by customs."
+    65:
+      code: 65
+      meaning: "The parcel was released by customs. Customs clearance is carried out by the consignee."
+    66:
+      code: 66
+      meaning: "Customs clearance is delayed until the consignee's approval is available."
+    67:
+      code: 67
+      meaning: "The customs documents are being prepared."
+    68:
+      code: 68
+      meaning: "The parcel could not be delivered as the consignee refused to pay charges."
+    69:
+      code: 69
+      meaning: "The parcel is stored in the parcel center. It cannot be delivered as the consignment is not complete."
+    70:
+      code: 70
+      meaning: "Customs clearance is delayed due to incomplete documents."
+    71:
+      code: 71
+      meaning: "Customs clearance is delayed due to missing or inaccurate customs documents."
+    72:
+      code: 72
+      meaning: "Customs data must be recorded."
+    73:
+      code: 73
+      meaning: "Customs parcel locked in origin country."
+    74:
+      code: 74
+      meaning: "Customs clearance is delayed due to a customs inspection."
+    75:
+      code: 75
+      meaning: "Parcel was confiscated by the Customs authorities."
+    76:
+      code: 76
+      meaning: "Customs data recorded, parcel can be sent do final location."
+    80:
+      code: 80
+      meaning: "The parcel has been forwarded to the desired address to be delivered there."
+    83:
+      code: 83
+      meaning: "The parcel data for Pickup-Service was entered into the GLS system."
+    84:
+      code: 84
+      meaning: "The parcel label for the pickup has been produced."
+    85:
+      code: 85
+      meaning: "The driver has received the order to pick up the parcel during the day."
+    86:
+      code: 86
+      meaning: "The parcel has reached the parcel center."
+    87:
+      code: 87
+      meaning: "The pickup request has been cancelled as there were no goods to be picked up."
+    88:
+      code: 88
+      meaning: "The parcel could not be picked up as the goods to be picked up were not packed."
+    89:
+      code: 89
+      meaning: "The parcel could not be picked up as the customer was not informed about the pickup."
+    90:
+      code: 90
+      meaning: "The pickup request has been cancelled as the goods were sent by other means."
+    91:
+      code: 91
+      meaning: "Pick and Ship/Return cancelled."
+    92:
+      code: 92
+      meaning: "The parcel has been delivered."
+    93:
+      code: 93
+      meaning: "Signature confirmed."
+    97:
+      code: 97
+      meaning: "Parcel is placed to parcellocker."
+    99:
+      code: 99
+      meaning: "Consignee contacted Email delivery notification."
+    401:
+      code: 401
+      meaning: "Parcellocker capacity problem"
+    402:
+      code: 402
+      meaning: "Parcellocker oversized"
+    403:
+      code: 403
+      meaning: "Parcel damaged"
+    404:
+      code: 404
+      meaning: "Parcellocker technical issue"
+    420:
+      code: 420
+      meaning: "Defect box"
+
+# ============================================
+# Appendices - Service Examples
+# ============================================
+
+x-service-examples:
+  description: |
+    Service parameter examples in JSON format as defined in Appendix E
+  examples:
+    24H_service:
+      serviceCode: "24H"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "24H"
+          }]
+        }
+    
+    adr_service:
+      serviceCode: "ADR"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "ADR",
+            "ADRParameter": {
+              "AdrItemType": 2,
+              "AmountUnit": 4,
+              "InnerCount": 1,
+              "PackSize": 1,
+              "UnNumber": 1002
+            }
+          }]
+        }
+    
+    aos_service:
+      serviceCode: "AOS"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "AOS",
+            "AOSParameter": {
+              "Value": "Test Addressee"
+            }
+          }]
+        }
+    
+    cs1_service:
+      serviceCode: "CS1"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "CS1",
+            "CS1Parameter": {
+              "Value": "+36701234567"
+            }
+          }]
+        }
+    
+    dds_service:
+      serviceCode: "DDS"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "DDS",
+            "DDSParameter": {
+              "Value": "/Date(1598911199000)/"
+            }
+          }]
+        }
+    
+    dpv_service:
+      serviceCode: "DPV"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "DPV",
+            "DPVParameter": {
+              "StringValue": "APITEST",
+              "DecimalValue": 12500
+            }
+          }]
+        }
+    
+    fds_service:
+      serviceCode: "FDS"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "FDS",
+            "FDSParameter": {
+              "Value": "something@anything.hu"
+            }
+          }]
+        }
+    
+    fss_and_fds_service:
+      serviceCode: "FSS, FDS"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "FSS",
+            "FSSParameter": {
+              "Value": "+36701234567"
+            }
+          }, {
+            "Code": "FDS",
+            "FDSParameter": {
+              "Value": "something@anything.hu"
+            }
+          }]
+        }
+    
+    ins_service:
+      serviceCode: "INS"
+      note: "In HU: below 50000 HUF, there is default insurance"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "INS",
+            "INSParameter": {
+              "Value": "50000"
+            }
+          }]
+        }
+    
+    prs_service:
+      serviceCode: "PRS"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "PRS"
+          }]
+        }
+    
+    psd_service:
+      serviceCode: "PSD"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "PSD",
+            "PSDParameter": {
+              "StringValue": "2351-CSOMAGPONT"
+            }
+          }]
+        }
+    
+    pss_service:
+      serviceCode: "PSS"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "PSS"
+          }]
+        }
+    
+    sat_service:
+      serviceCode: "SAT"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "SAT"
+          }]
+        }
+    
+    sds_service:
+      serviceCode: "SDS"
+      note: "(SENT) 1970-01-01 12:21:00 -> (SAVED) 1970-01-01 12:30:00. In PHP: date_default_timezone_set('UTC');"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "SDS",
+            "SDSParameter": {
+              "TimeFrom": "/Date(44460000)/",
+              "TimeTo": "/Date(57060000)/"
+            }
+          }]
+        }
+    
+    sm1_service:
+      serviceCode: "SM1"
+      note: "Available variables in message: #ParcelNr#, #COD#, #PickupDate#, #From_Name#, #ClientRef#"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "SM1",
+            "SM1Parameter": {
+              "Value": "+36701234567|#ParcelNr# - Test message."
+            }
+          }]
+        }
+    
+    sm2_service:
+      serviceCode: "SM2"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "SM2",
+            "SM2Parameter": {
+              "Value": "+36701234567"
+            }
+          }]
+        }
+    
+    srs_service:
+      serviceCode: "SRS"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "SRS"
+          }]
+        }
+    
+    szl_service:
+      serviceCode: "SZL"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "SZL",
+            "SZLParameter": {
+              "Value": "DOCUMENT ID"
+            }
+          }]
+        }
+    
+    express_services:
+      serviceCode: "T09, T10, T12"
+      note: "All require PickupDate to be set"
+      json: |
+        {
+          "PickupDate": "2025-01-29T10:00:00Z",
+          "ServiceList": [{
+            "Code": "T09"
+          }]
+        }
+    
+    tgs_service:
+      serviceCode: "TGS"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "TGS"
+          }]
+        }
+    
+    xs_service:
+      serviceCode: "XS"
+      json: |
+        {
+          "ServiceList": [{
+            "Code": "XS"
+          }]
+        }
+    
+    lrs_service:
+      serviceCode: "LRS"
+      note: "Available only in HU. PickupType must be set to 2 (LabellessParcelLocker)"
+      json: |
+        {
+          "PickupType": 2,
+          "ServiceList": [{
+            "Code": "LRS"
+          }]
+        }
+
+# ============================================
+# Appendices - Parcel Property Examples
+# ============================================
+
+x-parcel-property-examples:
+  description: |
+    Parcel property list examples in JSON format as defined in Appendix E
+  example: |
+    {
+      "ParcelPropertyList": [{
+        "Content": "Test",
+        "PackageType": 1,
+        "Height": 32,
+        "Length": 28,
+        "Width": 49,
+        "Weight": 3.2
+      }]
+    }
+  packageTypes:
+    1: "Colli"
+    2: "Box"
+    3: "Roll"
+    4: "Can"
+    5: "Case"
+    6: "Reel"
+    7: "Sack"
+
+x-countries:
+  HU:
+    name: Hungary
+    domain: mygls.hu
+    production_url: https://api.mygls.hu
+    testing_url: https://api.test.mygls.hu
+  
+  CZ:
+    name: Czech Republic
+    domain: mygls.cz
+    production_url: https://api.mygls.cz
+    testing_url: https://api.test.mygls.cz
+  
+  HR:
+    name: Croatia
+    domain: mygls.hr
+    production_url: https://api.mygls.hr
+    testing_url: https://api.test.mygls.hr
+  
+  RO:
+    name: Romania
+    domain: mygls.ro
+    production_url: https://api.mygls.ro
+    testing_url: https://api.test.mygls.ro
+  
+  SI:
+    name: Slovenia
+    domain: mygls.si
+    production_url: https://api.mygls.si
+    testing_url: https://api.test.mygls.si
+  
+  SK:
+    name: Slovakia
+    domain: mygls.sk
+    production_url: https://api.mygls.sk
+    testing_url: https://api.test.mygls.sk
+  
+  RS:
+    name: Serbia
+    domain: mygls.rs
+    production_url: https://api.mygls.rs
+    testing_url: https://api.test.mygls.rs
