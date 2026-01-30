@@ -2,6 +2,8 @@
   "name": "shopickup-integration-layer",
   "version": "1.0.0",
   "description": "Universal Multi-Carrier Shipping Integration Layer",
+  "author": "David Fodor",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {
