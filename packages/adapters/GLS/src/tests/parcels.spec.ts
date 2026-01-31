@@ -146,9 +146,8 @@ describe('GLS Parcel Mapper', () => {
     it('should map canonical parcel to GLS parcel format', () => {
       const result = mapCanonicalParcelToGLS(mockParcel as any, 12345);
 
-      expect(result.clientNumberList).toEqual([12345]);
-      expect(result.username).toBe(''); // Filled by capability
-      expect(result.password).toBe(''); // Filled by capability
+      // Per GLS API spec (ver. 25.12.11), auth fields are at request root level, NOT per-parcel
+      // Individual parcels contain only parcel-specific data
       expect(result.clientReference).toBe('ORDER-123');
       expect(result.count).toBe(1);
       expect(result.content).toBe('Package contents');

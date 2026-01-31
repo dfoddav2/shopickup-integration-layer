@@ -37,18 +37,21 @@ describe('GLS Label Mappers', () => {
         'shopickup/1.0'
       );
 
-      expect(result).toBeDefined();
-      expect(result.parcelList).toHaveLength(2);
-      expect(result.parcelList[0]).toMatchObject({
-        clientNumber: 67890,
-        clientReference: 'GLS-12345',
-        username: 'test@example.com',
-        password: 'hashedPassword123',
-        clientNumberList: [67890],
-      });
-      expect(result.typeOfPrinter).toBe('Thermo');
-      expect(result.username).toBe('test@example.com');
-      expect(result.clientNumberList).toEqual([67890]);
+       expect(result).toBeDefined();
+       expect(result.parcelList).toHaveLength(2);
+       // Per GLS API spec, individual parcels should NOT contain auth fields
+       // Auth fields are at the request root level
+       expect(result.parcelList[0]).toMatchObject({
+         clientReference: 'GLS-12345',
+         pickupAddress: {
+           name: 'Existing',
+           countryIsoCode: 'HU',
+         },
+       });
+       // Auth fields should be at request root level
+       expect(result.typeOfPrinter).toBe('Thermo');
+       expect(result.username).toBe('test@example.com');
+       expect(result.clientNumberList).toEqual([67890]);
     });
 
     it('should handle single parcel ID', () => {

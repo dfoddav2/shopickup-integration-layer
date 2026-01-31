@@ -18,24 +18,20 @@ const GLS_CREDENTIALS_SCHEMA = {
     username: {
       type: 'string',
       description: 'MyGLS username (email address)',
-      example: 'integration@example.com',
     },
     password: {
       type: 'string',
       description: 'MyGLS password (will be SHA512-hashed by adapter)',
-      example: 'myPassword123',
     },
     clientNumberList: {
       type: 'array',
       items: { type: 'integer' },
       minItems: 1,
       description: 'GLS client/account numbers',
-      example: [12345],
     },
     webshopEngine: {
       type: 'string',
       description: 'Optional webshop engine identifier',
-      example: 'shopickup-adapter/1.0',
     },
   },
 };
@@ -151,28 +147,27 @@ export async function registerCreateLabelsRoute(
             description: 'Array of GLS parcel IDs to create labels for (from CREATE_PARCELS)',
           },
           credentials: GLS_CREDENTIALS_SCHEMA,
-          options: {
-            type: 'object',
-            description: 'Optional label generation options',
-            properties: {
-              country: {
-                type: 'string',
-                description: 'ISO 3166-1 alpha-2 country code (default: HU)',
-                example: 'HU',
-              },
-              useTestApi: {
-                type: 'boolean',
-                description: 'Use test API endpoint instead of production',
-                default: false,
-              },
-              printerType: {
-                type: 'string',
-                enum: ['A4_2x2', 'A4_4x1', 'Connect', 'Thermo', 'ThermoZPL', 'ShipItThermoPdf', 'ThermoZPL_300DPI'],
-                description: 'Printer type for label generation',
-                default: 'Thermo',
-              },
-            },
-          },
+           options: {
+             type: 'object',
+             description: 'Optional label generation options',
+             properties: {
+               country: {
+                 type: 'string',
+                 description: 'ISO 3166-1 alpha-2 country code (default: HU)',
+               },
+               useTestApi: {
+                 type: 'boolean',
+                 description: 'Use test API endpoint instead of production',
+                 default: false,
+               },
+               printerType: {
+                 type: 'string',
+                 enum: ['A4_2x2', 'A4_4x1', 'Connect', 'Thermo', 'ThermoZPL', 'ShipItThermoPdf', 'ThermoZPL_300DPI'],
+                 description: 'Printer type for label generation',
+                 default: 'Thermo',
+               },
+             },
+           },
         },
         examples: [
           {

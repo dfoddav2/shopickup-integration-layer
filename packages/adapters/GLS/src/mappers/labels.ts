@@ -46,13 +46,9 @@ export function mapCanonicalCreateLabelsToGLSPrintLabels(
 ): GLSPrintLabelsRequest {
   // Map parcel carrier IDs to GLS parcel list
   // Each ID is used as the clientReference to identify the parcel
+  // NOTE: Per GLS API spec, auth fields (username, password, clientNumberList) are NOT part of individual parcels
   const glsParcels: GLSParcel[] = req.parcelCarrierIds.map((parcelCarrierId) => ({
-    clientNumber,
     clientReference: parcelCarrierId, // Use carrier ID as reference
-    username,
-    password: hashedPassword,
-    clientNumberList: [clientNumber],
-    webshopEngine: webshopEngine || 'shopickup-adapter/1.0',
     // Minimal address info - GLS will use existing parcel data
     pickupAddress: {
       name: 'Existing',
@@ -68,7 +64,7 @@ export function mapCanonicalCreateLabelsToGLSPrintLabels(
       zipCode: '00000',
       countryIsoCode: 'HU',
     },
-  } as GLSParcel));
+  }));
 
   return {
     parcelList: glsParcels,

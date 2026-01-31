@@ -20,7 +20,6 @@ export async function registerTrackRoute(fastify: FastifyInstance, adapter: GLSA
           trackingNumber: {
             type: 'string',
             description: 'GLS parcel number (numeric)',
-            example: '123456789',
           },
           credentials: {
             type: 'object',
@@ -28,18 +27,15 @@ export async function registerTrackRoute(fastify: FastifyInstance, adapter: GLSA
               username: {
                 type: 'string',
                 description: 'MyGLS API username',
-                example: 'api@example.com',
               },
               password: {
                 type: 'string',
                 description: 'MyGLS API password',
-                example: 'mySecurePassword123',
               },
               clientNumberList: {
                 type: 'array',
                 items: { type: 'integer' },
                 description: 'List of GLS client numbers',
-                example: [12345, 12346],
               },
             },
             required: ['username', 'password', 'clientNumberList'],
@@ -56,6 +52,30 @@ export async function registerTrackRoute(fastify: FastifyInstance, adapter: GLSA
           },
         },
         required: ['trackingNumber', 'credentials'],
+        examples: [
+          {
+            trackingNumber: '123456789',
+            credentials: {
+              username: 'integration@example.com',
+              password: 'myPassword123',
+              clientNumberList: [12345],
+            },
+            options: {
+              useTestApi: true,
+            },
+          },
+          {
+            trackingNumber: '987654321',
+            credentials: {
+              username: 'api@mygls.hu',
+              password: 'secure_password_123',
+              clientNumberList: [10001, 10002],
+            },
+            options: {
+              useTestApi: false,
+            },
+          },
+        ],
       },
       response: {
         200: {

@@ -117,9 +117,6 @@ export function mapCanonicalParcelToGLS(
   const deliveryAddress = mapAddressToGLSAddress(deliveryAddressData);
 
   return {
-    username: '', // Filled in by capability function
-    password: '', // Filled in by capability function
-    clientNumberList: [clientNumber],
     clientReference: parcel.id,
     count: 1,
     content: 'Package contents',

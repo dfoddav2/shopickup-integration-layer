@@ -192,8 +192,12 @@ export interface GLSParcelProperty {
 /**
  * GLS Parcel object
  * Represents a single parcel to be created/labeled
+ * 
+ * IMPORTANT: Per GLS API spec (ver. 25.12.11), authentication fields (username, password, clientNumberList)
+ * are NOT part of individual parcels. They are passed at the request root level in GLSPrepareLabelsRequest.
+ * Individual parcels contain only parcel-specific data.
  */
-export interface GLSParcel extends GLSAPIRequestBase {
+export interface GLSParcel {
   clientReference?: string; // Client's reference number (recommended)
   count?: number; // Number of parcels in shipment (max 99, default 1)
   codAmount?: number; // Cash on delivery amount
