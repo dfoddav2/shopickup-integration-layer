@@ -1,59 +1,44 @@
 /**
  * GLS Authentication Utilities
  * 
- * Handles HTTP Basic Auth header creation with SHA512 password hashing
- * for GLS MyGLS API authentication.
+ * Handles SHA512 password hashing for GLS MyGLS API authentication.
+ * 
+ * IMPORTANT: GLS uses JSON body authentication, NOT HTTP Basic Auth!
+ * The password must be converted to a byte array (not hex string).
+ * See: php_rest_client.php line 27
  */
 
 import { createHash } from 'crypto';
 
 /**
- * Creates HTTP Basic Authentication header for GLS API
+ * Computes SHA512 hash of a password and returns as byte array
  * 
- * GLS uses HTTP Basic auth where the password must be SHA512-hashed BEFORE
- * being base64-encoded for the Authorization header.
+ * GLS API expects the password as a JSON array of bytes, not a hex string.
+ * The byte array format allows JSON serialization of the hash.
  * 
- * @param username MyGLS email address
- * @param sha512PasswordHash SHA512-hashed password (hex string or buffer)
- * @returns Object with Authorization header ready for HTTP request
- * 
- * @example
- * const password = "myPassword";
- * const hashedPassword = hashPasswordSHA512(password);
- * const headers = createGLSAuthHeader("user@example.com", hashedPassword);
- * // headers.Authorization = "Basic dXNlckBleGFtcGxlLmNvbTpjMjZhZDJjMjk2NzQ0..."
- */
-export function createGLSAuthHeader(
-  username: string,
-  sha512PasswordHash: string
-): Record<string, string> {
-  // Create Basic auth credentials: "username:password"
-  const credentials = `${username}:${sha512PasswordHash}`;
-  
-  // Encode to base64
-  const base64Credentials = Buffer.from(credentials).toString('base64');
-  
-  return {
-    Authorization: `Basic ${base64Credentials}`,
-  };
-}
-
-/**
- * Computes SHA512 hash of a password
- * 
- * The password must be hashed using SHA512 algorithm.
- * Returns the hex string representation of the hash.
+ * This matches the GLS PHP example:
+ * $password = "[".implode(',',unpack('C*', hash('sha512', $pwd, true)))."]";
  * 
  * @param password Plain text password
- * @returns SHA512 hash as hex string
+ * @returns SHA512 hash as array of bytes (0-255 values)
  * 
  * @example
  * const password = "myPassword";
- * const hash = hashPasswordSHA512(password);
- * // hash = "c26ad2c2967442c6f80c1b5a2d0e5c8a..."
+ * const hashBytes = hashPasswordSHA512(password);
+ * // hashBytes = [194, 106, 210, 194, 150, 116, 76, ...]
+ * // This gets serialized as JSON: [194, 106, 210, 194, ...]
  */
-export function hashPasswordSHA512(password: string): string {
-  return createHash('sha512').update(password).digest('hex');
+export function hashPasswordSHA512(password: string): number[] {
+  // Compute SHA512 hash as raw bytes (binary output)
+  const hash = createHash('sha512').update(password).digest();
+  
+  // Convert each byte to a number (0-255)
+  const byteArray: number[] = [];
+  for (let i = 0; i < hash.length; i++) {
+    byteArray.push(hash[i]);
+  }
+  
+  return byteArray;
 }
 
 /**

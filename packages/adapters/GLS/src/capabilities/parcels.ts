@@ -46,7 +46,6 @@ import {
 import type { GLSPrepareLabelsResponse } from '../types/index.js';
 import {
   hashPasswordSHA512,
-  createGLSAuthHeader,
   resolveGLSBaseUrl,
   validateGLSCredentials,
 } from '../utils/authentication.js';
@@ -166,8 +165,8 @@ export async function createParcels(
     });
 
     // Hash the password for authentication
+    // Password is converted to byte array and included in JSON body
     const hashedPassword = hashPasswordSHA512(credentials.password);
-    const authHeaders = createGLSAuthHeader(credentials.username, hashedPassword);
 
     // Get first client number (GLS requires one client number per request)
     const clientNumber = credentials.clientNumberList[0];
@@ -199,10 +198,10 @@ export async function createParcels(
     };
 
     // Call GLS PrepareLabels endpoint
+    // No HTTP Basic Auth header needed - password is in JSON body as byte array
     const httpResponse = await ctx.http.post(
       `${baseUrl}/json/PrepareLabels`,
-      glsRequest,
-      { headers: authHeaders }
+      glsRequest
     );
 
     // Extract body from response

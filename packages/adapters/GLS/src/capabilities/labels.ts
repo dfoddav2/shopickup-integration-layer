@@ -18,7 +18,6 @@ import {
 } from '@shopickup/core';
 import {
   hashPasswordSHA512,
-  createGLSAuthHeader,
   resolveGLSBaseUrl,
   validateGLSCredentials,
 } from '../utils/authentication.js';
@@ -139,6 +138,7 @@ export async function createLabels(
     const clientNumber = credentials.clientNumberList[0];
 
     // Map canonical request to GLS PrintLabels request
+    // Password is now a byte array included in JSON body
     const glsRequest = mapCanonicalCreateLabelsToGLSPrintLabels(
       req,
       clientNumber,
@@ -146,8 +146,6 @@ export async function createLabels(
       hashedPassword,
       credentials.webshopEngine
     );
-
-    const authHeaders = createGLSAuthHeader(credentials.username, hashedPassword);
 
     safeLog(
       ctx.logger,
@@ -163,10 +161,10 @@ export async function createLabels(
     );
 
     // Call GLS PrintLabels endpoint (combines PrepareLabels + GetPrintedLabels)
+    // No HTTP Basic Auth header needed - password is in JSON body as byte array
     const httpResponse = await ctx.http.post(
       `${baseUrl}/json/PrintLabels`,
-      glsRequest,
-      { headers: authHeaders }
+      glsRequest
     );
 
     // Extract body from response

@@ -24,7 +24,6 @@ import {
 } from '../mappers/tracking.js';
 import {
   hashPasswordSHA512,
-  createGLSAuthHeader,
   resolveGLSBaseUrl,
   validateGLSCredentials,
 } from '../utils/authentication.js';
@@ -91,9 +90,8 @@ export async function track(
     const useTestApi = req.options?.useTestApi || false;
     const baseUrl = resolveGLSBaseUrl('HU', useTestApi);  // Default to Hungary
 
-    // Create auth header  
+    // Hash password for authentication (as byte array)
     const hashedPassword = hashPasswordSHA512(creds.password as string);
-    const authHeaders = createGLSAuthHeader(creds.username as string, hashedPassword);
 
     // Get first client number (GLS requires one client number per request)
     const clientNumber = (creds.clientNumberList as number[])[0];
@@ -119,7 +117,8 @@ export async function track(
       );
     }
 
-    // Build request body with auth at root level (per GLS API spec)
+    // Build request body with auth and tracking info (per GLS API spec)
+    // Password is sent as byte array in JSON body, no HTTP Basic Auth
     const trackingRequest = {
       username: creds.username as string,
       password: hashedPassword,
@@ -130,8 +129,7 @@ export async function track(
 
     const httpResponse = await ctx.http.post<any>(
       `${baseUrl}/json/GetParcelStatuses`,
-      trackingRequest,
-      { headers: authHeaders }
+      trackingRequest
     );
 
     const carrierRespBody = httpResponse.body as any;

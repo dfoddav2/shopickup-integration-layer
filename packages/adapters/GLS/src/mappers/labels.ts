@@ -41,7 +41,7 @@ export function mapCanonicalCreateLabelsToGLSPrintLabels(
   req: CreateLabelsRequest,
   clientNumber: number,
   username: string,
-  hashedPassword: string,
+  hashedPassword: number[],
   webshopEngine?: string
 ): GLSPrintLabelsRequest {
   // Map parcel carrier IDs to GLS parcel list

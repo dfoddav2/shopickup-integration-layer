@@ -63,7 +63,7 @@ export interface GLSUrlConfig {
  */
 export interface GLSAPIRequestBase {
   username: string; // MyGLS email address
-  password: string; // SHA512-hashed password (base64-encoded for HTTP Basic auth)
+  password: number[]; // SHA512-hashed password as byte array [0-255 values]
   clientNumberList: number[]; // List of GLS client/account numbers
   webshopEngine?: string; // Optional identifier for the integration system
 }
