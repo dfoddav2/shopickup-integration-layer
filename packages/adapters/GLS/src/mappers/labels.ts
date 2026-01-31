@@ -66,15 +66,15 @@ export function mapCanonicalCreateLabelsToGLSPrintLabels(
     },
   }));
 
-  return {
-    parcelList: glsParcels,
-    username,
-    password: hashedPassword,
-    clientNumberList: [clientNumber],
-    webshopEngine: webshopEngine || 'shopickup-adapter/1.0',
-    // Use default printer settings (can be customized in options)
-    typeOfPrinter: 'Thermo', // Default thermal printer
-  };
+   return {
+     parcelList: glsParcels,
+     username,
+     password: hashedPassword,
+     clientNumberList: [clientNumber],
+     webshopEngine: webshopEngine || 'shopickup-adapter/1.0',
+     // Use default printer settings (can be customized in options)
+     typeOfPrinter: 'Thermo', // Default thermal printer
+   };
 }
 
 /**

@@ -127,3 +127,47 @@ export function validateGLSCredentials(creds: GLSCredentials): void {
     }
   }
 }
+
+/**
+ * Convert camelCase object keys to PascalCase for GLS API requests
+ * 
+ * The GLS API expects PascalCase keys (Username, Password, ParcelList, etc.)
+ * but TypeScript types use camelCase. This helper converts at serialization time.
+ * 
+ * TESTING: Used to verify if 401 errors are due to key casing.
+ * 
+ * @param obj Object with camelCase keys
+ * @returns New object with PascalCase keys
+ */
+export function convertToPascalCase(obj: Record<string, any>): Record<string, any> {
+  if (!obj || typeof obj !== 'object') {
+    return obj;
+  }
+
+  // Handle arrays recursively
+  if (Array.isArray(obj)) {
+    return obj.map(item => 
+      typeof item === 'object' ? convertToPascalCase(item) : item
+    );
+  }
+
+  // Convert object keys
+  const result: Record<string, any> = {};
+  
+  for (const [key, value] of Object.entries(obj)) {
+    // Convert first letter to uppercase (camelCase → PascalCase)
+    const pascalKey = key.charAt(0).toUpperCase() + key.slice(1);
+    
+    // Recursively convert nested objects
+    result[pascalKey] = 
+      value !== null && typeof value === 'object' && !Array.isArray(value)
+        ? convertToPascalCase(value as Record<string, any>)
+        : Array.isArray(value)
+        ? (value as any[]).map(item =>
+            typeof item === 'object' ? convertToPascalCase(item) : item
+          )
+        : value;
+  }
+  
+  return result;
+}

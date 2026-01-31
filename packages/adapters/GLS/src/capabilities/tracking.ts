@@ -26,6 +26,7 @@ import {
   hashPasswordSHA512,
   resolveGLSBaseUrl,
   validateGLSCredentials,
+  convertToPascalCase,
 } from '../utils/authentication.js';
 import {
   safeValidateTrackingRequest,
@@ -119,22 +120,51 @@ export async function track(
       );
     }
 
-    // Build request body with auth and tracking info (per GLS API spec)
-    // Password is sent as byte array in JSON body, no HTTP Basic Auth
-    const trackingRequest = {
-      username: creds.username as string,
-      password: hashedPassword,
-      clientNumberList: creds.clientNumberList as number[],
-      parcelNumber,
-      clientNumber,
-    };
+     // Build request body with auth and tracking info (per GLS API spec)
+     // Password is sent as byte array in JSON body, no HTTP Basic Auth
+     const trackingRequestCamelCase = {
+       username: creds.username as string,
+       password: hashedPassword,
+       clientNumberList: creds.clientNumberList as number[],
+       parcelNumber,
+       clientNumber,
+     };
 
-    const httpResponse = await ctx.http.post<any>(
-      `${baseUrl}/json/GetParcelStatuses`,
-      trackingRequest
-    );
+     // Convert to PascalCase (matching PHP example)
+     const trackingRequest = convertToPascalCase(trackingRequestCamelCase);
 
-    const carrierRespBody = httpResponse.body as any;
+     safeLog(
+       ctx.logger,
+       'debug',
+       'GLS: Tracking request (PascalCase test)',
+       {
+         url: `${baseUrl}/json/GetParcelStatuses`,
+         requestKeys: Object.keys(trackingRequest),
+         hasPassword: Array.isArray(trackingRequest.Password),
+         parcelNumber: trackingRequest.ParcelNumber,
+       },
+       ctx,
+       ['track', 'debug']
+     );
+
+     const httpResponse = await ctx.http.post<any>(
+       `${baseUrl}/json/GetParcelStatuses`,
+       trackingRequest
+     );
+
+     safeLog(
+       ctx.logger,
+       'debug',
+       'GLS: Tracking response received',
+       {
+         statusCode: (httpResponse as any).statusCode || 'unknown',
+         hasBody: !!httpResponse.body,
+       },
+       ctx,
+       ['track', 'debug']
+     );
+
+     const carrierRespBody = httpResponse.body as any;
 
     // Validate GLS response
     const responseValidation = safeValidateGLSTrackingResponse(carrierRespBody);

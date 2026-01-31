@@ -48,6 +48,7 @@ import {
   hashPasswordSHA512,
   resolveGLSBaseUrl,
   validateGLSCredentials,
+  convertToPascalCase,
 } from '../utils/authentication.js';
 import {
   safeValidateCreateParcelRequest,
@@ -188,21 +189,58 @@ export async function createParcels(
       ['createParcels']
     );
 
-    // Build GLS PrepareLabels request with auth at root level (per spec ver. 25.12.11)
-    const glsRequest = {
-      username: credentials.username,
-      password: hashedPassword,
-      clientNumberList: [clientNumber],
-      webshopEngine: credentials.webshopEngine || 'shopickup-adapter/1.0',
-      parcelList: glsParcelList,
-    };
+     // Build GLS PrepareLabels request with auth at root level (per spec ver. 25.12.11)
+     // TESTING: Converting to PascalCase to match PHP example exactly
+     const glsRequestCamelCase = {
+       username: credentials.username,
+       password: hashedPassword,
+       clientNumberList: [clientNumber],
+       webshopEngine: credentials.webshopEngine || 'shopickup-adapter/1.0',
+       parcelList: glsParcelList,
+     };
 
-    // Call GLS PrepareLabels endpoint
-    // No HTTP Basic Auth header needed - password is in JSON body as byte array
-    const httpResponse = await ctx.http.post(
-      `${baseUrl}/json/PrepareLabels`,
-      glsRequest
-    );
+     // Convert to PascalCase (matching PHP example)
+     const glsRequest = convertToPascalCase(glsRequestCamelCase);
+
+     // Log request for debugging (sanitize sensitive data)
+     safeLog(
+       ctx.logger,
+       'debug',
+       'GLS: Request payload (PascalCase test)',
+       {
+         url: `${baseUrl}/json/PrepareLabels`,
+         requestKeys: Object.keys(glsRequest),
+         hasUsername: !!glsRequest.Username,
+         hasPassword: Array.isArray(glsRequest.Password),
+         passwordLength: glsRequest.Password?.length,
+         clientNumberList: glsRequest.ClientNumberList,
+         parcelCount: glsRequest.ParcelList?.length,
+       },
+       ctx,
+       ['createParcels', 'debug']
+     );
+
+     // Call GLS PrepareLabels endpoint
+     // No HTTP Basic Auth header needed - password is in JSON body as byte array
+     const httpResponse = await ctx.http.post(
+       `${baseUrl}/json/PrepareLabels`,
+       glsRequest
+     );
+
+     // Log response for debugging
+     safeLog(
+       ctx.logger,
+       'debug',
+       'GLS: Response received',
+       {
+         statusCode: (httpResponse as any).statusCode || 'unknown',
+         hasBody: !!httpResponse.body,
+         bodyKeys: httpResponse.body ? Object.keys(httpResponse.body).slice(0, 5) : [],
+         bodyPreview: httpResponse.body ? JSON.stringify(httpResponse.body).substring(0, 200) : 'none',
+       },
+       ctx,
+       ['createParcels', 'debug']
+     );
 
     // Extract body from response
     const carrierRespBody = httpResponse.body as GLSPrepareLabelsResponse;

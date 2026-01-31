@@ -20,6 +20,7 @@ import {
   hashPasswordSHA512,
   resolveGLSBaseUrl,
   validateGLSCredentials,
+  convertToPascalCase,
 } from '../utils/authentication.js';
 import {
   safeValidateCreateLabelsRequest,
@@ -135,42 +136,60 @@ export async function createLabels(
     // Get first client number
     const clientNumber = credentials.clientNumberList[0];
 
-    // Map canonical request to GLS PrintLabels request
-    // Password is now a byte array included in JSON body
-    const glsRequest = mapCanonicalCreateLabelsToGLSPrintLabels(
-      req,
-      clientNumber,
-      credentials.username,
-      hashedPassword,
-      credentials.webshopEngine
-    );
+     // Map canonical request to GLS PrintLabels request
+     // Password is now a byte array included in JSON body
+     const glsRequestCamelCase = mapCanonicalCreateLabelsToGLSPrintLabels(
+       req,
+       clientNumber,
+       credentials.username,
+       hashedPassword,
+       credentials.webshopEngine
+     );
 
-    safeLog(
-      ctx.logger,
-      'debug',
-      'GLS: Creating labels batch',
-      {
-        count: req.parcelCarrierIds.length,
-        country,
-        testMode: useTestApi,
-      },
-      ctx,
-      ['createLabels']
-    );
+     // Convert to PascalCase (matching PHP example)
+     const glsRequest = convertToPascalCase(glsRequestCamelCase);
 
-    // Call GLS PrintLabels endpoint (combines PrepareLabels + GetPrintedLabels)
-    // No HTTP Basic Auth header needed - password is in JSON body as byte array
-    const httpResponse = await ctx.http.post(
-      `${baseUrl}/json/PrintLabels`,
-      glsRequest
-    );
+     safeLog(
+       ctx.logger,
+       'debug',
+       'GLS: Creating labels batch (PascalCase test)',
+       {
+         count: req.parcelCarrierIds.length,
+         country,
+         testMode: useTestApi,
+         requestKeys: Object.keys(glsRequest),
+       },
+       ctx,
+       ['createLabels']
+     );
 
-     // Extract body from response
-     const carrierRespBody = httpResponse.body as any;
+     // Call GLS PrintLabels endpoint (combines PrepareLabels + GetPrintedLabels)
+     // No HTTP Basic Auth header needed - password is in JSON body as byte array
+     const httpResponse = await ctx.http.post(
+       `${baseUrl}/json/PrintLabels`,
+       glsRequest
+     );
 
-     // Validate the response
-     const responseValidation = safeValidateGLSPrintLabelsResponse(carrierRespBody);
-     if (!responseValidation.success) {
+      // Log response for debugging
+      safeLog(
+        ctx.logger,
+        'debug',
+        'GLS: PrintLabels response received',
+        {
+          statusCode: (httpResponse as any).statusCode || 'unknown',
+          hasBody: !!httpResponse.body,
+          bodyKeys: httpResponse.body ? Object.keys(httpResponse.body).slice(0, 5) : [],
+        },
+        ctx,
+        ['createLabels', 'debug']
+      );
+
+      // Extract body from response
+      const carrierRespBody = httpResponse.body as any;
+
+      // Validate the response
+      const responseValidation = safeValidateGLSPrintLabelsResponse(carrierRespBody);
+      if (!responseValidation.success) {
       safeLog(
         ctx.logger,
         'warn',
