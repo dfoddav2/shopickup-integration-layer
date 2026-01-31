@@ -39,7 +39,6 @@ export async function registerCreateLabelRoute(
           parcelCarrierId: {
             type: 'string',
             description: 'MPL tracking number for the parcel',
-            example: 'MLHUN12345671234567',
           },
           credentials: MPL_CREDENTIALS_SCHEMA,
           options: {
@@ -84,24 +83,21 @@ export async function registerCreateLabelRoute(
             inputId: {
               type: 'string',
               description: 'Original tracking number',
-              example: 'MLHUN12345671234567',
             },
             status: {
               type: 'string',
               enum: ['created', 'failed', 'skipped'],
-              example: 'created',
             },
             fileId: {
               type: ['string', 'null'],
               description: 'Reference to generated label file',
-              example: 'label-uuid-1',
             },
             pageRange: {
               type: 'object',
               description: 'Page range in the file',
               properties: {
-                start: { type: 'number', example: 1 },
-                end: { type: 'number', example: 1 },
+                start: { type: 'number'},
+                end: { type: 'number'},
               },
               nullable: true,
             },

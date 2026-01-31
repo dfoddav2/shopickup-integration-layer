@@ -76,33 +76,7 @@ const MPL_SHIPMENT_DETAILS_RESPONSE_SCHEMA = {
     },
   },
   required: ['raw'],
-  responses: {
-    200: {
-      description: 'Shipment details retrieved successfully',
-    },
-    400: {
-      type: 'object',
-      properties: {
-        message: { type: 'string' },
-        category: { type: 'string' },
-      },
-    },
-    401: MPL_AUTHENTICATION_ERROR_SCHEMA,
-    404: {
-      type: 'object',
-      properties: {
-        message: { type: 'string' },
-        category: { type: 'string' },
-      },
-    },
-    503: {
-      type: 'object',
-      properties: {
-        message: { type: 'string' },
-        category: { type: 'string' },
-      },
-    },
-  },
+  // Fastify expects per-status response mappings at the route level.
 };
 
 export async function registerShipmentDetailsRoute(
@@ -148,7 +122,31 @@ export async function registerShipmentDetailsRoute(
           },
         ],
       },
-      response: MPL_SHIPMENT_DETAILS_RESPONSE_SCHEMA,
+      response: {
+        200: MPL_SHIPMENT_DETAILS_RESPONSE_SCHEMA,
+        400: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' },
+          },
+        },
+        401: MPL_AUTHENTICATION_ERROR_SCHEMA,
+        404: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' },
+          },
+        },
+        503: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' },
+          },
+        },
+      },
     },
     async handler(request: any, reply: any) {
       try {

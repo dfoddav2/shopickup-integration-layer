@@ -20,7 +20,8 @@
   "references": [
     { "path": "packages/core" },
     { "path": "packages/adapters/foxpost" },
-    { "path": "packages/adapters/MPL" }
+    { "path": "packages/adapters/MPL" },
+    { "path": "packages/adapters/GLS" }
   ],
   "include": ["packages/**/src", "examples/**/src"],
   "exclude": ["node_modules", "dist"]

@@ -7,6 +7,7 @@ import swagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import { registerFoxpostRoutes } from './foxpost/index.js';
 import { registerMPLRoutes } from './mpl/index.js';
+import { registerGLSRoutes } from './gls/index.js';
 
 // Create a Fastify instance
 const isDev = process.env.NODE_ENV !== 'production';
@@ -243,6 +244,9 @@ await registerFoxpostRoutes(fastify);
 
 // Register MPL dev routes
 await registerMPLRoutes(fastify);
+
+// Register GLS dev routes
+await registerGLSRoutes(fastify);
 
 // Run the server!
 await fastify.ready();

@@ -32,7 +32,7 @@ import {
   MPL_CREDENTIALS_SCHEMA,
   MPL_OPTIONS_SCHEMA,
   MPL_AUTHENTICATION_ERROR_SCHEMA,
-  EXAMPLE_MPL_CREDENTIALS_APIKEY,
+  EXAMPLE_MPL_CREDENTIALS_OAUTH,
 } from './common.js';
 
 /**
@@ -170,7 +170,7 @@ const CANONICAL_PARCEL_SCHEMA = {
       description: 'Reference codes for tracking and reconciliation',
       properties: {
         orderId: { type: 'string' },
-        customerReference: { type: 'string'},
+        customerReference: { type: 'string' },
       },
     },
     cod: {
@@ -275,27 +275,28 @@ export async function registerCreateParcelsRoute(
         required: ['credentials', 'parcels'],
         examples: [
           {
-            credentials: EXAMPLE_MPL_CREDENTIALS_APIKEY,
+            credentials: EXAMPLE_MPL_CREDENTIALS_OAUTH,
             parcels: [
+              // Example 1: Home delivery, standard service
               {
-                id: 'order-001',
+                id: 'WEBSHOP-2025-001',
                 shipper: {
-                  contact: { name: 'Sender Corp' },
+                  contact: { name: 'TechStore Budapest', phone: '+36201234567', email: 'logistics@techstore.hu' },
                   address: {
-                    name: 'Sender Corp',
-                    street: 'Petőfi utca 1',
+                    name: 'TechStore Budapest Logisztika',
+                    street: 'Puskás Tivadar utca 15',
                     city: 'Budapest',
-                    postalCode: '1011',
+                    postalCode: '1142',
                     country: 'HU',
                   },
                 },
                 recipient: {
-                  contact: { name: 'Jane Doe' },
+                  contact: { name: 'Kovács János', phone: '+36309876543', email: 'janos.kovacs@email.hu' },
                   delivery: {
                     method: 'HOME',
                     address: {
-                      name: 'Jane Doe',
-                      street: 'Main utca 42',
+                      name: 'Kovács János',
+                      street: 'Arany János utca 23',
                       city: 'Debrecen',
                       postalCode: '4026',
                       country: 'HU',
@@ -303,7 +304,181 @@ export async function registerCreateParcelsRoute(
                   },
                 },
                 service: 'standard',
-                package: { weightGrams: 500 },
+                package: { 
+                  weightGrams: 850,
+                  dimensionsCm: { length: 30, width: 20, height: 10 },
+                },
+                references: {
+                  orderId: 'WEB-2025-001',
+                  customerReference: 'KOVJANOS-2025',
+                },
+              },
+              // Example 2: Pickup point delivery with COD
+              {
+                id: 'WEBSHOP-2025-002',
+                shipper: {
+                  contact: { name: 'TechStore Budapest', phone: '+36201234567', email: 'logistics@techstore.hu' },
+                  address: {
+                    name: 'TechStore Budapest Logisztika',
+                    street: 'Puskás Tivadar utca 15',
+                    city: 'Budapest',
+                    postalCode: '1142',
+                    country: 'HU',
+                  },
+                },
+                recipient: {
+                  contact: { name: 'Nagy Péter', phone: '+36201234567', email: 'peter.nagy@email.hu' },
+                  delivery: {
+                    method: 'PICKUP_POINT',
+                    pickupPoint: {
+                      id: '1053-CSOMAGPONT',
+                      name: 'Maszka Jelmezbolt - Parcel Shop',
+                      address: {
+                        street: 'Irányi utca 20',
+                        city: 'Budapest',
+                        postalCode: '1053',
+                        country: 'HU',
+                      },
+                    },
+                  },
+                },
+                service: 'standard',
+                package: { 
+                  weightGrams: 1200,
+                  dimensionsCm: { length: 25, width: 25, height: 15 },
+                },
+                references: {
+                  orderId: 'WEB-2025-002',
+                  customerReference: 'NAGYPETER-2025',
+                },
+                cod: {
+                  amount: {
+                    amount: 15999,
+                    currency: 'HUF',
+                  },
+                },
+              },
+              // Example 3: Express service, home delivery (next-day)
+              {
+                id: 'WEBSHOP-2025-003',
+                shipper: {
+                  contact: { name: 'TechStore Budapest', phone: '+36201234567', email: 'logistics@techstore.hu' },
+                  address: {
+                    name: 'TechStore Budapest Logisztika',
+                    street: 'Puskás Tivadar utca 15',
+                    city: 'Budapest',
+                    postalCode: '1142',
+                    country: 'HU',
+                  },
+                },
+                recipient: {
+                  contact: { name: 'Tóth Mária', phone: '+36309876543', email: 'maria.toth@email.hu' },
+                  delivery: {
+                    method: 'HOME',
+                    address: {
+                      name: 'Tóth Mária',
+                      street: 'Andrássy út 89',
+                      city: 'Budapest',
+                      postalCode: '1062',
+                      country: 'HU',
+                    },
+                  },
+                },
+                service: 'express',
+                carrierServiceCode: 'MPLEX',
+                package: { 
+                  weightGrams: 500,
+                  dimensionsCm: { length: 20, width: 15, height: 8 },
+                },
+                references: {
+                  orderId: 'WEB-2025-003',
+                  customerReference: 'TOTHMARIA-EXPRESS',
+                },
+              },
+              // Example 4: Economy service with declared value (for customs/insurance)
+              {
+                id: 'WEBSHOP-2025-004',
+                shipper: {
+                  contact: { name: 'TechStore Budapest', phone: '+36201234567', email: 'logistics@techstore.hu' },
+                  address: {
+                    name: 'TechStore Budapest Logisztika',
+                    street: 'Puskás Tivadar utca 15',
+                    city: 'Budapest',
+                    postalCode: '1142',
+                    country: 'HU',
+                  },
+                },
+                recipient: {
+                  contact: { name: 'Szőcs Attila', phone: '+36201234567', email: 'attila.szocs@email.hu' },
+                  delivery: {
+                    method: 'HOME',
+                    address: {
+                      name: 'Szőcs Attila',
+                      street: 'Hattyú utca 12',
+                      city: 'Szeged',
+                      postalCode: '6722',
+                      country: 'HU',
+                    },
+                  },
+                },
+                service: 'economy',
+                package: { 
+                  weightGrams: 2500,
+                  dimensionsCm: { length: 40, width: 30, height: 20 },
+                },
+                references: {
+                  orderId: 'WEB-2025-004',
+                  customerReference: 'SZOCS-ECONOMY',
+                },
+                declaredValue: {
+                  amount: 45000,
+                  currency: 'HUF',
+                },
+              },
+              // Example 5: Pickup point + COD + larger package
+              {
+                id: 'WEBSHOP-2025-005',
+                shipper: {
+                  contact: { name: 'TechStore Budapest', phone: '+36201234567', email: 'logistics@techstore.hu' },
+                  address: {
+                    name: 'TechStore Budapest Logisztika',
+                    street: 'Puskás Tivadar utca 15',
+                    city: 'Budapest',
+                    postalCode: '1142',
+                    country: 'HU',
+                  },
+                },
+                recipient: {
+                  contact: { name: 'Balog Zoltán', phone: '+36201234567', email: 'zoltan.balog@email.hu' },
+                  delivery: {
+                    method: 'PICKUP_POINT',
+                    pickupPoint: {
+                      id: '1072-ALPHAZOOKF',
+                      name: 'Alpha Zoo Dohány utca - Parcel Point',
+                      address: {
+                        street: 'Dohány utca 17',
+                        city: 'Budapest',
+                        postalCode: '1072',
+                        country: 'HU',
+                      },
+                    },
+                  },
+                },
+                service: 'standard',
+                package: { 
+                  weightGrams: 3800,
+                  dimensionsCm: { length: 50, width: 35, height: 25 },
+                },
+                references: {
+                  orderId: 'WEB-2025-005',
+                  customerReference: 'BALOG-PP-COD',
+                },
+                cod: {
+                  amount: {
+                    amount: 24900,
+                    currency: 'HUF',
+                  },
+                },
               },
             ],
             options: {
@@ -418,6 +593,119 @@ export async function registerCreateParcelRoute(
           },
         },
         required: ['credentials', 'parcel'],
+         examples: [
+          {
+            credentials: EXAMPLE_MPL_CREDENTIALS_OAUTH,
+            parcel: {
+              id: 'WEBSHOP-2025-SINGLE-001',
+              shipper: {
+                contact: { 
+                  name: 'Fashion Store Budapest', 
+                  phone: '+36203334444', 
+                  email: 'orders@fashionstore.hu' 
+                },
+                address: {
+                  name: 'Fashion Store Budapest Warehouse',
+                  street: 'Expo utca 7',
+                  city: 'Budapest',
+                  postalCode: '1101',
+                  country: 'HU',
+                },
+              },
+              recipient: {
+                contact: { 
+                  name: 'Varga Zsuzsanna', 
+                  phone: '+36301112222', 
+                  email: 'zsuzsanna@email.hu' 
+                },
+                delivery: {
+                  method: 'HOME',
+                  address: {
+                    name: 'Varga Zsuzsanna',
+                    street: 'Erzsébet körút 18',
+                    city: 'Budapest',
+                    postalCode: '1073',
+                    country: 'HU',
+                  },
+                },
+              },
+              service: 'standard',
+              package: { 
+                weightGrams: 650,
+                dimensionsCm: { length: 25, width: 20, height: 10 },
+              },
+              references: {
+                orderId: 'WEB-2025-SINGLE-001',
+                customerReference: 'VARGA-FASHION',
+              },
+            },
+            options: {
+              useTestApi: false,
+              accountingCode: 'ACC123456',
+              labelType: 'A5',
+            },
+          },
+          {
+            credentials: EXAMPLE_MPL_CREDENTIALS_OAUTH,
+            parcel: {
+              id: 'WEBSHOP-2025-SINGLE-COD-PP',
+              shipper: {
+                contact: { 
+                  name: 'Electronics Hub', 
+                  phone: '+36209876543', 
+                  email: 'shipping@electronicshu.hu' 
+                },
+                address: {
+                  name: 'Electronics Hub Distribution',
+                  street: 'Logisztika körút 12',
+                  city: 'Debrecen',
+                  postalCode: '4030',
+                  country: 'HU',
+                },
+              },
+              recipient: {
+                contact: { 
+                  name: 'Kiss László', 
+                  phone: '+36306665555', 
+                  email: 'laszlo@email.hu' 
+                },
+                delivery: {
+                  method: 'PICKUP_POINT',
+                  pickupPoint: {
+                    id: '1066-CSOMAGPONT03',
+                    name: 'Digitalpress - Parcel Shop',
+                    address: {
+                      street: 'Jókai utca 34',
+                      city: 'Budapest',
+                      postalCode: '1066',
+                      country: 'HU',
+                    },
+                  },
+                },
+              },
+              service: 'standard',
+              package: { 
+                weightGrams: 1500,
+                dimensionsCm: { length: 30, width: 25, height: 15 },
+              },
+              references: {
+                orderId: 'WEB-2025-SINGLE-COD-PP',
+                customerReference: 'KISS-ELECTRONICS',
+              },
+              cod: {
+                amount: {
+                  amount: 22500,
+                  currency: 'HUF',
+                },
+              },
+            },
+            options: {
+              useTestApi: false,
+              accountingCode: 'ACC123456',
+              labelType: 'A5',
+            },
+          }
+        ]
       },
       response: {
         200: CREATE_PARCELS_RESPONSE_SCHEMA,

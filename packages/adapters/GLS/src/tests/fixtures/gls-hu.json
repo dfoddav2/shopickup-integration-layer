@@ -1,0 +1,88 @@
+{
+  "items": [
+    {
+      "id": "1001-PICKUP01",
+      "goldId": 1001,
+      "name": "GLS ParcelShop Budapest Déli",
+      "description": "Parcel shop in downtown Budapest",
+      "contact": {
+        "countryCode": "HU",
+        "postalCode": "1011",
+        "city": "Budapest",
+        "address": "Akadémia utca 3.",
+        "phone": "+36123456789",
+        "web": "https://www.gls-hungary.com"
+      },
+      "location": [47.50295, 19.03343],
+      "hours": [
+        [0, "08:00", "18:00"],
+        [1, "08:00", "18:00"],
+        [2, "08:00", "18:00"],
+        [3, "08:00", "18:00"],
+        [4, "08:00", "18:00"],
+        [5, "09:00", "14:00"],
+        [6, null, null]
+      ],
+      "features": ["pickup", "delivery", "acceptsCash", "acceptsCard"],
+      "type": "parcel-shop",
+      "externalId": "ext-1001-01",
+      "hasWheelchairAccess": true
+    },
+    {
+      "id": "1002-LOCKER01",
+      "goldId": 1002,
+      "name": "GLS Locker Budapest Váci utca",
+      "description": "Parcel locker at shopping center",
+      "contact": {
+        "countryCode": "HU",
+        "postalCode": "1056",
+        "city": "Budapest",
+        "address": "Váci utca 62.",
+        "phone": null,
+        "web": null
+      },
+      "location": [47.50432, 19.05874],
+      "hours": [
+        [0, "07:00", "22:00"],
+        [1, "07:00", "22:00"],
+        [2, "07:00", "22:00"],
+        [3, "07:00", "22:00"],
+        [4, "07:00", "22:00"],
+        [5, "08:00", "21:00"],
+        [6, "10:00", "20:00"]
+      ],
+      "features": ["pickup", "delivery", "acceptsCard"],
+      "type": "parcel-locker",
+      "lockerSaturation": "medium",
+      "hasWheelchairAccess": false
+    },
+    {
+      "id": "2001-PICKUP02",
+      "goldId": 2001,
+      "name": "GLS Pick&Ship Debrecen",
+      "description": "Partner location in Debrecen",
+      "contact": {
+        "countryCode": "HU",
+        "postalCode": "4024",
+        "city": "Debrecen",
+        "address": "Petőfi tér 16.",
+        "phone": "+36523456789",
+        "web": null
+      },
+      "location": [47.52915, 21.63443],
+      "hours": [
+        [0, "08:00", "17:00"],
+        [1, "08:00", "17:00"],
+        [2, "08:00", "17:00"],
+        [3, "08:00", "17:00"],
+        [4, "08:00", "17:00"],
+        [5, "08:00", "12:00"],
+        [6, null, null]
+      ],
+      "features": ["pickup", "delivery", "acceptsCash"],
+      "type": "parcel-shop",
+      "externalId": "ext-2001-02",
+      "hasWheelchairAccess": true
+    }
+  ]
+}

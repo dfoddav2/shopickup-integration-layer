@@ -76,33 +76,9 @@ const MPL_TRACKING_RESPONSE_SCHEMA = {
     },
   },
   required: ['trackingNumber', 'status', 'events', 'rawCarrierResponse'],
-  responses: {
-    200: {
-      description: 'Tracking information retrieved successfully',
-    },
-    400: {
-      type: 'object',
-      properties: {
-        message: { type: 'string' },
-        category: { type: 'string' },
-      },
-    },
-    401: MPL_AUTHENTICATION_ERROR_SCHEMA,
-    404: {
-      type: 'object',
-      properties: {
-        message: { type: 'string' },
-        category: { type: 'string' },
-      },
-    },
-    503: {
-      type: 'object',
-      properties: {
-        message: { type: 'string' },
-        category: { type: 'string' },
-      },
-    },
-  },
+  // Note: Fastify expects the route `schema.response` to be an object
+  // mapping status codes (e.g. 200, 4xx) to schemas. The per-status
+  // mapping is applied at the route level below.
 };
 
 export async function registerTrackRoute(
@@ -148,7 +124,31 @@ export async function registerTrackRoute(
           },
         ],
       },
-      response: MPL_TRACKING_RESPONSE_SCHEMA,
+      response: {
+        200: MPL_TRACKING_RESPONSE_SCHEMA,
+        400: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' },
+          },
+        },
+        401: MPL_AUTHENTICATION_ERROR_SCHEMA,
+        404: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' },
+          },
+        },
+        503: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' },
+          },
+        },
+      },
     },
     async handler(request: any, reply: any) {
       try {
@@ -252,7 +252,31 @@ export async function registerTrackRoute(
           },
         ],
       },
-      response: MPL_TRACKING_RESPONSE_SCHEMA,
+      response: {
+        200: MPL_TRACKING_RESPONSE_SCHEMA,
+        400: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' },
+          },
+        },
+        401: MPL_AUTHENTICATION_ERROR_SCHEMA,
+        404: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' },
+          },
+        },
+        503: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            category: { type: 'string' },
+          },
+        },
+      },
     },
     async handler(request: any, reply: any) {
       try {
