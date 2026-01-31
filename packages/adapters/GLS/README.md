@@ -21,12 +21,24 @@ GLS (GeneralLogisticsSystems) adapter for Shopickup integration layer. Provides 
   - Hungary (HU) fully tested and supported
   - Other regions (CZ, HR, RO, SI, SK, RS) supported with caveats
 
-### Future: Label Generation & Tracking
-- Print labels (PDF, thermal printer formats)
-- Track shipments and parcels
-- Close shipments for label generation
+### Phase 3: Label Generation ✅ Complete (HU-specific)
+- **CREATE_LABEL**: Create single label via GLS MyGLS API
+- **CREATE_LABELS**: Create multiple labels in batch
+  - PDF format support
+  - Parcel ID based retrieval
+  - Hungary (HU) fully tested and supported
+
+### Phase 4: Tracking ✅ Complete (HU-specific)
+- **TRACK**: Track parcel status and events via GLS MyGLS API
+  - Real-time status updates
+  - Event timeline history
+  - Hungary (HU) fully tested and supported
+
+### Future: Advanced Features
 - Modify COD (Cash on Delivery) amounts
+- Close shipments for label generation
 - Delete labels
+- Advanced parcel modifications
 
 ## Installation
 
@@ -122,8 +134,9 @@ See [PARCELS.md](./docs/PARCELS.md) for detailed regional information.
 | `LIST_PICKUP_POINTS` | ✅ Implemented | `fetchPickupPoints()` |
 | `CREATE_PARCEL` | ✅ Implemented | `createParcel()` |
 | `CREATE_PARCELS` | ✅ Implemented | `createParcels()` |
-| `CREATE_LABEL` | 🗓️ Planned | TBD |
-| `TRACK` | 🗓️ Planned | TBD |
+| `CREATE_LABEL` | ✅ Implemented | `createLabel()` |
+| `CREATE_LABELS` | ✅ Implemented | `createLabels()` |
+| `TRACK` | ✅ Implemented | `track()` |
 
 ## API Documentation
 
@@ -179,9 +192,30 @@ options: { country: 'HU', useTestApi: true }
 // → https://api.test.mygls.hu/ParcelService.svc
 ```
 
+## Code Architecture
+
+The adapter is organized by capability for maintainability:
+
+```
+packages/adapters/GLS/src/
+├── capabilities/
+│   ├── index.ts              # Clean exports
+│   ├── pickup-points.ts      # fetchPickupPoints()
+│   ├── parcels.ts            # createParcel(), createParcels()
+│   ├── labels.ts             # createLabel(), createLabels()
+│   └── tracking.ts           # track()
+├── mappers/                  # Data transformation
+├── validation/               # Request/response validation
+├── types/                    # TypeScript interfaces
+├── utils/                    # Authentication, URL resolution
+└── tests/                    # Unit tests (84+ tests)
+```
+
 ## Documentation
 
 - **[PARCELS.md](./docs/PARCELS.md)** - Comprehensive guide for parcel creation (CREATE_PARCEL, CREATE_PARCELS)
+- **[LABELS.md](./docs/LABELS.md)** - Comprehensive guide for label generation (CREATE_LABEL, CREATE_LABELS)
+- **[TRACKING.md](./docs/TRACKING.md)** - Comprehensive guide for parcel tracking (TRACK)
 - **[OpenAPI Spec](../../carrier-docs/hu-gls/hu-gls.openapi.yaml)** - Full GLS API specification
 
 ## Error Handling
