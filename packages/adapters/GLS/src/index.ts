@@ -28,13 +28,13 @@
  * MyGLS API (Parcel & Label Creation - HU Focus):
  * - Base URL: https://api.mygls.hu/ParcelService.svc (production)
  * - Test URL: https://api.test.mygls.hu/ParcelService.svc (testing)
- * - Authentication: HTTP Basic auth with SHA512-hashed password
+ * - Authentication: JSON body with SHA512-hashed password (as byte array)
  * - Other regions: CZ, HR, RO, SI, SK, RS (experimental support, not fully tested)
  * 
  * Tracking API (GetParcelStatuses - HU Focus):
  * - Base URL: https://api.mygls.hu/ParcelService.svc (production)
  * - Test URL: https://api.test.mygls.hu/ParcelService.svc (testing)
- * - Authentication: HTTP Basic auth with SHA512-hashed password
+ * - Authentication: JSON body with SHA512-hashed password (as byte array)
  * - Endpoint: GetParcelStatuses (SOAP/HTTP)
  * - Returns: Parcel status timeline with 40+ status codes (Appendix G)
  * 
@@ -51,7 +51,10 @@ import type {
   CreateParcelRequest,
   CreateParcelsRequest,
   CreateParcelsResponse,
+  CreateLabelRequest,
+  CreateLabelsRequest,
   CreateLabelsResponse,
+  LabelResult,
   CarrierResource,
   FetchPickupPointsRequest,
   FetchPickupPointsResponse,
@@ -144,40 +147,52 @@ export class GLSAdapter implements CarrierAdapter {
     return createParcelsImpl(req, ctx);
   }
 
-  /**
-   * Create a single label (PDF) for an existing parcel
-   * 
-   * The parcelCarrierId should be a GLS parcel ID from a prior CreateParcels call.
-   * This method delegates to createLabels for batch processing.
-   * 
-   * IMPORTANT: This is HU-specific implementation.
-   * 
-   * @param req Request with parcel carrier ID and credentials
-   * @param ctx Adapter context with HTTP client
-   * @returns Response with label file metadata and PDF bytes in rawCarrierResponse
-   */
-  async createLabel(req: any, ctx: AdapterContext): Promise<any> {
-    return createLabelImpl(req, ctx, (batchReq) => this.createLabels(batchReq, ctx));
-  }
+   /**
+    * Create a single label (PDF) for an existing parcel
+    * 
+    * The parcelCarrierId should be a GLS parcel ID from a prior CreateParcels call.
+    * This method delegates to createLabels for batch processing and returns a single LabelResult.
+    * 
+    * IMPORTANT: This is HU-specific implementation.
+    * 
+    * @param req Request with parcel carrier ID and credentials
+    * @param ctx Adapter context with HTTP client
+    * @returns Label result with file metadata and status
+    */
+   async createLabel(req: CreateLabelRequest, ctx: AdapterContext): Promise<LabelResult> {
+     const batchReq: CreateLabelsRequest = {
+       parcelCarrierIds: [req.parcelCarrierId],
+       credentials: req.credentials,
+       options: req.options,
+     };
+     const batchResponse = await createLabelsImpl(batchReq, ctx);
+     
+     // Return the first result from the batch response
+     if (!batchResponse.results || batchResponse.results.length === 0) {
+       throw new Error('No results returned from createLabels');
+     }
+     
+     return batchResponse.results[0];
+   }
 
-    /**
-     * Create multiple labels (PDFs) in batch
-     * 
-     * Takes GLS parcel IDs from prior CreateParcels calls and retrieves PDF labels
-     * via the GLS PrintLabels endpoint.
-     * 
-     * Returns per-label metadata in files array and combined PDF bytes in rawCarrierResponse.
-     * The integrator should extract rawCarrierResponse and store/upload it to cloud storage.
-     * 
-     * IMPORTANT: This is HU-specific implementation.
-     * 
-     * @param req Request with parcel carrier IDs and credentials
-     * @param ctx Adapter context with HTTP client
-     * @returns Response with file metadata, per-label results, and PDF bytes
-     */
-    async createLabels(req: any, ctx: AdapterContext): Promise<CreateLabelsResponse> {
-      return createLabelsImpl(req, ctx);
-    }
+     /**
+      * Create multiple labels (PDFs) in batch
+      * 
+      * Takes GLS parcel IDs from prior CreateParcels calls and retrieves PDF labels
+      * via the GLS PrintLabels endpoint.
+      * 
+      * Returns per-label metadata in files array and combined PDF bytes in rawCarrierResponse.
+      * The integrator should extract rawCarrierResponse and store/upload it to cloud storage.
+      * 
+      * IMPORTANT: This is HU-specific implementation.
+      * 
+      * @param req Request with parcel carrier IDs and credentials
+      * @param ctx Adapter context with HTTP client
+      * @returns Response with file metadata, per-label results, and PDF bytes
+      */
+     async createLabels(req: CreateLabelsRequest, ctx: AdapterContext): Promise<CreateLabelsResponse> {
+       return createLabelsImpl(req, ctx);
+     }
 
     /**
      * Track a parcel by tracking number

@@ -87,8 +87,9 @@ export async function track(
       );
     }
 
-    const useTestApi = req.options?.useTestApi || false;
-    const baseUrl = resolveGLSBaseUrl('HU', useTestApi);  // Default to Hungary
+     const useTestApi = req.options?.useTestApi || false;
+     const country = (req.options?.country as string) || 'HU';  // Default to Hungary
+     const baseUrl = resolveGLSBaseUrl(country, useTestApi);
 
     // Hash password for authentication (as byte array)
     const hashedPassword = hashPasswordSHA512(creds.password as string);
@@ -96,18 +97,19 @@ export async function track(
     // Get first client number (GLS requires one client number per request)
     const clientNumber = (creds.clientNumberList as number[])[0];
 
-    safeLog(
-      ctx.logger,
-      'info',
-      'GLS: Starting parcel tracking',
-      {
-        parcelNumber,
-        clientNumber,
-        testMode: useTestApi,
-      },
-      ctx,
-      ['track']
-    );
+     safeLog(
+       ctx.logger,
+       'info',
+       'GLS: Starting parcel tracking',
+       {
+         parcelNumber,
+         clientNumber,
+         country,
+         testMode: useTestApi,
+       },
+       ctx,
+       ['track']
+     );
 
     // Call GLS GetParcelStatuses endpoint
     if (!ctx.http) {

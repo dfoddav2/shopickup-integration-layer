@@ -21,6 +21,14 @@ import {
   resolveGLSBaseUrl,
   validateGLSCredentials,
 } from '../utils/authentication.js';
+import {
+  safeValidateCreateLabelsRequest,
+  safeValidateGLSPrintLabelsResponse,
+} from '../validation/labels.js';
+import {
+  mapCanonicalCreateLabelsToGLSPrintLabels,
+  mapGLSPrintLabelsToCanonicalCreateLabels,
+} from '../mappers/labels.js';
 
 /**
  * Create a single label
@@ -31,9 +39,6 @@ export async function createLabel(
   ctx: AdapterContext,
   createLabelsImpl: (req: any, ctx: AdapterContext) => Promise<any>
 ): Promise<any> {
-  // Import validators
-  const { safeValidateCreateLabelsRequest } = await import('../validation/labels.js');
-  
   // Create batch request with single parcel ID
   const batchReq = {
     parcelCarrierIds: [req.parcelCarrierId],
@@ -79,13 +84,6 @@ export async function createLabels(
   ctx: AdapterContext
 ): Promise<CreateLabelsResponse> {
   try {
-    // Import mappers and validators
-    const { safeValidateCreateLabelsRequest } = await import('../validation/labels.js');
-    const {
-      mapCanonicalCreateLabelsToGLSPrintLabels,
-      mapGLSPrintLabelsToCanonicalCreateLabels,
-    } = await import('../mappers/labels.js');
-
     // Validate request
     const validated = safeValidateCreateLabelsRequest(req);
     if (!validated.success) {
@@ -167,13 +165,12 @@ export async function createLabels(
       glsRequest
     );
 
-    // Extract body from response
-    const carrierRespBody = httpResponse.body as any;
+     // Extract body from response
+     const carrierRespBody = httpResponse.body as any;
 
-    // Validate the response
-    const { safeValidateGLSPrintLabelsResponse } = await import('../validation/labels.js');
-    const responseValidation = safeValidateGLSPrintLabelsResponse(carrierRespBody);
-    if (!responseValidation.success) {
+     // Validate the response
+     const responseValidation = safeValidateGLSPrintLabelsResponse(carrierRespBody);
+     if (!responseValidation.success) {
       safeLog(
         ctx.logger,
         'warn',
