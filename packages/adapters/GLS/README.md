@@ -149,10 +149,29 @@ See [PARCELS.md](./docs/PARCELS.md) for detailed regional information.
 
 ### MyGLS API (Authenticated)
 - **Endpoints**: Regional (HU, CZ, HR, RO, SI, SK, RS)
-- **Auth**: HTTP Basic with SHA512-hashed password
+- **Auth**: JSON body authentication with SHA512-hashed password (NOT HTTP Basic Auth)
+- **JSON Key Format**: PascalCase (e.g., Username, Password, ParcelList, ClientNumberList)
 - **Operations**: Parcel creation, label generation, tracking, etc.
 - **Batch Size**: Max 50 parcels per request
 - **Rate Limit**: Check GLS documentation
+
+#### Authentication Details
+
+The GLS MyGLS API uses JSON-based authentication (not HTTP Basic Auth):
+
+```json
+{
+  "Username": "your.email@example.com",
+  "Password": [194, 106, 210, ...],  // SHA512 hash as byte array
+  "ClientNumberList": [100000001],
+  "WebshopEngine": "shopickup-adapter/1.0"
+}
+```
+
+**Important Notes**:
+- Password must be SHA512 hashed (NOT hex-encoded, but as byte array of integers 0-255)
+- All JSON keys use **PascalCase** (not camelCase)
+- This matches the official GLS PHP reference implementation (`php_rest_client.php`)
 
 ## Configuration
 
@@ -246,6 +265,46 @@ try {
   }
 }
 ```
+
+## Troubleshooting
+
+### 401 Unauthorized Errors
+
+If you encounter 401 Unauthorized responses from GLS API:
+
+1. **Verify credentials** are correct (username and password)
+2. **Check password encoding**:
+   - Password must be plain text when passed to adapter
+   - Adapter converts it to SHA512 hash automatically
+   - Hash is serialized as a JSON array of bytes, NOT hex string
+3. **Verify client number** is correct and active in GLS MyGLS
+4. **Enable debug logging** to inspect actual request:
+   ```typescript
+   const ctx = {
+     http: httpClient,
+     logger: { log: (...args) => console.log(...args) }
+   };
+   ```
+5. **Check debug output** for "GLS: Request payload (PascalCase test)" entries showing:
+   - Correct keys: `Username`, `Password`, `ClientNumberList`, `ParcelList`
+   - Password array has 64 elements (SHA512 = 512 bits = 64 bytes)
+
+### Invalid Response from GLS
+
+If GLS returns errors or unexpected response structure:
+
+1. Check if endpoint is correct for your region (e.g., `api.mygls.hu` for Hungary)
+2. Verify request payload in debug logs matches GLS API specification
+3. Check if client account has necessary permissions
+4. Review error details in GLS response body
+5. For test environment, ensure `useTestApi: true` is set
+
+### Connection Issues
+
+- Verify network connectivity to `api.mygls.hu` (or your regional endpoint)
+- Check firewall/proxy settings
+- Try test endpoint first: `useTestApi: true`
+- Review HTTP client configuration
 
 ## Testing
 
