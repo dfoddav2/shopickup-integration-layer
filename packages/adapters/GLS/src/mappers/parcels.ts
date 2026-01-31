@@ -117,6 +117,7 @@ export function mapCanonicalParcelToGLS(
   const deliveryAddress = mapAddressToGLSAddress(deliveryAddressData);
 
   return {
+    clientNumber: clientNumber, // REQUIRED: Each parcel must specify its client number for authorization
     clientReference: parcel.id,
     count: 1,
     content: 'Package contents',

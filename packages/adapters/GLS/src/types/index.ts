@@ -193,11 +193,12 @@ export interface GLSParcelProperty {
  * GLS Parcel object
  * Represents a single parcel to be created/labeled
  * 
- * IMPORTANT: Per GLS API spec (ver. 25.12.11), authentication fields (username, password, clientNumberList)
- * are NOT part of individual parcels. They are passed at the request root level in GLSPrepareLabelsRequest.
- * Individual parcels contain only parcel-specific data.
+ * IMPORTANT: Per GLS API spec (ver. 25.12.11), EACH PARCEL MUST include ClientNumber.
+ * This associates the parcel with a specific GLS account/client for authorization.
+ * See: php_rest_client.php line 32 for reference implementation.
  */
 export interface GLSParcel {
+  clientNumber?: number; // REQUIRED: GLS account number for this parcel (authorization)
   clientReference?: string; // Client's reference number (recommended)
   count?: number; // Number of parcels in shipment (max 99, default 1)
   codAmount?: number; // Cash on delivery amount
