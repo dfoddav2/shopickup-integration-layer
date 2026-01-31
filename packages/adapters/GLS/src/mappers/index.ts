@@ -1,11 +1,14 @@
 /**
- * GLS Pickup Points Mapper
+ * GLS Mappers
  * 
- * Transforms GLS delivery point data to canonical PickupPoint format
+ * Transforms between canonical Shopickup types and GLS-specific formats
  */
 
 import type { PickupPoint } from '@shopickup/core';
 import type { GLSDeliveryPoint } from '../types/index.js';
+
+// Re-export parcel mappers
+export * from './parcels.js';
 
 /**
  * Parses GLS hours array into a readable format

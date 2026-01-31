@@ -7,12 +7,18 @@ import { FastifyInstance } from 'fastify';
 import { GLSAdapter } from '@shopickup/adapters-gls';
 import { withOperationName, withCallTracing, composeAdapterWrappers, type CarrierAdapter } from '@shopickup/core';
 import { registerPickupPointsRoute } from './pickup-points.js';
+import { registerCreateParcelsRoute } from './create-parcels.js';
+import { registerCreateLabelsRoute } from './create-labels.js';
+import { registerTrackRoute } from './track.js';
 
 /**
  * Register all GLS routes to the Fastify instance
  *
  * Routes registered:
  * - GET /api/dev/gls/pickup-points?country=hu (fetch pickup points)
+ * - POST /api/dev/gls/create-parcels (create multiple parcels)
+ * - POST /api/dev/gls/create-labels (create labels for parcels)
+ * - POST /api/dev/gls/track (track a parcel)
  *
  * The GLS adapter is wrapped with:
  * 1. withOperationName: automatically injects operation name into context
@@ -32,6 +38,9 @@ export async function registerGLSRoutes(fastify: FastifyInstance) {
 
   // Register route handlers
   await registerPickupPointsRoute(fastify, adapter as any);
+  await registerCreateParcelsRoute(fastify, adapter as any);
+  await registerCreateLabelsRoute(fastify, adapter as any);
+  await registerTrackRoute(fastify, adapter as any);
 }
 
 // Export common utilities for tests or external use
