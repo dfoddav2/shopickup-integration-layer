@@ -277,6 +277,28 @@ export interface GLSGetPrintDataResponse {
 }
 
 /**
+ * GLS GetPrintedLabels Request
+ * Retrieves PDF labels for already-created parcels (second step in two-step flow)
+ * Generates parcel numbers and PDF document containing labels in byte array format.
+ */
+export interface GLSGetPrintedLabelsRequest extends GLSAPIRequestBase {
+  parcelIdList: number[]; // List of parcel database record IDs (REQUIRED, max 99 items)
+  printPosition?: number; // 1-4: position on A4 page (A4 format only)
+  showPrintDialog?: boolean; // Show print dialog in PDF reader
+  typeOfPrinter?: 'A4_2x2' | 'A4_4x1' | 'Connect' | 'Thermo' | 'ThermoZPL' | 'ShipItThermoPdf' | 'ThermoZPL_300DPI' | 'ShipItThermoZpl'; // Printer type
+}
+
+/**
+ * GLS GetPrintedLabels Response
+ * Response containing PDF labels and metadata about successfully prepared records
+ */
+export interface GLSGetPrintedLabelsResponse {
+  labels?: string | Uint8Array; // PDF document in byte array (may be base64 string or binary)
+  getPrintedLabelsErrorList?: GLSErrorInfo[];
+  printDataInfoList?: GLSPrintDataInfo[];
+}
+
+/**
  * GLS PrintLabels Request
  * Combined request that performs PrepareLabels + GetPrintedLabels in one call
  */

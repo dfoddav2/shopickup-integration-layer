@@ -9,6 +9,7 @@ import { withOperationName, withCallTracing, composeAdapterWrappers, type Carrie
 import { registerPickupPointsRoute } from './pickup-points.js';
 import { registerCreateParcelsRoute } from './create-parcels.js';
 import { registerCreateLabelsRoute } from './create-labels.js';
+import { registerPrintLabelsRoute } from './print-labels.js';
 import { registerTrackRoute } from './track.js';
 
 /**
@@ -17,7 +18,8 @@ import { registerTrackRoute } from './track.js';
  * Routes registered:
  * - GET /api/dev/gls/pickup-points?country=hu (fetch pickup points)
  * - POST /api/dev/gls/create-parcels (create multiple parcels)
- * - POST /api/dev/gls/create-labels (create labels for parcels)
+ * - POST /api/dev/gls/create-labels (create labels for parcels - two-step GetPrintData)
+ * - POST /api/dev/gls/print-labels (create and print labels in one step - PrintLabels)
  * - POST /api/dev/gls/track (track a parcel)
  *
  * The GLS adapter is wrapped with:
@@ -40,6 +42,7 @@ export async function registerGLSRoutes(fastify: FastifyInstance) {
   await registerPickupPointsRoute(fastify, adapter as any);
   await registerCreateParcelsRoute(fastify, adapter as any);
   await registerCreateLabelsRoute(fastify, adapter as any);
+  await registerPrintLabelsRoute(fastify, adapter as any);
   await registerTrackRoute(fastify, adapter as any);
 }
 

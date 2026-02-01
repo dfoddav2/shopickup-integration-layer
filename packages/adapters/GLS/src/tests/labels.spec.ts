@@ -17,64 +17,64 @@ import {
 } from '../validation/labels.js';
 
 describe('GLS Label Mappers', () => {
-  describe('mapCanonicalCreateLabelsToGLSPrintLabels', () => {
-    it('should map CreateLabelsRequest with parcel IDs to GLS PrintLabelsRequest', () => {
-      const req = {
-        parcelCarrierIds: ['GLS-12345', 'GLS-12346'],
-        credentials: {
-          username: 'test@example.com',
-          password: 'hashedPassword123',
-          clientNumberList: [67890],
-          webshopEngine: 'shopickup/1.0',
-        },
-      };
-
-      const result = mapCanonicalCreateLabelsToGLSPrintLabels(
-        req,
-        67890,
-        'test@example.com',
-        'hashedPassword123',
-        'shopickup/1.0'
-      );
-
-       expect(result).toBeDefined();
-       expect(result.parcelList).toHaveLength(2);
-       // Per GLS API spec, individual parcels should NOT contain auth fields
-       // Auth fields are at the request root level
-       expect(result.parcelList[0]).toMatchObject({
-         clientReference: 'GLS-12345',
-         pickupAddress: {
-           name: 'Existing',
-           countryIsoCode: 'HU',
+   describe('mapCanonicalCreateLabelsToGLSPrintLabels', () => {
+     it('should map CreateLabelsRequest with parcel IDs to GLS PrintLabelsRequest', () => {
+       const req = {
+         parcelCarrierIds: ['GLS-12345', 'GLS-12346'],
+         credentials: {
+           username: 'test@example.com',
+           password: 'hashedPassword123',
+           clientNumberList: [67890],
+           webshopEngine: 'shopickup/1.0',
          },
-       });
-       // Auth fields should be at request root level
-       expect(result.typeOfPrinter).toBe('Thermo');
-       expect(result.username).toBe('test@example.com');
-       expect(result.clientNumberList).toEqual([67890]);
-    });
+       };
 
-    it('should handle single parcel ID', () => {
-      const req = {
-        parcelCarrierIds: ['GLS-99999'],
-        credentials: {
-          username: 'admin@gls.hu',
-          password: 'secret',
-          clientNumberList: [11111],
-        },
-      };
+       const result = mapCanonicalCreateLabelsToGLSPrintLabels(
+         req,
+         67890,
+         'test@example.com',
+         Array.from(Buffer.from('hashedPassword123')),
+         'shopickup/1.0'
+       );
 
-      const result = mapCanonicalCreateLabelsToGLSPrintLabels(
-        req,
-        11111,
-        'admin@gls.hu',
-        'secret'
-      );
+        expect(result).toBeDefined();
+        expect(result.parcelList).toHaveLength(2);
+        // Per GLS API spec, individual parcels should NOT contain auth fields
+        // Auth fields are at the request root level
+        expect(result.parcelList[0]).toMatchObject({
+          clientReference: 'GLS-12345',
+          pickupAddress: {
+            name: 'Existing',
+            countryIsoCode: 'HU',
+          },
+        });
+        // Auth fields should be at request root level
+        expect(result.typeOfPrinter).toBe('Thermo');
+        expect(result.username).toBe('test@example.com');
+        expect(result.clientNumberList).toEqual([67890]);
+     });
 
-      expect(result.parcelList).toHaveLength(1);
-      expect(result.parcelList[0].clientReference).toBe('GLS-99999');
-    });
-  });
+     it('should handle single parcel ID', () => {
+       const req = {
+         parcelCarrierIds: ['GLS-99999'],
+         credentials: {
+           username: 'admin@gls.hu',
+           password: 'secret',
+           clientNumberList: [11111],
+         },
+       };
+
+       const result = mapCanonicalCreateLabelsToGLSPrintLabels(
+         req,
+         11111,
+         'admin@gls.hu',
+         Array.from(Buffer.from('secret'))
+       );
+
+       expect(result.parcelList).toHaveLength(1);
+       expect(result.parcelList[0].clientReference).toBe('GLS-99999');
+     });
+   });
 
   describe('mapGLSPrintLabelsToCanonicalCreateLabels', () => {
     it('should map GLS PrintLabelsResponse with successful labels', () => {
@@ -102,9 +102,18 @@ describe('GLS Label Mappers', () => {
       expect(result.failureCount).toBe(0);
       expect(result.totalCount).toBe(2);
       expect(result.allSucceeded).toBe(true);
-      expect(result.files).toHaveLength(2);
+      expect(result.files).toHaveLength(1); // Single combined file
+      expect(result.files?.[0]).toMatchObject({
+        contentType: 'application/pdf',
+        pages: 2, // One page per label
+      });
       expect(result.results).toHaveLength(2);
-      expect(result.rawCarrierResponse).toBeDefined(); // PDF bytes
+      // rawCarrierResponse should be an object with pdfBuffer and parcelCount
+      expect(result.rawCarrierResponse).toBeDefined();
+      const response = result.rawCarrierResponse as any;
+      expect(response.pdfBuffer).toBeDefined();
+      expect(Buffer.isBuffer(response.pdfBuffer)).toBe(true);
+      expect(response.parcelCount).toBe(2);
       expect(result.summary).toContain('All 2 labels generated successfully');
     });
 
@@ -170,7 +179,9 @@ describe('GLS Label Mappers', () => {
       const result = mapGLSPrintLabelsToCanonicalCreateLabels(glsResponse, 1);
 
       expect(result.rawCarrierResponse).toBeDefined();
-      expect(Buffer.isBuffer(result.rawCarrierResponse)).toBe(true);
+      const response = result.rawCarrierResponse as any;
+      expect(Buffer.isBuffer(response.pdfBuffer)).toBe(true);
+      expect(response.parcelCount).toBe(1);
     });
 
     it('should handle binary PDF data directly', () => {
@@ -188,7 +199,9 @@ describe('GLS Label Mappers', () => {
 
       const result = mapGLSPrintLabelsToCanonicalCreateLabels(glsResponse, 1);
 
-      expect(result.rawCarrierResponse).toBe(pdfBuffer);
+      const response = result.rawCarrierResponse as any;
+      expect(response.pdfBuffer).toBe(pdfBuffer);
+      expect(response.parcelCount).toBe(1);
     });
   });
 });

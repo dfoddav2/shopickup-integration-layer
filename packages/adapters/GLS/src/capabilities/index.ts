@@ -16,11 +16,17 @@ export {
   createParcels,
 } from './parcels.js';
 
-// Labels capability
+// Labels capability (two-step: GetPrintData)
 export {
   createLabel,
   createLabels,
 } from './labels.js';
+
+// Print Labels capability (one-step: PrintLabels)
+export {
+  printLabel,
+  printLabels,
+} from './print-labels.js';
 
 // Tracking capability
 export {

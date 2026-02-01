@@ -1,10 +1,8 @@
 /**
- * GLS GetPrintedLabels Capability (Two-Step)
+ * GLS PrintLabels Capability (One-Step)
  * 
- * Retrieves PDF labels for existing parcels using GLS MyGLS API GetPrintedLabels endpoint.
- * This is the standard two-step flow:
- * 1. CreateParcels (PrepareLabels) - creates parcel records in GLS system
- * 2. GetPrintedLabels - retrieves printable PDF labels for those parcels by ID
+ * Creates labels and retrieves PDF files in one call using GLS MyGLS API PrintLabels endpoint.
+ * PrintLabels internally performs PrepareLabels + GetPrintedLabels in a single API call.
  * 
  * IMPORTANT: This is HU-specific implementation.
  */
@@ -27,22 +25,21 @@ import {
 } from '../utils/authentication.js';
 import {
   safeValidateCreateLabelsRequest,
-  safeValidateGetPrintedLabelsRequest,
-  safeValidateGLSGetPrintedLabelsResponse,
+  safeValidateGLSPrintLabelsResponse,
 } from '../validation/labels.js';
 import {
-  mapCanonicalCreateLabelsToGLSGetPrintedLabels,
-  mapGLSGetPrintedLabelsToCanonicalCreateLabels,
+  mapCanonicalCreateLabelsToGLSPrintLabels,
+  mapGLSPrintLabelsToCanonicalCreateLabels,
 } from '../mappers/labels.js';
 
 /**
- * Create a single label (two-step)
- * Delegates to createLabels for batch processing
+ * Create a single label (one-step)
+ * Delegates to printLabels for batch processing
  */
-export async function createLabel(
+export async function printLabel(
   req: any, // CreateLabelRequest type
   ctx: AdapterContext,
-  createLabelsImpl: (req: any, ctx: AdapterContext) => Promise<any>
+  printLabelsImpl: (req: any, ctx: AdapterContext) => Promise<any>
 ): Promise<any> {
   // Create batch request with single parcel ID
   const batchReq = {
@@ -51,12 +48,12 @@ export async function createLabel(
     options: req.options,
   };
 
-  const response = await createLabelsImpl(batchReq, ctx);
+  const response = await printLabelsImpl(batchReq, ctx);
 
   // Return first result or throw if empty
   if (!response || !Array.isArray(response.results) || response.results.length === 0) {
     throw new CarrierError(
-      'createLabels returned empty results',
+      'printLabels returned empty results',
       'Transient',
       { raw: serializeForLog(response) as any }
     );
@@ -70,27 +67,26 @@ export async function createLabel(
 }
 
 /**
- * Create multiple labels in batch (two-step flow)
+ * Create multiple labels in one step (one-step flow)
  * 
- * Retrieves printable PDF labels for parcel IDs using GLS GetPrintedLabels endpoint.
- * Assumes parcels were already created via createParcels (PrepareLabels endpoint).
- * The parcelCarrierIds should be the GLS parcel IDs from that response.
+ * Maps canonical CreateLabelsRequest to GLS PrintLabels request and retrieves PDF labels.
+ * The parcelCarrierIds should be GLS parcel IDs from a prior CreateParcels call.
  * 
  * Returns PDF bytes in rawCarrierResponse for integrator to store/upload.
  * Per-label metadata is in files array.
  * 
  * IMPORTANT: This is HU-specific implementation.
  * 
- * @param req CreateLabelsRequest with parcel carrier IDs (from createParcels)
+ * @param req CreateLabelsRequest with parcel carrier IDs
  * @param ctx Adapter context with HTTP client
  * @returns CreateLabelsResponse with file metadata and PDF bytes
  */
-export async function createLabels(
+export async function printLabels(
   req: any, // CreateLabelsRequest type
   ctx: AdapterContext
 ): Promise<CreateLabelsResponse> {
   try {
-    // Validate canonical request format
+    // Validate request
     const validated = safeValidateCreateLabelsRequest(req);
     if (!validated.success) {
       throw new CarrierError(
@@ -141,14 +137,14 @@ export async function createLabels(
     // Get first client number
     const clientNumber = credentials.clientNumberList[0];
 
-    // Map canonical request to GLS GetPrintedLabels request
+    // Map canonical request to GLS PrintLabels request
     // Password is now a byte array included in JSON body
-    const glsRequestCamelCase = mapCanonicalCreateLabelsToGLSGetPrintedLabels(
+    const glsRequestCamelCase = mapCanonicalCreateLabelsToGLSPrintLabels(
       req,
       clientNumber,
       credentials.username,
       hashedPassword,
-      (req.options?.printerType as string)
+      credentials.webshopEngine
     );
 
     // Convert to PascalCase (matching PHP example)
@@ -157,7 +153,7 @@ export async function createLabels(
     safeLog(
       ctx.logger,
       'debug',
-      'GLS: Retrieving labels (GetPrintedLabels endpoint)',
+      'GLS: Creating labels batch (PrintLabels endpoint)',
       {
         count: req.parcelCarrierIds.length,
         country,
@@ -165,13 +161,13 @@ export async function createLabels(
         requestKeys: Object.keys(glsRequest),
       },
       ctx,
-      ['createLabels']
+      ['printLabels']
     );
 
-    // Call GLS GetPrintedLabels endpoint
+    // Call GLS PrintLabels endpoint (combines PrepareLabels + GetPrintedLabels)
     // No HTTP Basic Auth header needed - password is in JSON body as byte array
     const httpResponse = await ctx.http.post(
-      `${baseUrl}/json/GetPrintedLabels`,
+      `${baseUrl}/json/PrintLabels`,
       glsRequest
     );
 
@@ -179,21 +175,21 @@ export async function createLabels(
     safeLog(
       ctx.logger,
       'debug',
-      'GLS: GetPrintedLabels response received',
+      'GLS: PrintLabels response received',
       {
         statusCode: (httpResponse as any).statusCode || 'unknown',
         hasBody: !!httpResponse.body,
         bodyKeys: httpResponse.body ? Object.keys(httpResponse.body).slice(0, 5) : [],
       },
       ctx,
-      ['createLabels', 'debug']
+      ['printLabels', 'debug']
     );
 
     // Extract body from response
     const carrierRespBody = httpResponse.body as any;
 
     // Validate the response
-    const responseValidation = safeValidateGLSGetPrintedLabelsResponse(carrierRespBody);
+    const responseValidation = safeValidateGLSPrintLabelsResponse(carrierRespBody);
     if (!responseValidation.success) {
       safeLog(
         ctx.logger,
@@ -201,28 +197,12 @@ export async function createLabels(
         'GLS: Label response validation failed',
         {
           error: responseValidation.error?.message,
-          responseKeys: carrierRespBody ? Object.keys(carrierRespBody) : [],
         },
         ctx,
-        ['createLabels']
+        ['printLabels']
       );
       // Continue anyway - be lenient with response shape
     }
-
-    // Log response structure for debugging
-    safeLog(
-      ctx.logger,
-      'debug',
-      'GLS: GetPrintedLabels response structure',
-      {
-        hasLabels: !!(carrierRespBody?.labels || (carrierRespBody as any)?.Labels),
-        hasPdfSize: (carrierRespBody?.labels || (carrierRespBody as any)?.Labels)?.length || 0,
-        infoListCount: (carrierRespBody?.printDataInfoList || (carrierRespBody as any)?.PrintDataInfoList)?.length || 0,
-        errorListCount: (carrierRespBody?.getPrintedLabelsErrorList || (carrierRespBody as any)?.GetPrintedLabelsErrorList)?.length || 0,
-      },
-      ctx,
-      ['createLabels', 'debug']
-    );
 
     if (!carrierRespBody) {
       throw new CarrierError('Invalid response from GLS', 'Transient', {
@@ -231,8 +211,8 @@ export async function createLabels(
     }
 
     // Check for API-level errors
-    // GLS API returns both getPrintedLabelsErrorList and GetPrintedLabelsErrorList (case varies)
-    const labelErrorList = (carrierRespBody.getPrintedLabelsErrorList || (carrierRespBody as any).GetPrintedLabelsErrorList) as any[];
+    // GLS API returns both printLabelsErrorList and PrintLabelsErrorList (case varies)
+    const labelErrorList = (carrierRespBody.printLabelsErrorList || (carrierRespBody as any).PrintLabelsErrorList) as any[];
     if (labelErrorList && labelErrorList.length > 0) {
       const firstError = labelErrorList[0];
       const errorCode = firstError.errorCode || firstError.ErrorCode;
@@ -259,7 +239,7 @@ export async function createLabels(
     }
 
     // Map response to canonical format
-    const response = mapGLSGetPrintedLabelsToCanonicalCreateLabels(
+    const response = mapGLSPrintLabelsToCanonicalCreateLabels(
       carrierRespBody,
       req.parcelCarrierIds.length
     );
@@ -267,7 +247,7 @@ export async function createLabels(
     safeLog(
       ctx.logger,
       'info',
-      'GLS: Labels retrieval finished',
+      'GLS: Labels creation finished',
       {
         count: response.results.length,
         testMode: useTestApi,
@@ -276,7 +256,7 @@ export async function createLabels(
         failureCount: response.failureCount,
       },
       ctx,
-      ['createLabels']
+      ['printLabels']
     );
 
     return response;
@@ -284,12 +264,12 @@ export async function createLabels(
     safeLog(
       ctx.logger,
       'error',
-      'GLS: Error retrieving labels batch',
+      'GLS: Error creating labels batch',
       {
         error: errorToLog(error),
       },
       ctx,
-      ['createLabels']
+      ['printLabels']
     );
 
     if (error instanceof CarrierError) {

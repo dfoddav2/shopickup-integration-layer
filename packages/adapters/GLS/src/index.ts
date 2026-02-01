@@ -8,7 +8,9 @@
  * - CREATE_PARCEL: Create single parcel (delegates to CREATE_PARCELS)
  * - CREATE_PARCELS: Create multiple parcels in batch via GLS MyGLS API
  * - CREATE_LABEL: Create single label/PDF (delegates to CREATE_LABELS)
- * - CREATE_LABELS: Create multiple labels/PDFs in batch via GLS PrintLabels
+ * - CREATE_LABELS: Create multiple labels/PDFs in batch via GLS GetPrintData (two-step, default)
+ * - PRINT_LABEL: Create single label/PDF (delegates to PRINT_LABELS)
+ * - PRINT_LABELS: Create/Print labels in one step via GLS PrintLabels (one-step, bonus)
  * - TRACK: Track shipments and parcels (Phase 3)
  * 
  * IMPORTANT: This adapter is HU (Hungary) specific for parcel/label creation and tracking.
@@ -68,6 +70,8 @@ import {
   createParcels as createParcelsImpl,
   createLabel as createLabelImpl,
   createLabels as createLabelsImpl,
+  printLabel as printLabelImpl,
+  printLabels as printLabelsImpl,
   track as trackImpl,
 } from './capabilities/index.js';
 
@@ -78,8 +82,10 @@ import {
  * - LIST_PICKUP_POINTS: Fetches pickup points from public GLS feed (20+ countries)
  * - CREATE_PARCEL: Creates single parcel via GLS MyGLS API (HU-specific)
  * - CREATE_PARCELS: Creates multiple parcels in batch via GLS MyGLS API (HU-specific)
- * - CREATE_LABEL: Creates single label/PDF via GLS PrintLabels API (HU-specific)
- * - CREATE_LABELS: Creates multiple labels/PDFs in batch via GLS PrintLabels API (HU-specific)
+ * - CREATE_LABEL: Creates single label/PDF via GLS GetPrintData (HU-specific, two-step)
+ * - CREATE_LABELS: Creates multiple labels/PDFs in batch via GLS GetPrintData (HU-specific, two-step)
+ * - PRINT_LABEL: Creates single label/PDF via GLS PrintLabels (HU-specific, one-step)
+ * - PRINT_LABELS: Creates multiple labels/PDFs in batch via GLS PrintLabels (HU-specific, one-step)
  * - TRACK: Tracks parcels via GLS GetParcelStatuses API (HU-focused, experimental for other countries)
  */
 export class GLSAdapter implements CarrierAdapter {
@@ -175,24 +181,73 @@ export class GLSAdapter implements CarrierAdapter {
      return batchResponse.results[0];
    }
 
-     /**
-      * Create multiple labels (PDFs) in batch
-      * 
-      * Takes GLS parcel IDs from prior CreateParcels calls and retrieves PDF labels
-      * via the GLS PrintLabels endpoint.
-      * 
-      * Returns per-label metadata in files array and combined PDF bytes in rawCarrierResponse.
-      * The integrator should extract rawCarrierResponse and store/upload it to cloud storage.
-      * 
-      * IMPORTANT: This is HU-specific implementation.
-      * 
-      * @param req Request with parcel carrier IDs and credentials
-      * @param ctx Adapter context with HTTP client
-      * @returns Response with file metadata, per-label results, and PDF bytes
-      */
-     async createLabels(req: CreateLabelsRequest, ctx: AdapterContext): Promise<CreateLabelsResponse> {
-       return createLabelsImpl(req, ctx);
-     }
+      /**
+       * Create multiple labels (PDFs) in batch
+       * 
+       * Takes GLS parcel IDs from prior CreateParcels calls and retrieves PDF labels
+       * via the GLS GetPrintData endpoint (two-step flow).
+       * 
+       * Returns per-label metadata in files array and combined PDF bytes in rawCarrierResponse.
+       * The integrator should extract rawCarrierResponse and store/upload it to cloud storage.
+       * 
+       * IMPORTANT: This is HU-specific implementation.
+       * 
+       * @param req Request with parcel carrier IDs and credentials
+       * @param ctx Adapter context with HTTP client
+       * @returns Response with file metadata, per-label results, and PDF bytes
+       */
+      async createLabels(req: CreateLabelsRequest, ctx: AdapterContext): Promise<CreateLabelsResponse> {
+        return createLabelsImpl(req, ctx);
+      }
+
+      /**
+       * Create a single label (PDF) via PrintLabels (one-step)
+       * 
+       * The parcelCarrierId should be a GLS parcel ID from a prior CreateParcels call.
+       * This method delegates to printLabels for batch processing and returns a single LabelResult.
+       * 
+       * Uses the GLS PrintLabels endpoint which combines PrepareLabels + GetPrintedLabels in one call.
+       * 
+       * IMPORTANT: This is HU-specific implementation.
+       * 
+       * @param req Request with parcel carrier ID and credentials
+       * @param ctx Adapter context with HTTP client
+       * @returns Label result with file metadata and status
+       */
+      async printLabel(req: CreateLabelRequest, ctx: AdapterContext): Promise<LabelResult> {
+        const batchReq: CreateLabelsRequest = {
+          parcelCarrierIds: [req.parcelCarrierId],
+          credentials: req.credentials,
+          options: req.options,
+        };
+        const batchResponse = await printLabelsImpl(batchReq, ctx);
+        
+        // Return the first result from the batch response
+        if (!batchResponse.results || batchResponse.results.length === 0) {
+          throw new Error('No results returned from printLabels');
+        }
+        
+        return batchResponse.results[0];
+      }
+
+      /**
+       * Create multiple labels (PDFs) in one-step call
+       * 
+       * Takes GLS parcel IDs from prior CreateParcels calls and creates/retrieves PDF labels
+       * via the GLS PrintLabels endpoint (one-step combined PrepareLabels + GetPrintedLabels).
+       * 
+       * Returns per-label metadata in files array and combined PDF bytes in rawCarrierResponse.
+       * The integrator should extract rawCarrierResponse and store/upload it to cloud storage.
+       * 
+       * IMPORTANT: This is HU-specific implementation.
+       * 
+       * @param req Request with parcel carrier IDs and credentials
+       * @param ctx Adapter context with HTTP client
+       * @returns Response with file metadata, per-label results, and PDF bytes
+       */
+      async printLabels(req: CreateLabelsRequest, ctx: AdapterContext): Promise<CreateLabelsResponse> {
+        return printLabelsImpl(req, ctx);
+      }
 
     /**
      * Track a parcel by tracking number

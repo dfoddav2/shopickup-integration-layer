@@ -1,9 +1,11 @@
 /**
- * GLS: Create Labels (Batch) Route Handler
- * POST /api/dev/gls/create-labels
+ * GLS: Print Labels (One-Step) Route Handler
+ * POST /api/dev/gls/print-labels
  * 
- * Generates PDF labels for existing GLS parcels.
- * Requires parcel IDs from a prior CREATE_PARCELS call.
+ * Creates and generates PDF labels for GLS parcels in one step.
+ * Uses the PrintLabels endpoint which combines PrepareLabels + GetPrintedLabels.
+ * 
+ * This is the bonus one-step flow (createLabels uses two-step GetPrintData by default).
  */
 
 import { FastifyInstance } from 'fastify';
@@ -41,68 +43,53 @@ const BATCH_LABEL_RESPONSE_SCHEMA = {
     description: 'Labels created successfully (or partial success)',
     type: 'object',
     properties: {
-       files: {
-         type: 'array',
-         maxItems: 1,
-         items: {
-           type: 'object',
-           properties: {
-             id: { type: 'string', description: 'File ID: gls-combined-labels' },
-             contentType: { type: 'string', enum: ['application/pdf'] },
-             byteLength: { type: 'integer', description: 'Total PDF size in bytes' },
-             pages: { type: 'integer', description: 'Number of pages (one per label)' },
-             orientation: { type: 'string', enum: ['portrait', 'landscape'] },
-             metadata: {
-               type: 'object',
-               properties: {
-                 combined: { type: 'boolean', description: 'All labels in one file' },
-                 parcelCount: { type: 'integer', description: 'Number of labels in PDF' },
-                 printerType: { type: 'string' },
-               },
-             },
-           },
-         },
-       },
-       results: {
-         type: 'array',
-         items: {
-           oneOf: [
-             {
-               type: 'object',
-               properties: {
-                 inputId: { type: 'string' },
-                 status: { type: 'string', enum: ['created'] },
-                 fileId: { type: 'string', description: 'Single file ID for combined PDF' },
-                 pageRange: {
-                   type: 'object',
-                   properties: {
-                     start: { type: 'integer', description: 'Page number for this label (1-indexed)' },
-                     end: { type: 'integer' },
-                   },
-                 },
-                 carrierId: { type: 'string' },
-               },
-             },
-             {
-               type: 'object',
-               properties: {
-                 inputId: { type: 'string' },
-                 status: { type: 'string', enum: ['failed'] },
-                 errors: {
-                   type: 'array',
-                   items: {
-                     type: 'object',
-                     properties: {
-                       code: { type: 'string' },
-                       message: { type: 'string' },
-                     },
-                   },
-                 },
-               },
-             },
-           ],
-         },
-       },
+      files: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            contentType: { type: 'string', enum: ['application/pdf'] },
+            byteLength: { type: 'integer' },
+            pages: { type: 'integer' },
+            orientation: { type: 'string', enum: ['portrait', 'landscape'] },
+            metadata: {
+              type: 'object',
+              properties: {
+                glsParcelId: { type: 'string' },
+                clientReference: { type: 'string' },
+                parcelNumber: { type: 'string' },
+                pin: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      results: {
+        type: 'array',
+        items: {
+          oneOf: [
+            {
+              type: 'object',
+              properties: {
+                inputId: { type: 'string' },
+                status: { type: 'string', enum: ['created'] },
+                fileId: { type: 'string' },
+                carrierId: { type: 'string' },
+              },
+            },
+            {
+              type: 'object',
+              properties: {
+                inputId: { type: 'string' },
+                status: { type: 'string', enum: ['failed'] },
+                errorMessage: { type: 'string' },
+                errorCode: { type: 'string' },
+              },
+            },
+          ],
+        },
+      },
       successCount: { type: 'integer' },
       failureCount: { type: 'integer' },
       totalCount: { type: 'integer' },
@@ -110,19 +97,10 @@ const BATCH_LABEL_RESPONSE_SCHEMA = {
       allFailed: { type: 'boolean' },
       someFailed: { type: 'boolean' },
       summary: { type: 'string' },
-       rawCarrierResponse: {
-         description: 'Carrier response with PDF metadata (base64-encoded for display)',
-         oneOf: [
-           {
-             type: 'object',
-             properties: {
-               pdfBuffer: { type: 'string', description: 'Base64-encoded PDF data' },
-               parcelCount: { type: 'integer' },
-             },
-           },
-           { type: 'null', description: 'Null if no PDF was generated' },
-         ],
-       },
+      rawCarrierResponse: {
+        description: 'PDF bytes in base64 (for dev display only - integrator should store)',
+        type: 'string',
+      },
     },
   },
   400: {
@@ -163,15 +141,15 @@ const BATCH_LABEL_RESPONSE_SCHEMA = {
   },
 };
 
-export async function registerCreateLabelsRoute(
+export async function registerPrintLabelsRoute(
   fastify: FastifyInstance,
   adapter: GLSAdapter
 ) {
-  fastify.post('/api/dev/gls/create-labels', {
+  fastify.post('/api/dev/gls/print-labels', {
     schema: {
-      description: 'Create labels for multiple GLS parcels (dev endpoint for testing)',
+      description: 'Create and print labels for multiple GLS parcels in one step (dev endpoint for testing)',
       tags: ['GLS'],
-      summary: 'Batch create labels for multiple parcels',
+      summary: 'One-step batch create and print labels (PrintLabels endpoint)',
       body: {
         type: 'object',
         required: ['parcelCarrierIds', 'credentials'],
@@ -180,30 +158,30 @@ export async function registerCreateLabelsRoute(
             type: 'array',
             items: { type: 'string' },
             minItems: 1,
-            description: 'Array of GLS parcel IDs to create labels for (from CREATE_PARCELS)',
+            description: 'Array of GLS parcel IDs to create and print labels for (from CREATE_PARCELS)',
           },
           credentials: GLS_CREDENTIALS_SCHEMA,
-           options: {
-             type: 'object',
-             description: 'Optional label generation options',
-             properties: {
-               country: {
-                 type: 'string',
-                 description: 'ISO 3166-1 alpha-2 country code (default: HU)',
-               },
-               useTestApi: {
-                 type: 'boolean',
-                 description: 'Use test API endpoint instead of production',
-                 default: false,
-               },
-               printerType: {
-                 type: 'string',
-                 enum: ['A4_2x2', 'A4_4x1', 'Connect', 'Thermo', 'ThermoZPL', 'ShipItThermoPdf', 'ThermoZPL_300DPI'],
-                 description: 'Printer type for label generation',
-                 default: 'Thermo',
-               },
-             },
-           },
+          options: {
+            type: 'object',
+            description: 'Optional label generation options',
+            properties: {
+              country: {
+                type: 'string',
+                description: 'ISO 3166-1 alpha-2 country code (default: HU)',
+              },
+              useTestApi: {
+                type: 'boolean',
+                description: 'Use test API endpoint instead of production',
+                default: false,
+              },
+              printerType: {
+                type: 'string',
+                enum: ['A4_2x2', 'A4_4x1', 'Connect', 'Thermo', 'ThermoZPL', 'ShipItThermoPdf', 'ThermoZPL_300DPI'],
+                description: 'Printer type for label generation',
+                default: 'Thermo',
+              },
+            },
+          },
         },
         examples: [
           {
@@ -233,7 +211,7 @@ export async function registerCreateLabelsRoute(
       try {
         const { parcelCarrierIds, credentials, options } = request.body as any;
 
-        const createReq: CreateLabelsRequest = {
+        const printReq: CreateLabelsRequest = {
           parcelCarrierIds,
           credentials,
           options,
@@ -251,7 +229,7 @@ export async function registerCreateLabelsRoute(
         const ctx: AdapterContext = {
           http: httpClient,
           logger: wrapPinoLogger(fastify.log),
-          operationName: 'createLabels',
+          operationName: 'printLabels',
           loggingOptions: {
             // Log normally for label operations
             silentOperations: [],
@@ -262,27 +240,13 @@ export async function registerCreateLabelsRoute(
           },
         };
 
-         // Call adapter
-         const labelResponse = await adapter.createLabels(createReq, ctx);
+        // Call adapter (one-step PrintLabels endpoint)
+        const labelResponse = await adapter.printLabels(printReq, ctx);
 
-         // Log PDF status and convert for JSON response
-         if (labelResponse.rawCarrierResponse && typeof labelResponse.rawCarrierResponse === 'object' && 'pdfBuffer' in labelResponse.rawCarrierResponse) {
-           const pdfData = (labelResponse.rawCarrierResponse as any).pdfBuffer;
-           if (Buffer.isBuffer(pdfData)) {
-             fastify.log.info({
-               msg: 'PDF label retrieved successfully',
-               pdfSizeBytes: pdfData.length,
-               parcelCount: labelResponse.successCount,
-             });
-             // Convert PDF Buffer to base64 for JSON response
-             (labelResponse.rawCarrierResponse as any).pdfBuffer = pdfData.toString('base64');
-           }
-         } else if (labelResponse.rawCarrierResponse) {
-           fastify.log.warn({
-             msg: 'Unexpected rawCarrierResponse format',
-             type: typeof labelResponse.rawCarrierResponse,
-           });
-         }
+        // Convert PDF bytes to base64 for JSON response (for dev display only)
+        if (labelResponse.rawCarrierResponse && Buffer.isBuffer(labelResponse.rawCarrierResponse)) {
+          labelResponse.rawCarrierResponse = labelResponse.rawCarrierResponse.toString('base64');
+        }
 
         // Determine HTTP status based on results
         const statusCode =
