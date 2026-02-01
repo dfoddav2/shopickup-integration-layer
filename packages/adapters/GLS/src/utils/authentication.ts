@@ -129,6 +129,53 @@ export function validateGLSCredentials(creds: GLSCredentials): void {
 }
 
 /**
+ * Convert PascalCase object keys to camelCase from GLS API responses
+ * 
+ * The GLS API returns PascalCase keys (ParcelNumber, ParcelStatusList, etc.)
+ * but our types use camelCase. This helper converts at deserialization time.
+ * 
+ * @param obj Object with PascalCase keys
+ * @returns New object with camelCase keys
+ */
+export function convertFromPascalCase(obj: unknown): unknown {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  // Don't convert Buffers, Uint8Arrays, or other special types
+  if (Buffer.isBuffer(obj) || obj instanceof Uint8Array || obj instanceof Date) {
+    return obj;
+  }
+
+  if (typeof obj !== 'object') {
+    return obj;
+  }
+
+  // Handle arrays recursively
+  if (Array.isArray(obj)) {
+    return obj.map(item => convertFromPascalCase(item));
+  }
+
+  // Convert object keys
+  const result: Record<string, unknown> = {};
+  
+  for (const [key, value] of Object.entries(obj)) {
+    // Convert first letter to lowercase (PascalCase → camelCase)
+    const camelKey = key.charAt(0).toLowerCase() + key.slice(1);
+    
+    // Recursively convert nested objects
+    result[camelKey] = 
+      value !== null && typeof value === 'object' && !Array.isArray(value)
+        ? convertFromPascalCase(value)
+        : Array.isArray(value)
+        ? (value as unknown[]).map(item => convertFromPascalCase(item))
+        : value;
+  }
+  
+  return result;
+}
+
+/**
  * Convert camelCase object keys to PascalCase for GLS API requests
  * 
  * The GLS API expects PascalCase keys (Username, Password, ParcelList, etc.)

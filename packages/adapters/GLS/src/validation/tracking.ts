@@ -73,28 +73,28 @@ export function safeValidateGLSTrackingResponse(resp: unknown): ZodSafeParseResu
   const glsParcelStatusSchema = z.object({
     statusCode: z.string().min(1, 'Status code is required'),
     statusDate: z.union([z.string().datetime(), z.number()]),
-    statusDescription: z.string().optional(),
-    depotCity: z.string().optional(),
-    depotNumber: z.string().optional(),
-    statusInfo: z.string().optional(),
+    statusDescription: z.string().optional().nullable(),
+    depotCity: z.string().optional().nullable(),
+    depotNumber: z.string().optional().nullable(),
+    statusInfo: z.string().optional().nullable(),
   });
 
   const glsErrorSchema = z.object({
-    errorCode: z.string().min(1),
+    errorCode: z.union([z.string().min(1), z.number()]),
     errorDescription: z.string().min(1),
-    clientReferenceList: z.array(z.string()).optional(),
-    parcelIdList: z.array(z.number()).optional(),
+    clientReferenceList: z.array(z.string()).optional().nullable(),
+    parcelIdList: z.array(z.number()).optional().nullable(),
   });
 
   const schema = z.object({
     parcelNumber: z.union([z.number().int(), z.number()]),
-    clientReference: z.string().optional(),
-    deliveryCountryCode: z.string().optional(),
-    deliveryZipCode: z.string().optional(),
-    weight: z.number().optional(),
-    parcelStatusList: z.array(glsParcelStatusSchema).optional(),
-    getParcelStatusErrors: z.array(glsErrorSchema).optional(),
-    pod: z.union([z.string(), z.instanceof(Buffer), z.instanceof(Uint8Array)]).optional(),
+    clientReference: z.string().optional().nullable(),
+    deliveryCountryCode: z.string().optional().nullable(),
+    deliveryZipCode: z.string().optional().nullable(),
+    weight: z.number().optional().nullable(),
+    parcelStatusList: z.array(glsParcelStatusSchema).optional().nullable(),
+    getParcelStatusErrors: z.array(glsErrorSchema).optional().nullable(),
+    pod: z.union([z.string(), z.instanceof(Buffer), z.instanceof(Uint8Array)]).optional().nullable(),
   }).passthrough(); // Allow extra fields for forward compatibility
 
   return schema.safeParse(resp);

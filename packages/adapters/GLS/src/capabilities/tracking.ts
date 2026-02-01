@@ -27,6 +27,7 @@ import {
   resolveGLSBaseUrl,
   validateGLSCredentials,
   convertToPascalCase,
+  convertFromPascalCase,
 } from '../utils/authentication.js';
 import {
   safeValidateTrackingRequest,
@@ -158,22 +159,25 @@ export async function track(
        trackingRequest
      );
 
-     safeLog(
-       ctx.logger,
-       'debug',
-       'GLS: Tracking response received',
-       {
-         statusCode: (httpResponse as any).statusCode || 'unknown',
-         hasBody: !!httpResponse.body,
-       },
-       ctx,
-       ['track', 'debug']
-     );
+      safeLog(
+        ctx.logger,
+        'debug',
+        'GLS: Tracking response received',
+        {
+          statusCode: (httpResponse as any).statusCode || 'unknown',
+          hasBody: !!httpResponse.body,
+        },
+        ctx,
+        ['track', 'debug']
+      );
 
-     const carrierRespBody = httpResponse.body as any;
+      const carrierRespBody = httpResponse.body as any;
+      
+      // Convert GLS API response from PascalCase to camelCase
+      const normalizedResponse = convertFromPascalCase(carrierRespBody) as any;
 
-    // Validate GLS response
-    const responseValidation = safeValidateGLSTrackingResponse(carrierRespBody);
+     // Validate GLS response
+     const responseValidation = safeValidateGLSTrackingResponse(normalizedResponse);
     if (!responseValidation.success) {
       throw new CarrierError(
         `Invalid GLS tracking response: ${responseValidation.error.message}`,
@@ -182,37 +186,41 @@ export async function track(
       );
     }
 
-    // Check for errors in response
-    // GLS API returns both getParcelStatusErrors and GetParcelStatusErrors (case varies)
-    const trackingErrorList = (carrierRespBody.getParcelStatusErrors || (carrierRespBody as any).GetParcelStatusErrors) as any[];
-    if (trackingErrorList && trackingErrorList.length > 0) {
-      const firstError = trackingErrorList[0];
-      const errorCode = firstError.errorCode || firstError.ErrorCode;
-      const errorDescription = firstError.errorDescription || firstError.ErrorDescription;
-      
-      // Determine error category based on error code
-      let category: 'Auth' | 'Validation' | 'Permanent' | 'Transient' = 'Transient';
-      if (errorCode === -1) {
-        category = 'Auth';
-      } else if (errorCode === '01' || errorCode === 14 || errorCode === 15 || errorCode === 27) {
-        category = 'Auth';
-      } else if (errorCode === 4 || errorCode === 9) {
-        // Parcel not found
-        category = 'Permanent';
-      }
-      
-      throw new CarrierError(
-        `GLS API error: ${errorDescription} (code: ${errorCode})`,
-        category,
-        {
-          carrierCode: errorCode.toString(),
-          raw: serializeForLog(firstError) as any,
-        }
-      );
+     // Check for errors in response
+     // After normalization, all keys should be camelCase
+     const trackingErrorList = normalizedResponse.getParcelStatusErrors as any[];
+     if (trackingErrorList && trackingErrorList.length > 0) {
+       const firstError = trackingErrorList[0];
+       const errorCode = firstError.errorCode;
+       const errorDescription = firstError.errorDescription;
+       
+       // Determine error category based on error code
+       let category: 'Auth' | 'Validation' | 'Permanent' | 'Transient' = 'Transient';
+       if (errorCode === -1) {
+         category = 'Auth';
+       } else if (errorCode === '01' || errorCode === 14 || errorCode === 15 || errorCode === 27 || errorCode === 26) {
+         // 26 = "Parcel not found with current settings"
+         category = 'Permanent';
+       } else if (errorCode === 4 || errorCode === 9) {
+         // Parcel not found
+         category = 'Permanent';
+       }
+       
+       throw new CarrierError(
+         `GLS API error: ${errorDescription} (code: ${errorCode})`,
+         category,
+         {
+           carrierCode: errorCode.toString(),
+           raw: serializeForLog(firstError) as any,
+         }
+       );
     }
 
-    // Map response to canonical format
-    const trackingUpdate = mapGLSTrackingResponseToCanonical(carrierRespBody);
+     // Map response to canonical format
+     const trackingUpdate = mapGLSTrackingResponseToCanonical(normalizedResponse);
+     
+     // Keep original API response for reference
+     trackingUpdate.rawCarrierResponse = carrierRespBody;
 
     safeLog(
        ctx.logger,

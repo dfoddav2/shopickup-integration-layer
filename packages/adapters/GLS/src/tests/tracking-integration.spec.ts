@@ -114,31 +114,31 @@ describe('GLS Tracking Integration Tests', () => {
   describe('Successful Tracking Scenarios', () => {
     it('should track parcel pending delivery with multiple status updates', async () => {
       // Setup mock response for pending parcel
-      const mockResponse = { parcelNumber: 123456789,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 123456789,
+        ParcelStatusList: [
           {
-            statusCode: '1',
-            statusDescription: 'Handed over to GLS',
-            statusDate: '2024-01-15T08:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '1',
+            StatusDescription: 'Handed over to GLS',
+            StatusDate: '2024-01-15T08:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
            {
-             statusCode: '22',
-             statusDescription: 'In transit',
-             statusDate: '2024-01-15T10:30:00Z',
-             depotCity: 'Budapest',
-             depotNumber: '0001',
+             StatusCode: '22',
+             StatusDescription: 'In transit',
+             StatusDate: '2024-01-15T10:30:00Z',
+             DepotCity: 'Budapest',
+             DepotNumber: '0001',
            },
           {
-            statusCode: '32',
-            statusDescription: 'Will be delivered in evening',
-            statusDate: '2024-01-15T16:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '32',
+            StatusDescription: 'Will be delivered in evening',
+            StatusDate: '2024-01-15T16:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
         ],
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -172,26 +172,26 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should track successfully delivered parcel', async () => {
-      const mockResponse = { parcelNumber: 987654321,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 987654321,
+        ParcelStatusList: [
           {
-            statusCode: '1',
-            statusDescription: 'Handed over to GLS',
-            statusDate: '2024-01-14T08:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '1',
+            StatusDescription: 'Handed over to GLS',
+            StatusDate: '2024-01-14T08:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
           {
-            statusCode: '5',
-            statusDescription: 'Delivered',
-            statusDate: '2024-01-14T14:30:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '5',
+            StatusDescription: 'Delivered',
+            StatusDate: '2024-01-14T14:30:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
             recipientName: 'John Doe',
             recipientCity: 'Budapest',
           },
         ],
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -214,24 +214,24 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should track parcel with exception status', async () => {
-      const mockResponse = { parcelNumber: 555666777,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 555666777,
+        ParcelStatusList: [
           {
-            statusCode: '1',
-            statusDescription: 'Handed over to GLS',
-            statusDate: '2024-01-13T08:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '1',
+            StatusDescription: 'Handed over to GLS',
+            StatusDate: '2024-01-13T08:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
           {
-            statusCode: '6',
-            statusDescription: 'Stored in parcel center (exception)',
-            statusDate: '2024-01-13T15:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '6',
+            StatusDescription: 'Stored in parcel center (exception)',
+            StatusDate: '2024-01-13T15:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
         ],
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -253,24 +253,24 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should track parcel with returned status', async () => {
-      const mockResponse = { parcelNumber: 111222333,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 111222333,
+        ParcelStatusList: [
           {
-            statusCode: '1',
-            statusDescription: 'Handed over to GLS',
-            statusDate: '2024-01-10T08:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '1',
+            StatusDescription: 'Handed over to GLS',
+            StatusDate: '2024-01-10T08:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
            {
-             statusCode: '23',
-             statusDescription: 'Returned to sender',
-             statusDate: '2024-01-12T10:00:00Z',
-             depotCity: 'Budapest',
-             depotNumber: '0001',
+             StatusCode: '23',
+             StatusDescription: 'Returned to sender',
+             StatusDate: '2024-01-12T10:00:00Z',
+             DepotCity: 'Budapest',
+             DepotNumber: '0001',
            },
         ],
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -296,19 +296,19 @@ describe('GLS Tracking Integration Tests', () => {
     it('should include POD in response when requested', async () => {
       const podBase64 = 'JVBERi0xLjQNCiXi48/PIA0K'; // Base64 encoded PDF bytes
 
-      const mockResponse = { parcelNumber: 444555666,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 444555666,
+        ParcelStatusList: [
           {
-            statusCode: '5',
-            statusDescription: 'Delivered',
-            statusDate: '2024-01-12T14:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '5',
+            StatusDescription: 'Delivered',
+            StatusDate: '2024-01-12T14:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
             recipientName: 'Jane Smith',
           },
         ],
         pod: Buffer.from(podBase64, 'base64'),
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -335,18 +335,18 @@ describe('GLS Tracking Integration Tests', () => {
     it('should handle POD as Uint8Array', async () => {
       const podBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
 
-      const mockResponse = { parcelNumber: 777888999,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 777888999,
+        ParcelStatusList: [
           {
-            statusCode: '5',
-            statusDescription: 'Delivered',
-            statusDate: '2024-01-11T16:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '5',
+            StatusDescription: 'Delivered',
+            StatusDate: '2024-01-11T16:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
         ],
         pod: podBytes,
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -370,18 +370,18 @@ describe('GLS Tracking Integration Tests', () => {
     it('should handle POD as number array', async () => {
       const podBuffer = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF
 
-      const mockResponse = { parcelNumber: 333444555,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 333444555,
+        ParcelStatusList: [
           {
-            statusCode: '5',
-            statusDescription: 'Delivered',
-            statusDate: '2024-01-10T10:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '5',
+            StatusDescription: 'Delivered',
+            StatusDate: '2024-01-10T10:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
         ],
         pod: podBuffer,
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -403,17 +403,17 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should handle missing POD gracefully', async () => {
-      const mockResponse = { parcelNumber: 666777888,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 666777888,
+        ParcelStatusList: [
           {
-            statusCode: '1',
-            statusDescription: 'Handed over to GLS',
-            statusDate: '2024-01-10T08:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '1',
+            StatusDescription: 'Handed over to GLS',
+            StatusDate: '2024-01-10T08:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
          ],
-         getParcelStatusErrors: undefined,
+         GetParcelStatusErrors: undefined,
        };
 
        mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -438,17 +438,17 @@ describe('GLS Tracking Integration Tests', () => {
 
   describe('Language Support', () => {
     it('should support Hungarian language code', async () => {
-      const mockResponse = { parcelNumber: 888999000,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 888999000,
+        ParcelStatusList: [
           {
-            statusCode: '1',
-            statusDescription: 'Átadva a GLS-nek',
-            statusDate: '2024-01-15T08:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '1',
+            StatusDescription: 'Átadva a GLS-nek',
+            StatusDate: '2024-01-15T08:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
         ],
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -470,17 +470,17 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should support English language code', async () => {
-      const mockResponse = { parcelNumber: 111222333,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 111222333,
+        ParcelStatusList: [
           {
-            statusCode: '22',
-            statusDescription: 'In transit',
-            statusDate: '2024-01-15T10:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '22',
+            StatusDescription: 'In transit',
+            StatusDate: '2024-01-15T10:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
         ],
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -513,17 +513,17 @@ describe('GLS Tracking Integration Tests', () => {
       };
 
       // Valid request should not throw with CS language
-      const mockResponse = { parcelNumber: 999888777,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 999888777,
+        ParcelStatusList: [
           {
-            statusCode: '1',
-            statusDescription: 'Předáno GLS',
-            statusDate: '2024-01-15T08:00:00Z',
-            depotCity: 'Prague',
-            depotNumber: '0002',
+            StatusCode: '1',
+            StatusDescription: 'Předáno GLS',
+            StatusDate: '2024-01-15T08:00:00Z',
+            DepotCity: 'Prague',
+            DepotNumber: '0002',
           },
         ],
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -656,9 +656,9 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should throw CarrierError when GLS API returns error', async () => {
-      const mockResponse = { parcelNumber: 123456789,
-        parcelStatusList: [],
-        getParcelStatusErrors: 'Authentication failed',
+      const mockResponse = { ParcelNumber: 123456789,
+        ParcelStatusList: [],
+        GetParcelStatusErrors: 'Authentication failed',
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -677,9 +677,9 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should throw CarrierError when parcel not found', async () => {
-      const mockResponse = { parcelNumber: null,
-        parcelStatusList: [],
-        getParcelStatusErrors: 'Parcel not found',
+      const mockResponse = { ParcelNumber: null,
+        ParcelStatusList: [],
+        GetParcelStatusErrors: 'Parcel not found',
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -700,17 +700,17 @@ describe('GLS Tracking Integration Tests', () => {
 
   describe('Edge Cases and Special Scenarios', () => {
     it('should handle parcel with single status update', async () => {
-      const mockResponse = { parcelNumber: 123123123,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 123123123,
+        ParcelStatusList: [
           {
-            statusCode: '1',
-            statusDescription: 'Handed over to GLS',
-            statusDate: '2024-01-15T08:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '1',
+            StatusDescription: 'Handed over to GLS',
+            StatusDate: '2024-01-15T08:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
         ],
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -735,17 +735,17 @@ describe('GLS Tracking Integration Tests', () => {
       const statuses = [];
       for (let i = 0; i < 10; i++) {
         statuses.push({
-          statusCode: String((i % 5) + 1),
-          statusDescription: `Status update ${i + 1}`,
-          statusDate: new Date(2024, 0, 15 + i).toISOString(),
-          depotCity: 'Budapest',
-          depotNumber: '0001',
+          StatusCode: String((i % 5) + 1),
+          StatusDescription: `Status update ${i + 1}`,
+          StatusDate: new Date(2024, 0, 15 + i).toISOString(),
+          DepotCity: 'Budapest',
+          DepotNumber: '0001',
         });
       }
 
-      const mockResponse = { parcelNumber: 222222222,
-        parcelStatusList: statuses,
-        getParcelStatusErrors: undefined,
+      const mockResponse = { ParcelNumber: 222222222,
+        ParcelStatusList: statuses,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -770,16 +770,16 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should handle missing optional fields in status', async () => {
-      const mockResponse = { parcelNumber: 333333333,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 333333333,
+        ParcelStatusList: [
           {
-            statusCode: '1',
-            statusDescription: 'Handed over to GLS',
-            statusDate: '2024-01-15T08:00:00Z',
+            StatusCode: '1',
+            StatusDescription: 'Handed over to GLS',
+            StatusDate: '2024-01-15T08:00:00Z',
             // DepotCity and DepotNumber are optional
           },
         ],
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -803,17 +803,17 @@ describe('GLS Tracking Integration Tests', () => {
     it('should handle large tracking number', async () => {
       const largeNumber = '999999999999999';
 
-      const mockResponse = { parcelNumber: parseInt(largeNumber),
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: parseInt(largeNumber),
+        ParcelStatusList: [
           {
-            statusCode: '5',
-            statusDescription: 'Delivered',
-            statusDate: '2024-01-15T14:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '5',
+            StatusDescription: 'Delivered',
+            StatusDate: '2024-01-15T14:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
         ],
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -835,17 +835,17 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should preserve raw GLS response', async () => {
-      const mockResponse = { parcelNumber: 444444444,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 444444444,
+        ParcelStatusList: [
           {
-            statusCode: '5',
-            statusDescription: 'Delivered',
-            statusDate: '2024-01-15T14:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '5',
+            StatusDescription: 'Delivered',
+            StatusDate: '2024-01-15T14:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
         ],
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
         CustomField: 'custom value', // Extra field that should be preserved
       };
 
@@ -868,17 +868,17 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should handle multiple client numbers in credentials', async () => {
-      const mockResponse = { parcelNumber: 555555555,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 555555555,
+        ParcelStatusList: [
           {
-            statusCode: '1',
-            statusDescription: 'Handed over to GLS',
-            statusDate: '2024-01-15T08:00:00Z',
-            depotCity: 'Budapest',
-            depotNumber: '0001',
+            StatusCode: '1',
+            StatusDescription: 'Handed over to GLS',
+            StatusDate: '2024-01-15T08:00:00Z',
+            DepotCity: 'Budapest',
+            DepotNumber: '0001',
           },
         ],
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -932,17 +932,17 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should work with different country codes', async () => {
-      const mockResponse = { parcelNumber: 666666666,
-        parcelStatusList: [
+      const mockResponse = { ParcelNumber: 666666666,
+        ParcelStatusList: [
           {
-            statusCode: '1',
-            statusDescription: 'Handed over to GLS',
-            statusDate: '2024-01-15T08:00:00Z',
-            depotCity: 'Prague',
-            depotNumber: '0002',
+            StatusCode: '1',
+            StatusDescription: 'Handed over to GLS',
+            StatusDate: '2024-01-15T08:00:00Z',
+            DepotCity: 'Prague',
+            DepotNumber: '0002',
           },
         ],
-        getParcelStatusErrors: undefined,
+        GetParcelStatusErrors: undefined,
       };
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
@@ -975,17 +975,17 @@ describe('GLS Tracking Integration Tests', () => {
       ];
 
       for (const { code, expectedStatus } of commonCodes) {
-        const mockResponse = { parcelNumber: 777777777 + parseInt(code),
-          parcelStatusList: [
+        const mockResponse = { ParcelNumber: 777777777 + parseInt(code),
+          ParcelStatusList: [
             {
-              statusCode: code,
-              statusDescription: `Test status ${code}`,
-              statusDate: '2024-01-15T08:00:00Z',
-              depotCity: 'Budapest',
-              depotNumber: '0001',
+              StatusCode: code,
+              StatusDescription: `Test status ${code}`,
+              StatusDate: '2024-01-15T08:00:00Z',
+              DepotCity: 'Budapest',
+              DepotNumber: '0001',
             },
           ],
-          getParcelStatusErrors: undefined,
+          GetParcelStatusErrors: undefined,
         };
 
         mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
