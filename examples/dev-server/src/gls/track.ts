@@ -48,6 +48,16 @@ export async function registerTrackRoute(fastify: FastifyInstance, adapter: GLSA
                 description: 'Use test/sandbox API',
                 default: false,
               },
+              returnPOD: {
+                type: 'boolean',
+                description: 'Request Proof of Delivery (POD) document',
+                default: false,
+              },
+              languageIsoCode: {
+                type: 'string',
+                description: 'Language code for status descriptions (EN, HU, CS, etc.)',
+                default: 'EN',
+              },
             },
           },
         },
@@ -141,18 +151,20 @@ export async function registerTrackRoute(fastify: FastifyInstance, adapter: GLSA
           });
         }
 
-        // Build track request
-        const req = {
-          trackingNumber: String(trackingNumber),
-          credentials: {
-            username: credentials.username,
-            password: credentials.password,
-            clientNumberList: credentials.clientNumberList,
-          },
-          options: {
-            useTestApi: options?.useTestApi || false,
-          },
-        };
+         // Build track request
+         const req = {
+           trackingNumber: String(trackingNumber),
+           credentials: {
+             username: credentials.username,
+             password: credentials.password,
+             clientNumberList: credentials.clientNumberList,
+           },
+           options: {
+             useTestApi: options?.useTestApi || false,
+             returnPOD: options?.returnPOD || false,
+             languageIsoCode: options?.languageIsoCode || 'EN',
+           },
+         };
 
         // Prepare adapter context
         const httpClient = (fastify as any).httpClient;
@@ -174,25 +186,53 @@ export async function registerTrackRoute(fastify: FastifyInstance, adapter: GLSA
           },
         };
 
-        // Call adapter
-        // Cast to any to avoid type issues with newly added track method
-        const trackingUpdate = await (adapter as any).track(req, ctx);
+         // Call adapter
+         // Cast to any to avoid type issues with newly added track method
+         const trackingUpdate = await (adapter as any).track(req, ctx);
 
-        return reply.status(200).send({
-          trackingNumber: trackingUpdate.trackingNumber,
-          status: trackingUpdate.status,
-          lastUpdate: trackingUpdate.lastUpdate ? trackingUpdate.lastUpdate.toISOString() : null,
-          events: trackingUpdate.events.map((event: any) => ({
-            timestamp: event.timestamp.toISOString(),
-            status: event.status,
-            carrierStatusCode: event.carrierStatusCode,
-            description: event.description,
-            location: event.location ? {
-              city: event.location.city,
-              facility: event.location.facility,
-            } : undefined,
-          })),
-        });
+         // Extract POD if present and convert to base64 for JSON response
+         const rawResponse = trackingUpdate.rawCarrierResponse as any;
+         let podBase64: string | undefined;
+         if (rawResponse?.pod) {
+           try {
+             if (typeof rawResponse.pod === 'string') {
+               podBase64 = rawResponse.pod;
+             } else if (Buffer.isBuffer(rawResponse.pod)) {
+               podBase64 = rawResponse.pod.toString('base64');
+             } else if (rawResponse.pod instanceof Uint8Array) {
+               podBase64 = Buffer.from(rawResponse.pod).toString('base64');
+             } else if (Array.isArray(rawResponse.pod)) {
+               podBase64 = Buffer.from(rawResponse.pod).toString('base64');
+             }
+           } catch (e) {
+             // Log but don't fail if POD conversion fails
+             fastify.log.warn({ error: e }, 'Failed to convert POD to base64');
+           }
+         }
+
+         return reply.status(200).send({
+           trackingNumber: trackingUpdate.trackingNumber,
+           status: trackingUpdate.status,
+           lastUpdate: trackingUpdate.lastUpdate ? trackingUpdate.lastUpdate.toISOString() : null,
+           events: trackingUpdate.events.map((event: any) => ({
+             timestamp: event.timestamp.toISOString(),
+             status: event.status,
+             carrierStatusCode: event.carrierStatusCode,
+             description: event.description,
+             location: event.location ? {
+               city: event.location.city,
+               facility: event.location.facility,
+             } : undefined,
+           })),
+           ...(podBase64 && {
+             rawCarrierResponse: {
+               podBase64,
+               parcelNumber: rawResponse?.parcelNumber,
+               clientReference: rawResponse?.clientReference,
+               deliveryCountryCode: rawResponse?.deliveryCountryCode,
+             },
+           }),
+         });
       } catch (error) {
         fastify.log.error(error);
 

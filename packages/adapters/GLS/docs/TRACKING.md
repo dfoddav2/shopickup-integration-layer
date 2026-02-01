@@ -1,453 +1,467 @@
-# GLS Parcel Tracking
-
-This document describes the GLS parcel tracking capability for the Shopickup adapter.
+# GLS Tracking Feature
 
 ## Overview
 
-The GLS adapter supports parcel tracking via the `TRACK` capability. Tracking returns a timeline of events showing the current status and history of a parcel's journey.
+The GLS adapter provides comprehensive parcel tracking functionality using the MyGLS API's `GetParcelStatuses` endpoint. This allows integrators to retrieve the complete tracking history and current status of GLS parcels, including optional Proof of Delivery (POD) documents.
 
-### Important Notes
+## Capabilities
 
-- **HU-Focused**: This implementation is optimized for Hungary. Experimental support for other countries (CZ, HR, RO, SI, SK, RS).
-- **Stateless**: The adapter does not persist tracking data. Each call fetches fresh data from GLS API.
-- **Real-time Updates**: Returns latest status from GLS tracking system.
-- **Event Timeline**: Returns complete history of all tracking events for the parcel.
+### Track Parcel
+Retrieve tracking information for a single parcel by its tracking number (parcel ID).
 
-## Prerequisites
+**Endpoint:** `GetParcelStatuses`
 
-1. **GLS Account**: Active MyGLS account with tracking permissions
-2. **Credentials**: MyGLS username, password, and client number(s)
-3. **GLS Parcel ID**: The numeric parcel ID (typically from a prior `CREATE_PARCELS` call)
+**Features:**
+- Complete tracking event timeline (earliest to latest)
+- Canonical status mapping (PENDING, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, EXCEPTION, RETURNED)
+- Facility/location information for each event
+- Optional Proof of Delivery (POD) document retrieval
+- Support for multiple languages
+- Test/sandbox mode support
 
-## API Flow
-
-### Tracking a Parcel
-
-```typescript
-import { GLSAdapter } from '@shopickup/adapters-gls';
-import { createAxiosHttpClient } from '@shopickup/core/http/axios-client';
-
-const adapter = new GLSAdapter();
-const httpClient = createAxiosHttpClient();
-const logger = console; // or your logger
-
-// Track a parcel by its GLS ID
-const trackingResult = await adapter.track(
-  {
-    trackingNumber: '123456789', // GLS parcel ID
-    credentials: {
-      username: 'integration@example.com',
-      password: 'myPassword123',
-      clientNumberList: [12345],
-    },
-    options: {
-      useTestApi: false, // Set to true for testing
-    },
-  },
-  { http: httpClient, logger }
-);
-
-console.log('Current Status:', trackingResult.status); // e.g., 'IN_TRANSIT'
-console.log('Last Update:', trackingResult.lastUpdate);
-
-// Print tracking timeline
-for (const event of trackingResult.events) {
-  console.log(`${event.timestamp.toISOString()}: ${event.description}`);
-  console.log(`  Status: ${event.status}`);
-  console.log(`  Code: ${event.carrierStatusCode}`);
-  if (event.location?.city) {
-    console.log(`  Location: ${event.location.city}`);
-  }
-}
-```
-
-## Request Parameters
-
-### TrackingRequest
+## Request Format
 
 ```typescript
-interface TrackingRequest {
-  // GLS parcel number (numeric string or number)
-  // Example: '123456789'
-  trackingNumber: string;
-
-  // GLS credentials (optional, but required for non-public tracking)
-  credentials?: {
-    username: string;           // MyGLS username
-    password: string;           // MyGLS password (hashed internally)
-    clientNumberList: number[]; // Array of GLS client numbers
+{
+  trackingNumber: string;        // GLS parcel number (numeric string)
+  credentials: {
+    username: string;            // MyGLS API username
+    password: string;            // MyGLS API password (plain text, adapter will hash)
+    clientNumberList: number[];  // GLS client account numbers
   };
-
-  // Request options (optional)
   options?: {
-    useTestApi?: boolean; // Use test/sandbox endpoint
+    useTestApi?: boolean;        // Use test API (default: false)
+    returnPOD?: boolean;         // Request Proof of Delivery document (default: false)
+    languageIsoCode?: string;    // Language code: EN, HU, CS, RO, SK, SL, HR (default: EN)
+    country?: string;            // Country code for API endpoint (default: HU)
   };
 }
 ```
 
 ## Response Format
 
-### TrackingUpdate
+```typescript
+{
+  trackingNumber: string;        // The tracked parcel number
+  status: TrackingStatus;        // Current status: PENDING | IN_TRANSIT | OUT_FOR_DELIVERY | DELIVERED | EXCEPTION | RETURNED
+  lastUpdate: Date | null;       // Timestamp of most recent tracking event
+  events: TrackingEvent[];       // Timeline of all tracking events (chronologically sorted)
+  rawCarrierResponse: {
+    parcelNumber: number;        // GLS parcel ID
+    clientReference?: string;    // Integrator's reference for the parcel
+    deliveryCountryCode?: string; // Delivery destination country (ISO 3166-1)
+    deliveryZipCode?: string;    // Delivery area zip code
+    weight?: number;             // Parcel weight (nullable)
+    parcelStatusList: ParcelStatus[];  // All status events from GLS
+    pod?: Buffer | Uint8Array;   // Proof of Delivery PDF (if returnPOD=true and available)
+    getParcelStatusErrors?: ErrorInfo[]; // Any GLS API errors
+  };
+}
+```
+
+### TrackingEvent Structure
 
 ```typescript
-interface TrackingUpdate {
-  // Tracking number (GLS parcel ID)
-  trackingNumber: string;
-
-  // Timeline of all tracking events (sorted chronologically)
-  events: TrackingEvent[];
-
-  // Current status (derived from latest event)
-  // Values: PENDING, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, EXCEPTION, RETURNED, CANCELLED
-  status: TrackingStatus;
-
-  // Timestamp of last tracking update (or null if no events)
-  lastUpdate: Date | null;
-
-  // Raw GLS API response (for debugging)
-  rawCarrierResponse?: unknown;
-}
-
-interface TrackingEvent {
-  // ISO 8601 timestamp of the event
-  timestamp: Date;
-
-  // Normalized canonical status
-  status: TrackingStatus;
-
-  // Original GLS status code (1-40+)
-  carrierStatusCode?: string;
-
-  // Location information
+{
+  timestamp: Date;               // When the event occurred
+  status: TrackingStatus;        // Canonical status
+  carrierStatusCode: string;     // GLS status code (1-420, see mapping below)
   location?: {
-    city?: string;        // City name
-    country?: string;     // Country code
-    facility?: string;    // Facility/depot identifier
-    latitude?: number;    // Coordinates (if available)
-    longitude?: number;
+    city: string;                // Depot city
+    facility: string;            // Depot/facility number
   };
-
-  // Human-readable description
-  description: string;
-
-  // Description in alternative language (if provided by GLS)
-  descriptionLocalLanguage?: string;
-
-  // Raw GLS status data
-  raw?: unknown;
+  description: string;           // GLS status description
+  raw: {
+    statusCode: string;
+    statusDate: Date;
+    statusDescription: string;
+    depotCity: string;
+    depotNumber: string;
+    statusInfo?: string;
+  };
 }
-
-type TrackingStatus = 
-  | 'PENDING'           // Awaiting pickup
-  | 'IN_TRANSIT'        // In transit
-  | 'OUT_FOR_DELIVERY'  // Out for delivery today
-  | 'DELIVERED'         // Successfully delivered
-  | 'EXCEPTION'         // Exception/delay/issue
-  | 'RETURNED'          // Returned to sender
-  | 'CANCELLED';        // Shipment cancelled
 ```
 
 ## Status Code Mapping
 
-The GLS adapter maps GLS tracking codes (1-40+) to canonical statuses. This mapping is based on GLS Appendix G tracking codes.
+GLS provides detailed status codes (1-420) that are mapped to canonical `TrackingStatus` values:
 
 ### Common Status Codes
 
-| GLS Code | Description | Canonical Status | Notes |
-|----------|-------------|------------------|-------|
-| 1 | Handed over to GLS | PENDING | Parcel picked up |
-| 2 | Left parcel center | IN_TRANSIT | Departed from depot |
-| 3 | Reached parcel center | IN_TRANSIT | Arrived at depot |
-| 4 | Expected delivery during day | OUT_FOR_DELIVERY | On delivery route |
-| 5 | Delivered | DELIVERED | Successfully delivered |
-| 8 | Ready for self-collection | OUT_FOR_DELIVERY | Available at pickup point |
-| 23 | Returned to sender | RETURNED | Returned to origin |
-| 13-22, 24-40+ | Various exceptions | EXCEPTION | Delays, damage, issues, etc. |
+| Code | Meaning | Canonical Status |
+|------|---------|------------------|
+| 1 | Handed over to GLS | PENDING |
+| 2 | Left parcel center | IN_TRANSIT |
+| 3 | Reached parcel center | IN_TRANSIT |
+| 4 | Expected delivery during day | OUT_FOR_DELIVERY |
+| 5 | Delivered | DELIVERED |
+| 8 | Ready for self-collection | OUT_FOR_DELIVERY |
+| 23 | Returned to sender | RETURNED |
+| 32 | Will be delivered in evening | OUT_FOR_DELIVERY |
+| 40 | Returned to sender | RETURNED |
+| 54 | Delivered to parcel box | DELIVERED |
+| 55 | Delivered at ParcelShop | DELIVERED |
+| 58 | Delivered at neighbor's | DELIVERED |
 
-### Exception Codes (Partial List)
+### Exception Status Codes
 
-| GLS Code | Description | Canonical Status |
-|----------|-------------|------------------|
-| 6-7 | Stored in parcel center | EXCEPTION |
-| 9 | Stored for new delivery date | EXCEPTION |
-| 11-12, 14-15, 19 | Delay conditions | EXCEPTION |
-| 13 | Sorting error | EXCEPTION |
-| 16 | No cash available | EXCEPTION |
-| 17 | Recipient refused | EXCEPTION |
-| 18 | Address information needed | EXCEPTION |
-| 20 | Wrong/incomplete address | EXCEPTION |
-| 28-32, 34, 36-37 | Damage/loss | EXCEPTION |
-| 40 | Customs hold | EXCEPTION |
+Exception statuses (codes 6-22, 24-31, 33-39, 41-122, etc.) map to `EXCEPTION` and represent:
+- Delivery delays
+- Address issues
+- Customs holds
+- Parcel damage
+- Absence/refusal of recipient
+- Weather conditions
+- Sorting errors
+- And other issues
 
-See GLS Appendix G for the complete list.
+See the complete mapping in `packages/adapters/GLS/src/mappers/tracking.ts` for all 70+ status codes.
+
+## Proof of Delivery (POD)
+
+### Requesting POD
+
+To retrieve the Proof of Delivery document, set `returnPOD: true` in options:
+
+```typescript
+const response = await adapter.track({
+  trackingNumber: '123456789',
+  credentials: { /* ... */ },
+  options: {
+    returnPOD: true,
+  },
+});
+```
+
+### Accessing POD
+
+The POD is returned in the `rawCarrierResponse.pod` field as a `Buffer` or `Uint8Array`:
+
+```typescript
+if (response.rawCarrierResponse?.pod) {
+  const pdfBuffer = response.rawCarrierResponse.pod;
+  // Upload to storage, display to user, etc.
+}
+```
+
+### POD Formats
+
+The adapter handles POD in multiple formats returned by GLS:
+- Base64 string (automatically decoded to Buffer)
+- Byte array (JSON number array, converted to Buffer)
+- Uint8Array (converted to Buffer)
+- Buffer (used as-is)
+
+### Example: Upload POD to S3
+
+```typescript
+import AWS from 'aws-sdk';
+
+const s3 = new AWS.S3();
+const trackingResponse = await adapter.track({...});
+
+if (trackingResponse.rawCarrierResponse?.pod) {
+  const pdfBuffer = trackingResponse.rawCarrierResponse.pod;
+  
+  await s3.putObject({
+    Bucket: 'my-shipping-bucket',
+    Key: `tracking/${trackingResponse.trackingNumber}.pdf`,
+    Body: pdfBuffer,
+    ContentType: 'application/pdf',
+  }).promise();
+}
+```
+
+### Example: Decode Dev-Server POD
+
+The dev-server test route may return POD as base64. To decode:
+
+```typescript
+const response = await fetch('/api/dev/gls/track', { /* ... */ });
+const data = await response.json();
+
+if (data.rawCarrierResponse?.podBase64) {
+  const pdfBuffer = Buffer.from(data.rawCarrierResponse.podBase64, 'base64');
+  // Use buffer...
+}
+```
+
+## Language Support
+
+GLS supports status descriptions in multiple languages:
+
+| Code | Language |
+|------|----------|
+| EN | English (default) |
+| HU | Hungarian |
+| CS | Czech |
+| SK | Slovak |
+| SL | Slovenian |
+| RO | Romanian |
+| HR | Croatian |
+
+Example:
+
+```typescript
+const response = await adapter.track({
+  trackingNumber: '123456789',
+  credentials: { /* ... */ },
+  options: {
+    languageIsoCode: 'HU', // Request Hungarian descriptions
+  },
+});
+```
+
+## Test Mode
+
+Use the test/sandbox API for development:
+
+```typescript
+const response = await adapter.track({
+  trackingNumber: '123456789',
+  credentials: { /* ... */ },
+  options: {
+    useTestApi: true,  // Uses https://api.test.mygls.hu/...
+  },
+});
+```
 
 ## Error Handling
 
-The adapter throws `CarrierError` exceptions with different types:
+The adapter may throw `CarrierError` in these scenarios:
 
-### Permanent Errors (Won't be resolved by retry)
+### Permanent Errors
+- Invalid parcel number format
+- Parcel not found
+- Authentication failure
+- Invalid credentials
 
-- **Invalid tracking number**: Non-numeric or negative
-- **Missing credentials**: Required fields not provided
-- **Authentication failure**: Invalid username/password
-- **Parcel not found**: GLS doesn't have this parcel in system
+### Transient Errors
+- API temporarily unavailable (503)
+- Network timeouts
+- Rate limiting
+
+### Validation Errors
+- Missing required fields
+- Invalid language code
+- Missing credentials
+
+Example error handling:
 
 ```typescript
 try {
-  const tracking = await adapter.track(req, ctx);
+  const response = await adapter.track({...});
 } catch (error) {
   if (error instanceof CarrierError) {
-    if (error.type === 'Permanent') {
-      // Log and skip - won't succeed with retry
-      console.error(`Permanent error: ${error.message}`);
-    } else if (error.type === 'Transient') {
-      // Can retry later
-      console.warn(`Transient error: ${error.message}`);
-      // Implement exponential backoff retry
+    if (error.category === 'Permanent' && error.message.includes('not found')) {
+      // Parcel not found - likely wrong tracking number
+      console.error('Tracking number not found');
+    } else if (error.category === 'Auth') {
+      // Authentication issue
+      console.error('Invalid GLS credentials');
+    } else {
+      // Transient error - may retry
+      console.error('Temporary API issue:', error.message);
     }
   }
 }
 ```
 
-### Transient Errors (May be resolved by retry)
+## Dev-Server Example
 
-- **API timeout**: GLS server slow or unavailable
-- **Network error**: Connection problem
-- **HTTP 5xx**: GLS API error
-
-Implement exponential backoff retry with a maximum number of attempts.
-
-## Event Timeline
-
-Tracking events are returned in chronological order, from oldest to newest:
-
-```typescript
-const tracking = await adapter.track(req, ctx);
-
-// Events are sorted chronologically
-console.log('Timeline:');
-for (const event of tracking.events) {
-  console.log(
-    `${event.timestamp.toISOString()}: ${event.status} - ${event.description}`
-  );
-}
-
-// Most recent event represents current status
-const currentEvent = tracking.events[tracking.events.length - 1];
-console.log('Current:', currentEvent.status);
-
-// Check if parcel has been delivered
-const isDelivered = tracking.status === 'DELIVERED';
-console.log('Delivered:', isDelivered);
-```
-
-## Example Scenarios
-
-### Scenario 1: Successful Delivery Tracking
-
-```typescript
-// Request tracking for a delivered parcel
-const tracking = await adapter.track(
-  {
-    trackingNumber: '123456789',
-    credentials: {
-      username: 'api@mycompany.com',
-      password: 'secure_password',
-      clientNumberList: [10001],
-    },
-  },
-  { http: httpClient, logger: console }
-);
-
-// Response shows complete journey
-// Events: PENDING → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED
-// status: 'DELIVERED'
-// lastUpdate: 2024-01-17T14:30:00Z
-```
-
-### Scenario 2: In-Transit Tracking
-
-```typescript
-// Track a parcel currently in transit
-const tracking = await adapter.track({
-  trackingNumber: '987654321',
-  credentials: { ... },
-}, { http, logger });
-
-// Response shows journey in progress
-// Events: PENDING → IN_TRANSIT
-// status: 'IN_TRANSIT'
-// lastUpdate: 2024-01-16T10:00:00Z
-
-// Check estimated delivery (if available in location data)
-const lastEvent = tracking.events[tracking.events.length - 1];
-if (lastEvent.location?.city) {
-  console.log(`Parcel is in ${lastEvent.location.city}`);
-}
-```
-
-### Scenario 3: Exception Handling
-
-```typescript
-// Track a parcel with an exception
-const tracking = await adapter.track({
-  trackingNumber: '555555555',
-  credentials: { ... },
-}, { http, logger });
-
-// Response shows the issue
-// Events: PENDING → IN_TRANSIT → EXCEPTION
-// status: 'EXCEPTION'
-// lastEvent.description: "Recipient refused"
-
-// Handle based on exception type
-if (tracking.status === 'EXCEPTION') {
-  console.warn(`Issue with parcel: ${tracking.events[tracking.events.length - 1].description}`);
-  // Notify customer, retry delivery, etc.
-}
-```
-
-### Scenario 4: Returned Parcel
-
-```typescript
-// Track a returned parcel
-const tracking = await adapter.track({
-  trackingNumber: '444444444',
-  credentials: { ... },
-}, { http, logger });
-
-// Response shows return journey
-// Events: PENDING → IN_TRANSIT → OUT_FOR_DELIVERY → EXCEPTION → RETURNED
-// status: 'RETURNED'
-// lastUpdate: 2024-01-17T16:00:00Z
-
-if (tracking.status === 'RETURNED') {
-  // Process return, issue refund, etc.
-}
-```
-
-## Development & Testing
-
-### Test Mode
-
-Use `options.useTestApi: true` to test against GLS test API:
-
-```typescript
-const tracking = await adapter.track(
-  {
-    trackingNumber: '123456789',
-    credentials: { ... },
-    options: { useTestApi: true }, // Use test endpoint
-  },
-  { http, logger }
-);
-```
-
-### Dev-Server Endpoint
-
-For development, the Shopickup dev-server provides a REST endpoint:
+### Request
 
 ```bash
-# Start dev-server
-cd examples/dev-server
-npm run dev
-
-# Test tracking (in another terminal)
 curl -X POST http://localhost:3000/api/dev/gls/track \
   -H "Content-Type: application/json" \
   -d '{
     "trackingNumber": "123456789",
     "credentials": {
-      "username": "test@example.com",
-      "password": "testpass",
+      "username": "integration@example.com",
+      "password": "myPassword123",
       "clientNumberList": [12345]
     },
     "options": {
-      "useTestApi": true
+      "useTestApi": true,
+      "returnPOD": true,
+      "languageIsoCode": "EN"
     }
   }'
 ```
 
-## Implementation Details
+### Response
 
-### Authentication
-
-The adapter handles password hashing automatically:
-
-- Password is SHA512-hashed internally before API call
-- Never store or log plain-text passwords
-- Credentials are validated before each request
-
-### Validation
-
-All requests and responses are validated:
-
-- Tracking number must be a positive integer
-- Credentials must include username, password, client numbers
-- GLS response is validated for required fields
-
-### Retry Strategy
-
-For production use, implement exponential backoff:
-
-```typescript
-async function trackWithRetry(
-  req: TrackingRequest,
-  ctx: AdapterContext,
-  maxRetries = 3
-) {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      return await adapter.track(req, ctx);
-    } catch (error) {
-      if (error instanceof CarrierError && error.type === 'Transient' && attempt < maxRetries - 1) {
-        // Exponential backoff: 1s, 2s, 4s
-        const delay = Math.pow(2, attempt) * 1000;
-        await new Promise(resolve => setTimeout(resolve, delay));
-      } else {
-        throw;
+```json
+{
+  "trackingNumber": "123456789",
+  "status": "DELIVERED",
+  "lastUpdate": "2024-02-01T14:30:00.000Z",
+  "events": [
+    {
+      "timestamp": "2024-01-31T08:00:00.000Z",
+      "status": "PENDING",
+      "carrierStatusCode": "1",
+      "description": "Handed over to GLS",
+      "location": {
+        "city": "Budapest",
+        "facility": "0001"
+      }
+    },
+    {
+      "timestamp": "2024-02-01T10:00:00.000Z",
+      "status": "IN_TRANSIT",
+      "carrierStatusCode": "2",
+      "description": "Left parcel center",
+      "location": {
+        "city": "Budapest",
+        "facility": "0001"
+      }
+    },
+    {
+      "timestamp": "2024-02-01T14:30:00.000Z",
+      "status": "DELIVERED",
+      "carrierStatusCode": "5",
+      "description": "Delivered",
+      "location": {
+        "city": "Budapest",
+        "facility": "0001"
       }
     }
+  ],
+  "rawCarrierResponse": {
+    "parcelNumber": 123456789,
+    "clientReference": "ORD-2024-001",
+    "deliveryCountryCode": "HU",
+    "deliveryZipCode": "1056",
+    "weight": 2.5,
+    "podBase64": "JVBERi0xLjQKJeLjz9MNCjEgMCBvYmo...",
+    "parcelNumber": 123456789
   }
 }
 ```
 
-## Limitations
+## Best Practices
 
-- **60+ status codes**: Only common ones (1-40) are mapped
-- **Limited location data**: May not include GPS coordinates
-- **No POD by default**: Proof of Delivery requires separate API call
-- **Single parcel**: One tracking call per parcel (no batch tracking)
-- **Regional variations**: Status codes may vary by GLS region
+### 1. Cache Tracking Results
+Parcel status updates are typically infrequent. Cache results with a reasonable TTL (e.g., 5-15 minutes):
+
+```typescript
+const cache = new Map();
+
+async function getTrackingWithCache(trackingNumber) {
+  const cacheKey = `gls-track-${trackingNumber}`;
+  const cached = cache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < 5 * 60 * 1000) {
+    return cached.data;
+  }
+  
+  const data = await adapter.track({...});
+  cache.set(cacheKey, { data, timestamp: Date.now() });
+  return data;
+}
+```
+
+### 2. Handle POD Gracefully
+Not all parcels have POD available (e.g., pending delivery). Check before accessing:
+
+```typescript
+const pod = response.rawCarrierResponse?.pod;
+if (pod) {
+  // Process POD
+} else if (response.status === 'DELIVERED') {
+  // POD not available - may not be available for this parcel type
+  console.log('POD not available for this delivery');
+}
+```
+
+### 3. Validate Tracking Numbers
+Always validate the tracking number format before requesting:
+
+```typescript
+const trackingNumber = userInput.trim();
+if (!/^\d{9,12}$/.test(trackingNumber)) {
+  throw new Error('Invalid GLS tracking number');
+}
+```
+
+### 4. Monitor Status Transitions
+Track status changes to trigger actions (e.g., notification when OUT_FOR_DELIVERY):
+
+```typescript
+const previousResponse = await getPreviousTracking(trackingNumber);
+const currentResponse = await adapter.track({...});
+
+if (previousResponse?.status !== currentResponse.status) {
+  await notifyUser(`Parcel status changed to: ${currentResponse.status}`);
+}
+```
+
+### 5. Use Appropriate Language
+Set language based on delivery destination or user preference:
+
+```typescript
+const deliveryCountry = shipment.deliveryCountryCode;
+const languageMap = {
+  'HU': 'HU',
+  'CZ': 'CS',
+  'SK': 'SK',
+  'RO': 'RO',
+};
+
+const response = await adapter.track({
+  ...
+  options: {
+    languageIsoCode: languageMap[deliveryCountry] || 'EN',
+  },
+});
+```
+
+## API Endpoint Information
+
+### Production Endpoints
+- Hungary: `https://api.mygls.hu/ParcelService.svc/json/GetParcelStatuses`
+- Czech: `https://api.mygls.cz/ParcelService.svc/json/GetParcelStatuses`
+- Slovakia: `https://api.mygls.sk/ParcelService.svc/json/GetParcelStatuses`
+- (And other countries - see `resolveGLSBaseUrl()` utility)
+
+### Test Endpoints
+- Hungary: `https://api.test.mygls.hu/ParcelService.svc/json/GetParcelStatuses`
+- Czech: `https://api.test.mygls.cz/ParcelService.svc/json/GetParcelStatuses`
+- (And others)
+
+## Rate Limiting
+
+GLS API has rate limits. Recommended:
+- Cache results (see Best Practices #1)
+- Use polling intervals of 5-15 minutes
+- Batch requests when possible
+- Implement exponential backoff for retries
 
 ## Troubleshooting
 
-### "Parcel not found" error
+### "Parcel not found"
+- Verify the tracking number is correct
+- Check that credentials are valid for the account containing this parcel
+- Ensure you're using the correct country/API endpoint
 
-- Verify the tracking number is correct (GLS parcel ID, not order number)
-- Ensure the parcel was created via `CREATE_PARCELS` in this account
-- Check that credentials belong to the same GLS account that created the parcel
+### "Invalid credentials"
+- Verify username and password
+- Check that credentials are for MyGLS API (not customer portal)
+- Confirm client number is correct
 
-### "Authentication failed" error
+### "POD not available"
+- Not all parcel types support POD
+- POD may only be available after delivery
+- Try with `returnPOD: true` to explicitly request
 
-- Verify username and password are correct
-- Ensure client number is valid and associated with account
-- Check that account has tracking permissions enabled
+### No status events returned
+- Parcel may be too new (immediately after shipment creation)
+- Verify tracking number
+- Check that parcel was handed over to GLS
 
-### No events returned
+## Related Documentation
 
-- Parcel may be too new (just created)
-- Try again after a few minutes
-- Check that parcel ID is correct in the system
-
-### Timeout errors
-
-- GLS API may be experiencing delays
-- Implement exponential backoff retry
-- Try test API first to verify connectivity
-
-## References
-
-- **GLS MyGLS API**: https://api.mygls.hu/
-- **GLS Appendix G**: Tracking status codes documentation
-- **Shopickup Core**: [TrackingUpdate type](../../../core/src/types/tracking.ts)
+- [GLS Label Creation](./LABELS.md)
+- [GLS Parcel Management](./PARCELS.md)
+- [GLS Status Codes (Complete Reference)](./STATUS_CODES.md)

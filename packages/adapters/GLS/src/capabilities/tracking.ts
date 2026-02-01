@@ -88,9 +88,11 @@ export async function track(
       );
     }
 
-     const useTestApi = req.options?.useTestApi || false;
-     const country = (req.options?.country as string) || 'HU';  // Default to Hungary
-     const baseUrl = resolveGLSBaseUrl(country, useTestApi);
+      const useTestApi = req.options?.useTestApi || false;
+      const country = (req.options?.country as string) || 'HU';  // Default to Hungary
+      const returnPOD = req.options?.returnPOD || false; // Request POD if needed
+      const languageIsoCode = (req.options?.languageIsoCode as string) || 'EN'; // Language code
+      const baseUrl = resolveGLSBaseUrl(country, useTestApi);
 
     // Hash password for authentication (as byte array)
     const hashedPassword = hashPasswordSHA512(creds.password as string);
@@ -120,15 +122,17 @@ export async function track(
       );
     }
 
-     // Build request body with auth and tracking info (per GLS API spec)
-     // Password is sent as byte array in JSON body, no HTTP Basic Auth
-     const trackingRequestCamelCase = {
-       username: creds.username as string,
-       password: hashedPassword,
-       clientNumberList: creds.clientNumberList as number[],
-       parcelNumber,
-       clientNumber,
-     };
+      // Build request body with auth and tracking info (per GLS API spec)
+      // Password is sent as byte array in JSON body, no HTTP Basic Auth
+      const trackingRequestCamelCase = {
+        username: creds.username as string,
+        password: hashedPassword,
+        clientNumberList: creds.clientNumberList as number[],
+        parcelNumber,
+        clientNumber,
+        returnPOD,
+        languageIsoCode,
+      };
 
      // Convert to PascalCase (matching PHP example)
      const trackingRequest = convertToPascalCase(trackingRequestCamelCase);
@@ -136,13 +140,15 @@ export async function track(
      safeLog(
        ctx.logger,
        'debug',
-       'GLS: Tracking request',
-       {
-         url: `${baseUrl}/json/GetParcelStatuses`,
-         requestKeys: Object.keys(trackingRequest),
-         hasPassword: Array.isArray(trackingRequest.Password),
-         parcelNumber: trackingRequest.ParcelNumber,
-       },
+        'GLS: Tracking request',
+        {
+          url: `${baseUrl}/json/GetParcelStatuses`,
+          requestKeys: Object.keys(trackingRequest),
+          hasPassword: Array.isArray(trackingRequest.Password),
+          parcelNumber: trackingRequest.ParcelNumber,
+          returnPOD: trackingRequest.ReturnPOD,
+          languageCode: trackingRequest.LanguageIsoCode,
+        },
        ctx,
        ['track', 'debug']
      );
@@ -209,18 +215,19 @@ export async function track(
     const trackingUpdate = mapGLSTrackingResponseToCanonical(carrierRespBody);
 
     safeLog(
-      ctx.logger,
-      'info',
-      'GLS: Parcel tracking finished',
-      {
-        parcelNumber,
-        status: trackingUpdate.status,
-        eventCount: trackingUpdate.events.length,
-        testMode: useTestApi,
-      },
-      ctx,
-      ['track']
-    );
+       ctx.logger,
+       'info',
+       'GLS: Parcel tracking finished',
+       {
+         parcelNumber,
+         status: trackingUpdate.status,
+         eventCount: trackingUpdate.events.length,
+         hasPOD: (trackingUpdate.rawCarrierResponse as any)?.pod ? 'yes' : 'no',
+         testMode: useTestApi,
+       },
+       ctx,
+       ['track']
+     );
 
     return trackingUpdate;
   } catch (error) {

@@ -61,15 +61,65 @@ const GLS_STATUS_MAPPING: Record<string, TrackingStatus> = {
   '29': 'EXCEPTION', // Under investigation
   '30': 'EXCEPTION', // Inbound damaged
   '31': 'EXCEPTION', // Completely damaged
-  '32': 'EXCEPTION', // Damaged
-  '33': 'EXCEPTION', // Delivery attempted
-  '34': 'EXCEPTION', // Parcel damaged in delivery
-  '35': 'DELIVERED', // Delivered to parcel shop
-  '36': 'EXCEPTION', // Lost parcel
-  '37': 'EXCEPTION', // Parcel damaged - contents missing
-  '38': 'IN_TRANSIT', // In international transit
-  '39': 'IN_TRANSIT', // Customs clearance
-  '40': 'EXCEPTION', // Customs hold
+  '32': 'OUT_FOR_DELIVERY', // Will be delivered in the evening
+  '33': 'EXCEPTION', // Delivery attempted - exceeded time frame
+  '34': 'EXCEPTION', // Refused acceptance due to delayed delivery
+  '35': 'DELIVERED', // Delivered (parcel was refused because goods not ordered)
+  '36': 'EXCEPTION', // Consignee was not in, contact card couldn't be left
+  '37': 'EXCEPTION', // Change delivery for shipper's request
+  '38': 'EXCEPTION', // Could not be delivered due to missing delivery note
+  '39': 'EXCEPTION', // Delivery note not signed
+  '40': 'RETURNED', // Returned to sender
+  '41': 'IN_TRANSIT', // Forwarded normal
+  '42': 'EXCEPTION', // Disposed upon shipper's request
+  '43': 'EXCEPTION', // Parcel is not locatable
+  '44': 'EXCEPTION', // Parcel excluded from General Terms and Conditions
+  '46': 'EXCEPTION', // Change completed for delivery address
+  '47': 'IN_TRANSIT', // Left the parcel center
+  '51': 'PENDING', // Parcel data entered into GLS IT system; not yet handed over
+  '52': 'PENDING', // COD data entered into GLS IT system
+  '53': 'IN_TRANSIT', // Depot transit
+  '54': 'DELIVERED', // Delivered to parcel box
+  '55': 'DELIVERED', // Delivered at ParcelShop
+  '56': 'EXCEPTION', // Stored in GLS ParcelShop
+  '57': 'EXCEPTION', // Reached maximum storage time in ParcelShop
+  '58': 'DELIVERED', // Delivered at neighbor's
+  '59': 'DELIVERED', // ParcelShop pickup
+  '60': 'EXCEPTION', // Customs clearance delayed - missing invoice
+  '61': 'EXCEPTION', // Customs documents being prepared
+  '62': 'EXCEPTION', // Customs clearance delayed - missing phone number
+  '64': 'EXCEPTION', // Released by customs
+  '65': 'EXCEPTION', // Released by customs (clearance by consignee)
+  '66': 'EXCEPTION', // Customs clearance delayed - awaiting approval
+  '67': 'EXCEPTION', // Customs documents being prepared
+  '68': 'EXCEPTION', // Could not be delivered - consignee refused to pay
+  '69': 'EXCEPTION', // Stored in parcel center - consignment incomplete
+  '70': 'EXCEPTION', // Customs clearance delayed - incomplete documents
+  '71': 'EXCEPTION', // Customs clearance delayed - missing/inaccurate documents
+  '72': 'EXCEPTION', // Customs data must be recorded
+  '73': 'EXCEPTION', // Customs parcel locked in origin country
+  '74': 'EXCEPTION', // Customs clearance delayed - customs inspection
+  '75': 'EXCEPTION', // Confiscated by customs authorities
+  '76': 'EXCEPTION', // Customs data recorded, parcel can be sent to final location
+  '80': 'IN_TRANSIT', // Forwarded to desired address for delivery
+  '83': 'PENDING', // Pickup-service data entered into GLS system
+  '84': 'PENDING', // Label for pickup produced
+  '85': 'PENDING', // Driver received order to pick up during the day
+  '86': 'IN_TRANSIT', // Reached the parcel center
+  '87': 'EXCEPTION', // Pickup request cancelled - no goods to pick up
+  '88': 'EXCEPTION', // Could not be picked up - goods not packed
+  '89': 'EXCEPTION', // Could not be picked up - customer not informed
+  '90': 'EXCEPTION', // Pickup request cancelled - goods sent by other means
+  '91': 'EXCEPTION', // Pick and Ship/Return cancelled
+  '92': 'DELIVERED', // Delivered
+  '93': 'DELIVERED', // Signature confirmed
+  '97': 'DELIVERED', // Placed in parcellocker
+  '99': 'IN_TRANSIT', // Consignee contacted - email delivery notification
+  '401': 'EXCEPTION', // Parcellocker capacity problem
+  '402': 'EXCEPTION', // Parcellocker oversized
+  '403': 'EXCEPTION', // Parcel damaged
+  '404': 'EXCEPTION', // Parcellocker technical issue
+  '420': 'EXCEPTION', // Defect box
 };
 
 /**
