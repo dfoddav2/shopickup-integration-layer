@@ -152,7 +152,7 @@ export async function createLabels(
      safeLog(
        ctx.logger,
        'debug',
-       'GLS: Creating labels batch (PascalCase test)',
+       'GLS: Creating labels batch',
        {
          count: req.parcelCarrierIds.length,
          country,

@@ -136,7 +136,7 @@ export async function track(
      safeLog(
        ctx.logger,
        'debug',
-       'GLS: Tracking request (PascalCase test)',
+       'GLS: Tracking request',
        {
          url: `${baseUrl}/json/GetParcelStatuses`,
          requestKeys: Object.keys(trackingRequest),

@@ -153,13 +153,17 @@ export function mapCanonicalParcelsToGLS(
  * @returns Object suitable for CarrierResource
  */
 export function mapGLSParcelInfoToCarrierResource(parcelInfo: any, index: number): any {
+  // Handle both camelCase and PascalCase from GLS response
+  const parcelId = parcelInfo.parcelId ?? parcelInfo.ParcelId;
+  const clientReference = parcelInfo.clientReference ?? parcelInfo.ClientReference;
+  
   return {
-    carrierId: parcelInfo.parcelId.toString(),
+    carrierId: parcelId.toString(),
     status: 'created',
     raw: parcelInfo,
     metadata: {
-      clientReference: parcelInfo.clientReference,
-      parcelId: parcelInfo.parcelId,
+      clientReference: clientReference,
+      parcelId: parcelId,
     },
   };
 }

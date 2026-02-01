@@ -206,7 +206,7 @@ export async function createParcels(
      safeLog(
        ctx.logger,
        'debug',
-       'GLS: Request payload (PascalCase test)',
+       'GLS: Request payload',
        {
          url: `${baseUrl}/json/PrepareLabels`,
          requestKeys: Object.keys(glsRequest),
@@ -299,7 +299,9 @@ export async function createParcels(
     }
 
     // Map carrier response array -> CarrierResource[]
-    const results: CarrierResource[] = (carrierRespBody.parcelInfoList || []).map(
+    // GLS API returns both parcelInfoList and ParcelInfoList (case varies)
+    const parcelList = (carrierRespBody.parcelInfoList || (carrierRespBody as any).ParcelInfoList || []) as any[];
+    const results: CarrierResource[] = parcelList.map(
       (p: any, idx: number) => mapGLSParcelInfoToCarrierResource(p, idx)
     );
 

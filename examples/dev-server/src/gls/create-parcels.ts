@@ -212,6 +212,7 @@ const BATCH_PARCEL_RESPONSE_SCHEMA = {
       allFailed: { type: 'boolean' },
       someFailed: { type: 'boolean' },
       summary: { type: 'string' },
+      rawCarrierResponse: { type: 'object', additionalProperties: true },
     },
   },
   400: {
@@ -405,7 +406,7 @@ export async function registerCreateParcelsRoute(
           parcelResponse.someFailed ? 207 : // Multi-status for partial success
           200;
 
-        return reply.status(statusCode).send({
+        const responseBody: any = {
           results: parcelResponse.results,
           successCount: parcelResponse.successCount,
           failureCount: parcelResponse.failureCount,
@@ -414,7 +415,13 @@ export async function registerCreateParcelsRoute(
           allFailed: parcelResponse.allFailed,
           someFailed: parcelResponse.someFailed,
           summary: parcelResponse.summary,
-        });
+        };
+
+        if (parcelResponse.rawCarrierResponse) {
+          responseBody.rawCarrierResponse = parcelResponse.rawCarrierResponse;
+        }
+
+        return reply.status(statusCode).send(responseBody);
       } catch (error) {
         fastify.log.error(error);
 
