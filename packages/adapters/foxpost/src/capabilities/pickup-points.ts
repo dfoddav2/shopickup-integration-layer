@@ -16,7 +16,12 @@ import type {
   CarrierError as CarrierErrorType,
 } from "@shopickup/core";
 import { CarrierError, safeLog, createLogEntry } from "@shopickup/core";
-import { safeValidateFoxpostApmEntry, type FoxpostApmEntry, type FoxpostApmMetadata } from "../validation.js";
+import {
+  safeValidateFetchPickupPointsRequest,
+  safeValidateFoxpostApmEntry,
+  type FoxpostApmEntry,
+  type FoxpostApmMetadata,
+} from "../validation.js";
 
 /**
  * Normalize a Foxpost APM entry to canonical PickupPoint
@@ -158,6 +163,21 @@ export async function fetchPickupPoints(
   const feedUrl = "https://cdn.foxpost.hu/foxplus.json";
 
   try {
+    const validatedReq = safeValidateFetchPickupPointsRequest(req);
+    if (!validatedReq.success) {
+      throw new CarrierError(
+        `Invalid request: ${validatedReq.error.message}`,
+        "Validation",
+        { raw: validatedReq.error.issues }
+      );
+    }
+
+    // Normalize namespaced options into a flat internal shape for adapter logic.
+    const internalOptions = {
+      country: validatedReq.data.options?.foxpost?.country,
+      bbox: validatedReq.data.options?.foxpost?.bbox,
+    };
+
     // Fetch the public JSON feed (no authentication needed)
     // operationName is already set by withOperationName wrapper
     safeLog(
@@ -187,13 +207,13 @@ export async function fetchPickupPoints(
     );
 
      // Map each entry to PickupPoint with per-entry validation
-     const points: PickupPoint[] = apmData.map((entry: unknown) => {
+     let points: PickupPoint[] = apmData.map((entry: unknown) => {
        try {
          // Validate and coerce entry using Zod schema
          const validation = safeValidateFoxpostApmEntry(entry);
          if (!validation.success) {
            ctx.logger?.warn("Skipping invalid APM entry", {
-             errors: validation.error.flatten(),
+             errors: validation.error.issues,
              entry: entry instanceof Object ? JSON.stringify(entry).substring(0, 100) : entry
            });
            return null;
@@ -208,6 +228,26 @@ export async function fetchPickupPoints(
        }
      }).filter((p: PickupPoint | null): p is PickupPoint => p !== null);
 
+     if (internalOptions.country) {
+       const countryFilter = internalOptions.country.toLowerCase();
+       points = points.filter((p) => p.country?.toLowerCase() === countryFilter);
+     }
+
+     if (internalOptions.bbox) {
+       const { north, south, east, west } = internalOptions.bbox;
+       points = points.filter((p) => {
+         if (p.latitude === undefined || p.longitude === undefined) {
+           return false;
+         }
+         return (
+           p.latitude <= north &&
+           p.latitude >= south &&
+           p.longitude <= east &&
+           p.longitude >= west
+         );
+       });
+     }
+
      safeLog(
        ctx.logger,
        'info',
@@ -216,6 +256,10 @@ export async function fetchPickupPoints(
          total: apmData.length,
          succeeded: points.length,
          failed: apmData.length - points.length,
+         appliedFilters: {
+           country: internalOptions.country,
+           bbox: internalOptions.bbox ? true : false,
+         },
        },
        ctx
      );

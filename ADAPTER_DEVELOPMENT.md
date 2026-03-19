@@ -409,68 +409,82 @@ mkdir -p packages/adapters/foxpost/gen
 
 Request objects (e.g., `CreateParcelRequest`, `RatesRequest`, `PickupRequest`) can include an optional `options` property for per-call behavior modifications.
 
-### Available Options
+### Recommended Pattern (Option 2)
+
+Use this two-step convention:
+
+1. **Public/integration boundary:** keep carrier-specific keys under `options.<carrierId>`
+2. **Adapter internals:** normalize once after validation into a flat internal object
+
+This gives collision-safe external contracts while keeping adapter logic simple.
+
+### Why this pattern
+
+- Avoids key collisions in generic layers (dev-server/orchestrator/middleware)
+- Keeps room for cross-carrier options later (for example `useTestApi`)
+- Avoids deep property access everywhere in capability code
+
+### Public Shape Example
 
 ```typescript
-export interface RequestOptions {
-  /**
-   * Use test/sandbox API endpoint instead of production
-   * Some carriers have separate test APIs (e.g., Foxpost: webapi-test.foxpost.hu)
-   * Default: false
-   */
-  useTestApi?: boolean;
-
-  /**
-   * Custom options for future extensibility
-   */
-  [key: string]: unknown;
-}
+// MPL example
+type MplRequest = {
+  credentials: Record<string, unknown>;
+  options: {
+    useTestApi?: boolean;
+    mpl: {
+      accountingCode: string;
+      postCode?: string;
+      city?: string;
+      servicePointType?: Array<'PM' | 'PP' | 'CS'>;
+    };
+  };
+};
 ```
 
-### Using Options in Your Adapter
+### Adapter Implementation Pattern
 
-#### 1. For methods with request objects (createParcel, createShipment, etc.)
-
-Read `req.options?.useTestApi` and use it to determine which endpoint to call:
+Validate the public shape first, then flatten to internal options once.
 
 ```typescript
-async createParcel(
-  shipmentCarrierId: string,
-  req: CreateParcelRequest,
-  ctx: AdapterContext
-): Promise<CarrierResource> {
-  // Check if test mode requested
-  const useTest = req.options?.useTestApi ?? false;
-  const baseUrl = useTest ? "https://api-test.example.com" : "https://api.example.com";
-  
-  // Make request to appropriate endpoint
-  const res = await ctx.http!.post(`${baseUrl}/parcels`, payload);
-  
-  ctx.logger?.debug("Creating parcel", { testMode: useTest, ... });
-  
-  return { carrierId: res.id, status: "created", raw: res };
+const validated = safeValidateMyRequest(req);
+if (!validated.success) {
+  throw new CarrierError(`Invalid request: ${validated.error.message}`, 'Validation');
 }
+
+const parsed = validated.data;
+
+// Normalize nested carrier options to a flat internal shape
+const internalOptions = {
+  useTestApi: parsed.options.useTestApi ?? false,
+  accountingCode: parsed.options.mpl.accountingCode,
+  postCode: parsed.options.mpl.postCode || '',
+  city: parsed.options.mpl.city || '',
+  servicePointType: parsed.options.mpl.servicePointType || [],
+};
+
+// Use internalOptions from this point onward
+const baseUrl = resolveBaseUrl(parsed.options);
+const headers = buildHeaders(parsed.credentials, internalOptions.accountingCode);
 ```
 
-#### 2. For methods without request objects (track, createLabel, voidLabel)
+### Do and Don't
 
-Since these methods only receive `AdapterContext`, extend the context type to read options:
+- `DO`: keep namespacing at boundaries (`options.mpl`, `options.gls`, `options.foxpost`)
+- `DO`: normalize right after safe-parse and use a flat internal object
+- `DO`: keep `useTestApi` as a top-level option where appropriate
+- `DON'T`: mix flat carrier keys and namespaced keys in the same public contract
+- `DON'T`: repeatedly access deep nested options throughout business logic
+
+### Using Test Mode
+
+Read `useTestApi` from parsed options and route to the proper base URL.
 
 ```typescript
-async track(
-  trackingNumber: string,
-  ctx: AdapterContext
-): Promise<TrackingUpdate> {
-  // Cast to any to access options (this is a known limitation)
-  const useTest = (ctx as any)?.options?.useTestApi ?? false;
-  const baseUrl = useTest ? "https://api-test.example.com" : "https://api.example.com";
-  
-  const res = await ctx.http!.get(`${baseUrl}/tracking/${trackingNumber}`);
-  
-  ctx.logger?.debug("Tracking parcel", { testMode: useTest, ... });
-  
-  return mapFromCarrier.tracking(res);
-}
+const useTestApi = internalOptions.useTestApi;
+const baseUrl = useTestApi
+  ? 'https://api-test.example.com'
+  : 'https://api.example.com';
 ```
 
 ### Declaring TEST_MODE_SUPPORTED
@@ -503,7 +517,10 @@ await adapter.createParcel(
     shipment: testShipment,
     parcel: testParcel,
     credentials: { apiKey: "prod-key" },
-    options: { useTestApi: false }
+    options: {
+      useTestApi: false,
+      mpl: { accountingCode: "ACC123" }
+    }
   },
   context
 );
@@ -515,7 +532,10 @@ await adapter.createParcel(
     shipment: testShipment,
     parcel: testParcel,
     credentials: { apiKey: "test-key" },
-    options: { useTestApi: true }  // ← Use test endpoint
+    options: {
+      useTestApi: true,
+      mpl: { accountingCode: "ACC123" }
+    }  // ← Use test endpoint + carrier namespace
   },
   context
 );

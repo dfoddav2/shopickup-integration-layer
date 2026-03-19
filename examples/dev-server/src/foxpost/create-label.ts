@@ -8,11 +8,12 @@ import { FoxpostAdapter } from '@shopickup/adapters-foxpost';
 import { safeValidateCreateLabelRequest } from '@shopickup/adapters-foxpost/validation';
 import { CarrierError, type AdapterContext, type CreateLabelRequest, type CreateLabelsRequest } from '@shopickup/core';
 import { wrapPinoLogger } from '../http-client.js';
+import { formatLabelResponseForHttp } from '../label-response-http.js';
 import {
   FOXPOST_CREDENTIALS_SCHEMA,
   FOXPOST_OPTIONS_SCHEMA,
   EXAMPLE_CREDENTIALS,
-  BATCH_LABEL_RESPONSE_SCHEMA,
+  SINGLE_LABEL_RESPONSE_SCHEMA,
 } from './common.js';
 
 export async function registerCreateLabelRoute(
@@ -42,17 +43,27 @@ export async function registerCreateLabelRoute(
                  description: 'Use test API endpoint instead of production',
                  default: false,
                },
-                 size: {
-                   type: 'string',
-                   enum: ['A6', 'A7', '_85X85'],
-                   description: 'Label size format',
-                   default: 'A7',
-                 },
-                startPos: {
-                  type: 'integer',
-                  minimum: 0,
-                  maximum: 7,
-                  description: 'Starting position for A7 labels on A4 page (0-7)',
+                size: {
+                  type: 'string',
+                  enum: ['A6', 'A7', '_85X85'],
+                  description: 'Label size format',
+                  default: 'A7',
+                },
+                foxpost: {
+                  type: 'object',
+                  description: 'Foxpost-specific label options',
+                  properties: {
+                    startPos: {
+                      type: 'integer',
+                      minimum: 0,
+                      maximum: 7,
+                      description: 'Starting position for A7 labels on A4 page (0-7)',
+                    },
+                    isPortrait: {
+                      type: 'boolean',
+                      description: 'Label orientation flag for Foxpost rendering',
+                    },
+                  },
                 },
              },
            },
@@ -70,7 +81,7 @@ export async function registerCreateLabelRoute(
            },
          ],
        },
-       response: BATCH_LABEL_RESPONSE_SCHEMA,
+      response: SINGLE_LABEL_RESPONSE_SCHEMA,
      },
     async handler(request: any, reply: any) {
       try {
@@ -113,41 +124,21 @@ export async function registerCreateLabelRoute(
            },
          };
 
-        // Convert to batch request and call createLabels
-        // This ensures we get the full CreateLabelsResponse with files[] array
-        // Build options carefully - only include explicitly provided values
-        const batchOptions: any = {};
-        if (options?.useTestApi !== undefined) batchOptions.useTestApi = options.useTestApi;
-        if (options?.size !== undefined) batchOptions.size = options.size;
-        if (options?.startPos !== undefined) batchOptions.startPos = options.startPos;
-        if (options?.isPortrait !== undefined) batchOptions.isPortrait = options.isPortrait;
-
-        const batchReq: CreateLabelsRequest = {
-          parcelCarrierIds: [validated.data.parcelCarrierId],
-          credentials: validated.data.credentials!,
-          options: Object.keys(batchOptions).length > 0 ? batchOptions : undefined,
-        };
-
-        const result = await adapter.createLabels(batchReq, ctx);
+        // Invoke singular createLabel to get per-item result + file + rawCarrierResponse.
+        const result = await adapter.createLabel(createReq, ctx);
 
         // Log the adapter response for verification
         fastify.log.info({
-          totalCount: result.totalCount,
-          successCount: result.successCount,
-          failureCount: result.failureCount,
-          filesCount: result.files?.length || 0,
-          resultsCount: result.results.length,
+          inputId: result.inputId,
+          status: result.status,
+          fileId: result.fileId,
+          hasFile: !!result.file,
         }, 'Foxpost adapter createLabel response');
 
         // Determine HTTP status code
-        let statusCode = 200;
-        if (result.allFailed) {
-          statusCode = 400;
-        } else if (result.someFailed) {
-          statusCode = 207;
-        }
+        const statusCode = result.status === 'created' ? 200 : 400;
 
-        return reply.status(statusCode).send(result);
+        return reply.status(statusCode).send(formatLabelResponseForHttp(result));
       } catch (error) {
         fastify.log.error(error);
 

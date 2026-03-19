@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import type { CreateParcelRequest as CoreCreateParcelRequest, CreateParcelsRequest as CoreCreateParcelsRequest } from '@shopickup/core';
+import type {
+  CreateParcelRequest as CoreCreateParcelRequest,
+  CreateParcelsRequest as CoreCreateParcelsRequest,
+  CreateLabelRequest as CoreCreateLabelRequest,
+  CreateLabelsRequest as CoreCreateLabelsRequest,
+} from '@shopickup/core';
 import type { Parcel } from '@shopickup/core';
 
 /**
@@ -229,6 +234,36 @@ export interface CreateParcelsRequestFoxpost extends CoreCreateParcelsRequest {
 }
 
 /**
+ * Foxpost-specific CreateLabelRequest (narrowed credentials + nested foxpost options)
+ */
+export interface CreateLabelRequestFoxpost extends CoreCreateLabelRequest {
+  credentials: FoxpostCredentials;
+  options?: {
+    useTestApi?: boolean;
+    size?: 'A6' | 'A7' | '_85X85';
+    foxpost?: {
+      startPos?: number;
+      isPortrait?: boolean;
+    };
+  };
+}
+
+/**
+ * Foxpost-specific CreateLabelsRequest (narrowed credentials + nested foxpost options)
+ */
+export interface CreateLabelsRequestFoxpost extends CoreCreateLabelsRequest {
+  credentials: FoxpostCredentials;
+  options?: {
+    useTestApi?: boolean;
+    size?: 'A6' | 'A7' | '_85X85';
+    foxpost?: {
+      startPos?: number;
+      isPortrait?: boolean;
+    };
+  };
+}
+
+/**
  * CreateParcelRequest Zod schema
  */
 export const CreateParcelRequestFoxpostSchema = z.object({
@@ -253,8 +288,10 @@ export const CreateLabelRequestFoxpostSchema = z.object({
    options: z.object({
      useTestApi: z.boolean().optional(),
      size: z.enum(['A6', 'A7', '_85X85']).default('A7'),
-     startPos: z.number().int().min(0).max(7).optional(),
-     isPortrait: z.boolean().optional().default(false),
+     foxpost: z.object({
+       startPos: z.number().int().min(0).max(7).optional(),
+       isPortrait: z.boolean().optional().default(false),
+     }).optional(),
    }).optional()
 });
 
@@ -268,8 +305,10 @@ export const CreateLabelsRequestFoxpostSchema = z.object({
    options: z.object({
      useTestApi: z.boolean().optional(),
      size: z.enum(['A6', 'A7', '_85X85']).default('A7'),
-     startPos: z.number().int().min(0).max(7).optional(),
-     isPortrait: z.boolean().optional().default(false),
+     foxpost: z.object({
+       startPos: z.number().int().min(0).max(7).optional(),
+       isPortrait: z.boolean().optional().default(false),
+     }).optional(),
    }).optional()
 });
 
@@ -923,6 +962,33 @@ const FoxpostApmEntrySchema = z.object({
 export type FoxpostApmEntry = z.infer<typeof FoxpostApmEntrySchema>;
 
 /**
+ * Foxpost-specific options for fetchPickupPoints.
+ *
+ * Carrier-specific filters are namespaced under `options.foxpost`.
+ */
+const FoxpostFetchPickupPointsCarrierOptionsSchema = z.object({
+  country: z.string().length(2).optional(),
+  bbox: z.object({
+    north: z.number(),
+    south: z.number(),
+    east: z.number(),
+    west: z.number(),
+  }).optional(),
+  updatedSince: z.union([z.string(), z.date()]).optional(),
+}).catchall(z.unknown());
+
+const FoxpostFetchPickupPointsOptionsSchema = z.object({
+  foxpost: FoxpostFetchPickupPointsCarrierOptionsSchema.optional(),
+}).catchall(z.unknown());
+
+const FoxpostFetchPickupPointsRequestSchema = z.object({
+  credentials: z.record(z.string(), z.unknown()).optional(),
+  options: FoxpostFetchPickupPointsOptionsSchema.optional(),
+});
+
+export type FoxpostFetchPickupPointsRequest = z.infer<typeof FoxpostFetchPickupPointsRequestSchema>;
+
+/**
  * Helper to safely validate a Foxpost APM feed (array of entries)
  * Returns { success: true, data } or { success: false, error }
  */
@@ -936,6 +1002,13 @@ export function safeValidateFoxpostApmFeed(feed: unknown) {
  */
 export function safeValidateFoxpostApmEntry(entry: unknown) {
   return FoxpostApmEntrySchema.safeParse(entry);
+}
+
+/**
+ * Helper to validate Foxpost fetchPickupPoints request envelope.
+ */
+export function safeValidateFetchPickupPointsRequest(input: unknown) {
+  return FoxpostFetchPickupPointsRequestSchema.safeParse(input);
 }
 
 

@@ -753,7 +753,7 @@ describe("FoxpostAdapter Integration", () => {
          {
            parcelCarrierIds: ["CLFOX0000000001", "CLFOX0000000002"],
            credentials: { apiKey: "test-key", basicUsername: "user", basicPassword: "pass" },
-           options: { size: "A7", startPos: 3 },
+           options: { size: "A7", foxpost: { startPos: 3 } },
          },
          ctx
        );

@@ -615,6 +615,11 @@ export const MPL_CREATE_LABEL_RESPONSE_SCHEMA = {
               description: 'Data URL with embedded label content (populated by integrator)',
               example: null,
             },
+            rawBytes: {
+              type: ['string', 'object', 'null'],
+              description: 'Raw bytes payload for the file (Buffer-like object or base64 string in JSON)',
+              example: null,
+            },
             metadata: {
               type: 'object',
               description: 'Label-specific metadata',
@@ -669,24 +674,23 @@ export const MPL_CREATE_LABEL_RESPONSE_SCHEMA = {
               },
               nullable: true,
             },
-            error: {
-              type: 'object',
+            errors: {
+              type: 'array',
               description: 'Error details if status is failed',
-              properties: {
-                message: {
-                  type: 'string',
-                  example: 'Invalid tracking number format',
-                },
-                category: {
-                  type: 'string',
-                  enum: ['Validation', 'Auth', 'Transient', 'RateLimit', 'Permanent'],
-                  example: 'Validation',
-                },
-                carrierCode: {
-                  type: 'string',
-                  example: 'INVALID_FORMAT',
+              items: {
+                type: 'object',
+                properties: {
+                  code: { type: 'string' },
+                  message: { type: 'string' },
+                  field: { type: 'string' },
                 },
               },
+              nullable: true,
+            },
+            raw: {
+              type: 'object',
+              description: 'Raw per-item carrier response',
+              additionalProperties: true,
               nullable: true,
             },
           },
@@ -726,7 +730,7 @@ export const MPL_CREATE_LABEL_RESPONSE_SCHEMA = {
       },
       rawCarrierResponse: {
         type: 'object',
-        description: 'Raw base64-encoded PDF data or raw carrier response',
+        description: 'Serialized HTTP response from adapter call (headers/status/body)',
         additionalProperties: true,
       },
     },
@@ -756,7 +760,10 @@ export const MPL_CREATE_LABEL_RESPONSE_SCHEMA = {
               start: 1,
               end: 1,
             },
-            error: null,
+            raw: {
+              trackingNumber: 'MLHUN12345671234567',
+              index: 0,
+            },
           },
         ],
         successCount: 1,
@@ -767,7 +774,13 @@ export const MPL_CREATE_LABEL_RESPONSE_SCHEMA = {
         someFailed: false,
         summary: '1 label created successfully',
         rawCarrierResponse: {
-          label: 'base64EncodedPdfData...',
+          status: 200,
+          body: [
+            {
+              trackingNumber: 'MLHUN12345671234567',
+              label: 'JVBERi0xLjQK...',
+            },
+          ],
         },
       },
     ],

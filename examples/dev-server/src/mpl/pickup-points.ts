@@ -52,48 +52,58 @@ export async function registerPickupPointsRoute(
               oAuth2Token: { type: 'string', description: 'For oauth2 auth (Bearer token)' },
             }
           },
-          accountingCode: {
-            type: 'string',
-            description: 'MPL accounting code for the request',
-          },
-          postCode: {
-            type: 'string',
-            description: 'Optional: filter by postal code (4 characters)',
-          },
-          city: {
-            type: 'string',
-            description: 'Optional: filter by city name',
-          },
-          servicePointType: {
-            type: 'array',
-            items: {
-              type: 'string',
-              enum: ['PM', 'PP', 'CS'],
-            },
-            description: 'Optional: filter by service point type (PM=Post Office, PP=Post Point, CS=Parcel Locker)',
-          },
           options: {
             type: 'object',
             properties: {
+              mpl: {
+                type: 'object',
+                description: 'MPL-specific options (namespaced under "mpl")',
+                properties: {
+                  accountingCode: { type: 'string', description: 'MPL accounting code for the request' },
+                  postCode: {
+                    type: 'string',
+                    description: 'Optional: filter by postal code (4 characters)',
+                  },
+                  city: {
+                    type: 'string',
+                    description: 'Optional: filter by city name',
+                  },
+                  servicePointType: {
+                    type: 'array',
+                    items: {
+                      type: 'string',
+                      enum: ['PM', 'PP', 'CS'],
+                    },
+                    description: 'Optional: filter by service point type (PM=Post Office, PP=Post Point, CS=Parcel Locker)',
+                  },
+                },
+                required: ['accountingCode'],
+              },
               useTestApi: {
                 type: 'boolean',
                 description: 'Use test/sandbox API endpoint',
                 default: false
               }
-            }
+            },
+            required: ['mpl']
           }
         },
-        required: ['credentials', 'accountingCode'],
+        required: ['credentials', 'options'],
         examples: [
           {
             credentials: {
               apiKey: 'your-api-key',
               apiSecret: 'your-api-secret',
             },
-            accountingCode: 'ACC123456',
-            postCode: '',
-            city: '',
-            servicePointType: [],
+            options: {
+              mpl: {
+                accountingCode: 'ACC123456',
+                postCode: '',
+                city: '',
+                servicePointType: [],
+              },
+              useTestApi: true
+            }
           }
         ]
       },

@@ -41,11 +41,13 @@ export async function registerPickupPointsRoute(fastify: FastifyInstance, adapte
           });
         }
 
-        // Build pickup points request with country in options
+        // Build pickup points request with country in carrier-namespaced options
         const req = {
           credentials: undefined, // Public feed, no authentication needed
           options: {
-            country: country.toLowerCase(),
+            gls: {
+              country: country.toLowerCase(),
+            },
           },
         };
 

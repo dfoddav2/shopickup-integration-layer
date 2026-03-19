@@ -12,18 +12,80 @@
 import type {
   CarrierResource,
   AdapterContext,
-  CreateLabelRequest,
-  CreateLabelsRequest,
+  CreateLabelResponse,
   CreateLabelsResponse,
   LabelResult,
   LabelFileResource,
 } from "@shopickup/core";
 import { CarrierError, errorToLog, serializeForLog } from "@shopickup/core";
-import type { MPLCredentials } from '../validation.js';
-import { safeValidateCreateLabelsRequest, LabelQueryResult } from '../validation.js';
+import type { MPLCredentials, CreateLabelMPLRequest, CreateLabelsMPLRequest } from '../validation.js';
+import type { ResolveBaseUrl } from '../utils/resolveBaseUrl.js';
+import { safeValidateCreateLabelRequest, safeValidateCreateLabelsRequest, LabelQueryResult } from '../validation.js';
 import { buildMPLHeaders } from '../utils/httpUtils.js';
 import { buildLabelQueryParams, serializeQueryParams } from '../mappers/label.js';
 import { randomUUID } from "node:crypto";
+
+const BLOB_FIELDS = new Set(['label', 'labelBase64']);
+
+function isSerializedBuffer(value: unknown): value is { type: 'Buffer'; data: number[] } {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    (value as any).type === 'Buffer' &&
+    Array.isArray((value as any).data)
+  );
+}
+
+function summarizeBufferLike(value: Buffer | Uint8Array | { type: 'Buffer'; data: number[] }) {
+  if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
+    return {
+      omittedBinary: true,
+      byteLength: value.byteLength,
+      note: 'binary payload omitted from rawCarrierResponse',
+    };
+  }
+
+  return {
+    omittedBinary: true,
+    byteLength: value.data.length,
+    note: 'binary payload omitted from rawCarrierResponse',
+  };
+}
+
+function sanitizeRawValue(value: unknown, keyHint?: string): unknown {
+  if (typeof value === 'string') {
+    if (keyHint && BLOB_FIELDS.has(keyHint)) {
+      return `[truncated ${keyHint}; length=${value.length}]`;
+    }
+    return value;
+  }
+
+  if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
+    return summarizeBufferLike(value);
+  }
+
+  if (isSerializedBuffer(value)) {
+    return summarizeBufferLike(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeRawValue(item));
+  }
+
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = sanitizeRawValue(nested, key);
+    }
+    return out;
+  }
+
+  return value;
+}
+
+function sanitizeRawCarrierResponse(raw: unknown): unknown {
+  return sanitizeRawValue(raw);
+}
 
 /**
  * Create a label (generate PDF) for a single parcel
@@ -32,18 +94,29 @@ import { randomUUID } from "node:crypto";
  * Returns Promise<LabelResult> with file mapping and metadata
  */
 export async function createLabel(
-  req: CreateLabelRequest,
+  req: CreateLabelMPLRequest,
   ctx: AdapterContext,
-): Promise<LabelResult> {
-  // Convert single label request to batch request with same options
-  const batchReq: CreateLabelsRequest = {
-    parcelCarrierIds: [req.parcelCarrierId],
-    credentials: req.credentials,
-    options: req.options,
+  resolveBaseUrl: ResolveBaseUrl,
+): Promise<CreateLabelResponse> {
+  // Validate single-label request using carrier-specific schema
+  const validated = safeValidateCreateLabelRequest(req);
+  if (!validated.success) {
+    throw new CarrierError(
+      `Invalid request: ${validated.error.message}`,
+      "Validation",
+      { raw: serializeForLog(validated.error) as any }
+    );
+  }
+
+  // Build batch request from validated single request
+  const batchReq: CreateLabelsMPLRequest = {
+    parcelCarrierIds: [validated.data.parcelCarrierId],
+    credentials: validated.data.credentials,
+    options: validated.data.options,
   };
 
   // Delegate to batch implementation
-  const response = await createLabels(batchReq, ctx);
+  const response = await createLabels(batchReq, ctx, resolveBaseUrl);
 
   // Extract first (only) result
   if (!response || !Array.isArray(response.results)) {
@@ -63,8 +136,16 @@ export async function createLabel(
     );
   }
 
-  // Return the first (only) label result
-  return results[0];
+  const result = results[0];
+  const file = result.fileId
+    ? response.files?.find((candidate) => candidate.id === result.fileId)
+    : undefined;
+
+  return {
+    ...result,
+    file,
+    rawCarrierResponse: response.rawCarrierResponse,
+  };
 }
 
 /**
@@ -79,31 +160,18 @@ export async function createLabel(
  * Returns structured response with files array and per-item results
  */
 export async function createLabels(
-  req: CreateLabelsRequest,
+  req: CreateLabelsMPLRequest,
   ctx: AdapterContext,
+  resolveBaseUrl: ResolveBaseUrl,
 ): Promise<CreateLabelsResponse> {
   try {
-    // For MPL, we need accountingCode which comes from credentials or options
-    // Extract it from credentials if present, or throw error
-    const accountingCode = (req.credentials as any)?.accountingCode || 
-                          (req.options as any)?.accountingCode;
-    if (!accountingCode) {
-      throw new CarrierError(
-        "accountingCode is required in credentials or options",
-        "Validation"
-      );
-    }
-
-    // Build MPL-specific request with accountingCode for validation
-    const mplRequest = {
+    // Validate the incoming request and use parsed data from Zod as the source of truth.
+    const validated = safeValidateCreateLabelsRequest({
       parcelCarrierIds: req.parcelCarrierIds,
-      credentials: req.credentials as MPLCredentials,
-      accountingCode,
+      credentials: req.credentials,
       options: req.options,
-    };
+    });
 
-    // Validate request format and credentials
-    const validated = safeValidateCreateLabelsRequest(mplRequest);
     if (!validated.success) {
       throw new CarrierError(
         `Invalid request: ${validated.error.message}`,
@@ -119,7 +187,7 @@ export async function createLabels(
       );
     }
 
-    if (!Array.isArray(req.parcelCarrierIds) || req.parcelCarrierIds.length === 0) {
+    if (!Array.isArray(validated.data.parcelCarrierIds) || validated.data.parcelCarrierIds.length === 0) {
       return {
         results: [],
         files: [],
@@ -133,10 +201,11 @@ export async function createLabels(
       };
     }
 
-    // Build query parameters
-    const queryParams = buildLabelQueryParams(mplRequest);
+    // Build query parameters and resolve base URL based on useTestApi
+    const queryParams = buildLabelQueryParams(validated.data);
     const queryString = serializeQueryParams(queryParams);
-    const url = `/v2/mplapi/shipments/label?${queryString}`;
+    const baseUrl = resolveBaseUrl({ useTestApi: validated.data.options.useTestApi });
+    const url = `${baseUrl}/shipments/label?${queryString}`;
 
     ctx.logger?.debug("MPL: Creating labels batch", {
       count: req.parcelCarrierIds.length,
@@ -149,8 +218,9 @@ export async function createLabels(
     try {
       // Make request to MPL label API
       // Response is JSON array of LabelQueryResult
+      const accountingCodeFromValidated = validated.data.options?.mpl?.accountingCode;
       const httpResponse = await ctx.http.get<LabelQueryResult[]>(url, {
-        headers: buildMPLHeaders(validated.data.credentials, validated.data.accountingCode),
+        headers: buildMPLHeaders(validated.data.credentials, accountingCodeFromValidated),
       });
 
       const labelResults = httpResponse.body as unknown as LabelQueryResult[];
@@ -164,7 +234,8 @@ export async function createLabels(
       }
 
       // Process results and build file resources
-      const fileMap = new Map<string, { data: string; count: number }>();
+      const fileMap = new Map<string, { file: LabelFileResource; count: number }>();
+      const files: LabelFileResource[] = [];
       const results: LabelResult[] = [];
       let successCount = 0;
       let failureCount = 0;
@@ -202,75 +273,42 @@ export async function createLabels(
           // Group labels by content (if singleFile=true, all will be same)
           // Use labelData as key to detect identical responses
           if (!fileMap.has(labelData)) {
-            fileMap.set(labelData, { data: labelData, count: 0 });
-          }
-          const entry = fileMap.get(labelData)!;
-          entry.count++;
-
-          // Create file resource if not already created
-          let fileId: string;
-          if (entry.count === 1) {
-            // First occurrence of this label data - create file resource
-            fileId = randomUUID();
-            
-            // Decode base64 to buffer for byte length calculation
+            // First occurrence of this label payload: create a stable file resource.
             const buffer = Buffer.from(labelData, 'base64');
             const file: LabelFileResource = {
-              id: fileId,
+              id: randomUUID(),
               contentType: queryParams.labelFormat === 'ZPL' ? 'text/plain' : 'application/pdf',
               byteLength: buffer.byteLength,
-              pages: 1, // Each label is typically one page
+              pages: 0,
               orientation: 'portrait',
               metadata: {
                 labelType: queryParams.labelType,
                 labelFormat: queryParams.labelFormat,
-                trackingNumber,
                 isBase64Encoded: true,
               },
+              // Attach raw bytes to the file so callers can access bytes directly
+              rawBytes: buffer,
             };
-            results.push({
-              inputId: trackingNumber,
-              status: "created" as const,
-              fileId,
-              pageRange: { start: 1, end: 1 },
-              raw: { trackingNumber, index: idx },
-            });
-          } else {
-            // Re-use existing file ID for identical label data
-            const existingResult = results.find(r => 
-              r.status === 'created' && 
-              fileMap.has(labelData) &&
-              fileMap.get(labelData)!.data === labelData &&
-              r.inputId !== trackingNumber
-            );
-            fileId = existingResult?.fileId || randomUUID();
-            
-            results.push({
-              inputId: trackingNumber,
-              status: "created" as const,
-              fileId,
-              pageRange: { start: entry.count, end: entry.count },
-              raw: { trackingNumber, index: idx },
-            });
+            fileMap.set(labelData, { file, count: 0 });
+            files.push(file);
           }
-        }
-      });
 
-      // Build files array from unique label data
-      const files: LabelFileResource[] = Array.from(fileMap.entries()).map(([labelData, entry]) => {
-        const buffer = Buffer.from(labelData, 'base64');
-        return {
-          id: randomUUID(),
-          contentType: queryParams.labelFormat === 'ZPL' ? 'text/plain' : 'application/pdf',
-          byteLength: buffer.byteLength,
-          pages: entry.count,
-          orientation: 'portrait',
-          metadata: {
-            labelType: queryParams.labelType,
-            labelFormat: queryParams.labelFormat,
+          const entry = fileMap.get(labelData)!;
+          entry.count++;
+          entry.file.pages = entry.count;
+          entry.file.metadata = {
+            ...(entry.file.metadata ?? {}),
             combinedLabels: entry.count > 1,
-          },
-        };
+          };
+
+          results.push({
+            inputId: trackingNumber,
+            status: "created" as const,
+            fileId: entry.file.id,
+            pageRange: { start: entry.count, end: entry.count },
+            raw: { trackingNumber, index: idx },
+          });
+        }
       });
 
       ctx.logger?.info("MPL: Labels created", {
@@ -279,6 +317,7 @@ export async function createLabels(
         failureCount,
         labelType: queryParams.labelType,
         labelFormat: queryParams.labelFormat,
+        testMode: validated.data.options?.useTestApi ?? false,
       });
 
       return {
@@ -291,11 +330,8 @@ export async function createLabels(
         allFailed: successCount === 0,
         someFailed: failureCount > 0 && successCount > 0,
         summary: `${successCount} labels created, ${failureCount} failed`,
-        rawCarrierResponse: {
-          results: labelResults,
-          labelCount: successCount,
-          errorCount: failureCount,
-        },
+        // Keep response metadata but truncate embedded label/blob payloads.
+        rawCarrierResponse: sanitizeRawCarrierResponse(serializeForLog(httpResponse)),
       };
     } catch (labelError) {
       // Handle HTTP errors
@@ -351,7 +387,7 @@ export async function createLabels(
         allFailed: true,
         someFailed: false,
         summary: `All ${results.length} labels failed`,
-        rawCarrierResponse: { error: serializeForLog(labelError) },
+        rawCarrierResponse: sanitizeRawCarrierResponse({ error: serializeForLog(labelError) }),
       };
     }
   } catch (error) {

@@ -130,35 +130,13 @@ export interface FetchPickupPointsRequest {
    */
   credentials?: Record<string, unknown>;
 
-   /**
-    * Optional filters and query parameters
-    */
-   options?: {
-     /**
-      * Filter by geographic bounding box
-      */
-     bbox?: {
-       north: number;
-       south: number;
-       east: number;
-       west: number;
-     };
-
-     /**
-      * Return only pickup points updated since this date
-      */
-     updatedSince?: string | Date;
-
-     /**
-      * Use test/sandbox API endpoint
-      */
-     testMode?: boolean;
-
-     /**
-      * Custom options for extensibility
-      */
-     [key: string]: unknown;
-   };
+  /**
+   * Optional query/behavior options.
+   *
+   * Carrier-specific fields should be namespaced under options.<carrierId>,
+   * e.g. options.mpl.accountingCode or options.foxpost.country.
+   */
+  options?: Record<string, unknown>;
 }
 
 /**

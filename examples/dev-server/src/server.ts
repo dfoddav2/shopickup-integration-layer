@@ -127,6 +127,17 @@ fastify.setErrorHandler((error: any, request, reply) => {
     });
 });
 
+// Register `notFoundHandler` to redirect back to the single documentation page
+fastify.setNotFoundHandler((request, reply) => {
+    const isHtmlRequest =
+        request.method === 'GET' &&
+        (request.headers.accept?.includes('text/html') ?? false);
+
+    if (isHtmlRequest) return reply.redirect('/docs', 302);
+
+    return reply.status(404).send({ message: 'Not Found' });
+});
+
 // Declare routes
 // fastify.get('/', function (request, reply) {
 //     reply.send({ hello: 'world' })
@@ -187,7 +198,7 @@ fastify.get("/admin/logging", {
     }
 }, async (request: any, reply: any) => {
     const newLevel = request.query?.level;
-    
+
     if (newLevel) {
         // Change log level
         fastify.log.level = newLevel;
@@ -196,7 +207,7 @@ fastify.get("/admin/logging", {
             message: `Log level changed to '${newLevel}'`
         };
     }
-    
+
     // Return current level
     return {
         level: fastify.log.level,
@@ -248,7 +259,7 @@ await registerMPLRoutes(fastify);
 // Register GLS dev routes
 await registerGLSRoutes(fastify);
 
-// Run the server!
+// Run the server
 await fastify.ready();
 fastify.swagger();
 

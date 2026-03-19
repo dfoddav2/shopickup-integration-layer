@@ -54,9 +54,9 @@ import type {
   CreateParcelsRequest,
   CreateParcelsResponse,
   CreateLabelRequest,
+  CreateLabelResponse,
   CreateLabelsRequest,
   CreateLabelsResponse,
-  LabelResult,
   CarrierResource,
   FetchPickupPointsRequest,
   FetchPickupPointsResponse,
@@ -165,7 +165,7 @@ export class GLSAdapter implements CarrierAdapter {
     * @param ctx Adapter context with HTTP client
     * @returns Label result with file metadata and status
     */
-   async createLabel(req: CreateLabelRequest, ctx: AdapterContext): Promise<LabelResult> {
+  async createLabel(req: CreateLabelRequest, ctx: AdapterContext): Promise<CreateLabelResponse> {
      const batchReq: CreateLabelsRequest = {
        parcelCarrierIds: [req.parcelCarrierId],
        credentials: req.credentials,
@@ -214,7 +214,7 @@ export class GLSAdapter implements CarrierAdapter {
        * @param ctx Adapter context with HTTP client
        * @returns Label result with file metadata and status
        */
-      async printLabel(req: CreateLabelRequest, ctx: AdapterContext): Promise<LabelResult> {
+      async printLabel(req: CreateLabelRequest, ctx: AdapterContext): Promise<CreateLabelResponse> {
         const batchReq: CreateLabelsRequest = {
           parcelCarrierIds: [req.parcelCarrierId],
           credentials: req.credentials,

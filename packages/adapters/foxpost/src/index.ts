@@ -13,11 +13,11 @@ import type {
   RatesRequest,
   CreateParcelsResponse,
   CreateLabelRequest,
+  CreateLabelResponse,
   CreateLabelsRequest,
   CreateLabelsResponse,
   CarrierResource,
   TrackingUpdate,
-  LabelResult,
   FetchPickupPointsRequest,
   FetchPickupPointsResponse,
 } from "@shopickup/core";
@@ -31,6 +31,10 @@ import {
   fetchPickupPoints as fetchPickupPointsImpl,
 } from './capabilities/index.js';
 import { createResolveBaseUrl, type ResolveBaseUrl } from './utils/resolveBaseUrl.js';
+import type {
+  CreateLabelRequestFoxpost,
+  CreateLabelsRequestFoxpost,
+} from './validation.js';
 
 /**
  * FoxpostAdapter
@@ -130,8 +134,8 @@ export class FoxpostAdapter implements CarrierAdapter {
   async createLabel(
     req: CreateLabelRequest,
     ctx: AdapterContext
-  ): Promise<LabelResult> {
-    return createLabelImpl(req, ctx, this.resolveBaseUrl);
+  ): Promise<CreateLabelResponse> {
+    return createLabelImpl(req as CreateLabelRequestFoxpost, ctx, this.resolveBaseUrl);
   }
 
   /**
@@ -148,7 +152,7 @@ export class FoxpostAdapter implements CarrierAdapter {
     req: CreateLabelsRequest,
     ctx: AdapterContext
   ): Promise<CreateLabelsResponse> {
-    return createLabelsImpl(req, ctx, this.resolveBaseUrl);
+    return createLabelsImpl(req as CreateLabelsRequestFoxpost, ctx, this.resolveBaseUrl);
   }
 
   /**

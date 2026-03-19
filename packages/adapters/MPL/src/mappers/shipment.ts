@@ -174,10 +174,12 @@ export function mapSender(
     contact: CoreContact;
     address: CoreAddress;
   },
-  agreementNumber: string,
+  agreementCode: string,
+  bankAccountNumber: string,
 ): Sender {
   return {
-    agreement: agreementNumber.padEnd(8, '0').slice(0, 8),
+    agreement: agreementCode,
+    accountNo: bankAccountNumber,
     contact: mapContact(shipper.contact),
     address: mapAddress(shipper.address),
   };
@@ -283,7 +285,7 @@ export function mapItem(parcel: Parcel): Item {
  * 
  * @param parcel - Canonical Parcel domain object
  * @param shipper - Shipper contact and address from parcel
- * @param agreementNumber - 8-character MPL agreement/contract number
+ * @param agreementCode - 8-character MPL agreement/contract number
  * @param labelType - Optional label format (A5, A4, etc.)
  * @param developerName - System name making the API call (default: "shopickup-mpl")
  * @returns MPL ShipmentCreateRequest ready for POST /shipments
@@ -294,13 +296,14 @@ export function mapParcelToMPLShipment(
     contact: CoreContact;
     address: CoreAddress;
   },
-  agreementNumber: string,
+  agreementCode: string,
+  bankAccountNumber: string,
   labelType?: LabelType,
   developerName: string = 'shopickup-mpl',
 ): ShipmentCreateRequest {
   return {
     developer: developerName,
-    sender: mapSender(shipper, agreementNumber),
+    sender: mapSender(shipper, agreementCode, bankAccountNumber),
     recipient: mapRecipient(parcel.recipient),
     webshopId: parcel.id, // Use parcel ID as unique identifier within request
     orderId: parcel.references?.orderId,
@@ -320,7 +323,8 @@ export function mapParcelsToMPLShipments(
     contact: CoreContact;
     address: CoreAddress;
   },
-  agreementNumber: string,
+  agreementCode: string,
+  bankAccountNumber: string,
   labelType?: LabelType,
   developerName?: string,
 ): ShipmentCreateRequest[] {
@@ -328,7 +332,8 @@ export function mapParcelsToMPLShipments(
     mapParcelToMPLShipment(
       parcel,
       shipper,
-      agreementNumber,
+      agreementCode,
+      bankAccountNumber,
       labelType,
       developerName,
     ),

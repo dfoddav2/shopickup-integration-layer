@@ -20,13 +20,66 @@ export async function registerPickupPointsRoute(
       description: 'Fetch list of Foxpost pickup points (APMs)',
       tags: ['Foxpost'],
       summary: 'Fetch pickup points',
+      querystring: {
+        type: 'object',
+        properties: {
+          country: {
+            type: 'string',
+            description: 'Optional ISO 3166-1 alpha-2 country filter (e.g. hu)',
+            minLength: 2,
+            maxLength: 2,
+          },
+          north: {
+            type: 'number',
+            description: 'Optional bbox north latitude (requires south, east, west)',
+          },
+          south: {
+            type: 'number',
+            description: 'Optional bbox south latitude (requires north, east, west)',
+          },
+          east: {
+            type: 'number',
+            description: 'Optional bbox east longitude (requires north, south, west)',
+          },
+          west: {
+            type: 'number',
+            description: 'Optional bbox west longitude (requires north, south, east)',
+          },
+        },
+      },
       response: PICKUP_POINTS_RESPONSE_SCHEMA,
     },
     async handler(request: any, reply: any) {
       try {
+        const { country, north, south, east, west } = request.query || {};
+
+        const hasAnyBbox = [north, south, east, west].some((v) => v !== undefined);
+        const hasAllBbox = [north, south, east, west].every((v) => v !== undefined);
+        if (hasAnyBbox && !hasAllBbox) {
+          return reply.status(400).send({
+            message: 'Invalid request: provide all bbox params (north, south, east, west) together',
+            category: 'Validation',
+          });
+        }
+
         // Build pickup points request
         const req = {
           credentials: undefined, // Public feed, no authentication needed
+          options: {
+            foxpost: {
+              ...(country ? { country: String(country).toLowerCase() } : {}),
+              ...(hasAllBbox
+                ? {
+                    bbox: {
+                      north: Number(north),
+                      south: Number(south),
+                      east: Number(east),
+                      west: Number(west),
+                    },
+                  }
+                : {}),
+            },
+          },
         };
 
         // Prepare adapter context

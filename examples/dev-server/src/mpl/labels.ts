@@ -15,9 +15,10 @@ import {
   getHttpStatusForLabelBatchResponse,
 } from '@shopickup/core';
 import { wrapPinoLogger } from '../http-client.js';
+import { formatLabelResponseForHttp } from '../label-response-http.js';
 import {
   MPL_CREDENTIALS_SCHEMA,
-  EXAMPLE_MPL_CREDENTIALS_APIKEY,
+  EXAMPLE_MPL_CREDENTIALS_OAUTH,
   MPL_LABEL_OPTIONS_SCHEMA,
   MPL_AUTHENTICATION_ERROR_SCHEMA,
   MPL_CREATE_LABELS_RESPONSE_SCHEMA,
@@ -45,10 +46,28 @@ export async function registerCreateLabelRoute(
             type: 'object',
             description: 'Optional label generation parameters',
             properties: {
-              ...MPL_LABEL_OPTIONS_SCHEMA.properties,
-              accountingCode: {
+              // canonical cross-cutting size (maps to MPL labelType)
+              size: {
                 type: 'string',
-                description: 'MPL accounting code (required for label creation)',
+                description: 'Canonical label size (A5, A4, A6, etc.)',
+                enum: [
+                  'A4', 'A5', 'A5inA4', 'A5E', 'A5E_EXTRA', 'A5E_STAND', 'A6', 'A6inA4', 'A4ONE'
+                ],
+              },
+              useTestApi: { type: 'boolean' },
+              mpl: {
+                type: 'object',
+                description: 'MPL-specific label options',
+                properties: {
+                  accountingCode: {
+                    type: 'string',
+                    description: 'MPL accounting code (required for label creation)',
+                  },
+                  labelFormat: { type: 'string', enum: ['PDF', 'ZPL'] },
+                  singleFile: { type: 'boolean' },
+                  orderBy: { type: 'string', enum: ['SENDING', 'IDENTIFIER'] },
+                },
+                required: ['accountingCode'],
               },
             },
           },
@@ -56,21 +75,20 @@ export async function registerCreateLabelRoute(
         examples: [
           {
             parcelCarrierId: 'MLHUN12345671234567',
-            credentials: EXAMPLE_MPL_CREDENTIALS_APIKEY,
+            credentials: EXAMPLE_MPL_CREDENTIALS_OAUTH,
             options: {
-              labelType: 'A5',
-              labelFormat: 'PDF',
-              accountingCode: 'ACC123',
+              size: 'A5',
+              useTestApi: true,
+              mpl: { accountingCode: 'ACC123', labelFormat: 'PDF' },
             },
           },
           {
             parcelCarrierId: 'MLHUN98765439876543',
-            credentials: EXAMPLE_MPL_CREDENTIALS_APIKEY,
+            credentials: EXAMPLE_MPL_CREDENTIALS_OAUTH,
             options: {
-              labelType: 'A4',
-              labelFormat: 'PDF',
-              accountingCode: 'ACC123',
+              size: 'A4',
               useTestApi: true,
+              mpl: { accountingCode: 'ACC123', labelFormat: 'PDF' },
             },
           },
         ],
@@ -116,6 +134,31 @@ export async function registerCreateLabelRoute(
             raw: {
               type: 'object',
               description: 'Raw carrier response',
+              additionalProperties: true,
+              nullable: true,
+            },
+            file: {
+              type: 'object',
+              description: 'Resolved file metadata referenced by fileId',
+              properties: {
+                id: { type: 'string' },
+                contentType: { type: 'string' },
+                byteLength: { type: 'number' },
+                pages: { type: 'number' },
+                orientation: { type: 'string', enum: ['portrait', 'landscape'] },
+                metadata: { type: 'object', additionalProperties: true },
+                rawBytes: {
+                  type: ['string', 'object', 'null'],
+                  description: 'Raw bytes payload (Buffer-like object or base64 string in JSON)',
+                  nullable: true,
+                },
+              },
+              additionalProperties: true,
+              nullable: true,
+            },
+            rawCarrierResponse: {
+              type: 'object',
+              description: 'Raw payload from underlying createLabels carrier call',
               additionalProperties: true,
               nullable: true,
             },
@@ -212,7 +255,7 @@ export async function registerCreateLabelRoute(
           'MPL adapter createLabel response'
         );
 
-        return reply.status(200).send(result);
+        return reply.status(200).send(formatLabelResponseForHttp(result));
       } catch (error) {
         fastify.log.error(error);
 
@@ -259,10 +302,24 @@ export async function registerCreateLabelsRoute(
             type: 'object',
             description: 'Optional label generation parameters',
             properties: {
-              ...MPL_LABEL_OPTIONS_SCHEMA.properties,
-              accountingCode: {
+              size: {
                 type: 'string',
-                description: 'MPL accounting code (required for label creation)',
+                description: 'Canonical label size (A5, A4, A6, etc.)',
+                enum: [
+                  'A4', 'A5', 'A5inA4', 'A5E', 'A5E_EXTRA', 'A5E_STAND', 'A6', 'A6inA4', 'A4ONE'
+                ],
+              },
+              useTestApi: { type: 'boolean' },
+              mpl: {
+                type: 'object',
+                description: 'MPL-specific label options',
+                properties: {
+                  accountingCode: { type: 'string' },
+                  labelFormat: { type: 'string', enum: ['PDF', 'ZPL'] },
+                  singleFile: { type: 'boolean' },
+                  orderBy: { type: 'string', enum: ['SENDING', 'IDENTIFIER'] },
+                },
+                required: ['accountingCode'],
               },
             },
           },
@@ -274,21 +331,19 @@ export async function registerCreateLabelsRoute(
               'MLHUN12345671234568',
               'MLHUN12345671234569',
             ],
-            credentials: EXAMPLE_MPL_CREDENTIALS_APIKEY,
+            credentials: EXAMPLE_MPL_CREDENTIALS_OAUTH,
             options: {
-              labelType: 'A5',
-              labelFormat: 'PDF',
-              accountingCode: 'ACC123',
+              size: 'A5',
+              mpl: { accountingCode: 'ACC123', labelFormat: 'PDF' },
+              useTestApi: true,
             },
           },
           {
             parcelCarrierIds: ['MLHUN12345671234567', 'MLHUN98765439876543'],
-            credentials: EXAMPLE_MPL_CREDENTIALS_APIKEY,
+            credentials: EXAMPLE_MPL_CREDENTIALS_OAUTH,
             options: {
-              labelType: 'A4',
-              labelFormat: 'PDF',
-              singleFile: true,
-              accountingCode: 'ACC123',
+              size: 'A4',
+              mpl: { accountingCode: 'ACC123', labelFormat: 'PDF', singleFile: true },
               useTestApi: true,
             },
           },
@@ -357,7 +412,7 @@ export async function registerCreateLabelsRoute(
         // Determine HTTP status code based on batch results
         const statusCode = getHttpStatusForLabelBatchResponse(result);
 
-        return reply.status(statusCode).send(result);
+        return reply.status(statusCode).send(formatLabelResponseForHttp(result));
       } catch (error) {
         fastify.log.error(error);
 

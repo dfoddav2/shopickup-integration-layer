@@ -49,10 +49,10 @@ const DEFAULT_OPERATION_NAMES: Record<string, string> = {
  * @param operationNames Optional custom operation name mapping (defaults to method names)
  * @returns A wrapped adapter with automatic operation name injection
  */
-export function withOperationName(
-  adapter: CarrierAdapter,
+export function withOperationName<T extends CarrierAdapter>(
+  adapter: T,
   operationNames: Record<string, string> = DEFAULT_OPERATION_NAMES
-): CarrierAdapter {
+): T {
   return new Proxy(adapter, {
     get(target, methodName: string | symbol) {
       // Get the original method from the adapter
@@ -80,7 +80,7 @@ export function withOperationName(
          return (method as any).call(target, request, contextWithOperation);
        };
     },
-  });
+  }) as T;
 }
 
 /**
@@ -101,10 +101,10 @@ export function withOperationName(
  * @param logger Logger instance for tracing
  * @returns A wrapped adapter with call tracing
  */
-export function withCallTracing(
-  adapter: CarrierAdapter,
+export function withCallTracing<T extends CarrierAdapter>(
+  adapter: T,
   logger?: Logger
-): CarrierAdapter {
+): T {
   return new Proxy(adapter, {
     get(target, methodName: string | symbol) {
       const method = (target as any)[methodName];
@@ -144,7 +144,7 @@ export function withCallTracing(
          }
        };
     },
-  });
+  }) as T;
 }
 
 /**
@@ -166,9 +166,9 @@ export function withCallTracing(
  * @param wrappers Array of wrapper functions to apply
  * @returns The adapter with all wrappers applied
  */
-export function composeAdapterWrappers(
-  adapter: CarrierAdapter,
-  wrappers: ((a: CarrierAdapter) => CarrierAdapter)[]
-): CarrierAdapter {
+export function composeAdapterWrappers<T extends CarrierAdapter>(
+  adapter: T,
+  wrappers: ((a: T) => T)[]
+): T {
   return wrappers.reduce((wrapped, wrapper) => wrapper(wrapped), adapter);
 }

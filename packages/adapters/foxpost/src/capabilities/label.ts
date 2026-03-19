@@ -6,19 +6,89 @@
 import type {
    CarrierResource,
    AdapterContext,
-   CreateLabelRequest,
-   CreateLabelsRequest,
+  CreateLabelResponse,
    CreateLabelsResponse,
    LabelResult,
    LabelFileResource,
 } from "@shopickup/core";
 import { CarrierError, errorToLog, serializeForLog } from "@shopickup/core";
 import { translateFoxpostError } from '../errors.js';
-import { safeValidateCreateLabelRequest, safeValidateCreateLabelsRequest, safeValidateFoxpostLabelPdfRaw, safeValidateFoxpostApiError } from "../validation.js";
+import {
+  safeValidateCreateLabelRequest,
+  safeValidateCreateLabelsRequest,
+  safeValidateFoxpostLabelPdfRaw,
+  safeValidateFoxpostApiError,
+} from "../validation.js";
+import type {
+  CreateLabelRequestFoxpost,
+  CreateLabelsRequestFoxpost,
+} from "../validation.js";
 import { buildFoxpostBinaryHeaders } from '../utils/httpUtils.js';
 import type { ResolveBaseUrl } from "../utils/resolveBaseUrl.js";
 import { URLSearchParams } from "node:url";
 import { randomUUID } from "node:crypto";
+
+const BLOB_FIELDS = new Set(['label', 'labelBase64']);
+
+function isSerializedBuffer(value: unknown): value is { type: 'Buffer'; data: number[] } {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    (value as any).type === 'Buffer' &&
+    Array.isArray((value as any).data)
+  );
+}
+
+function summarizeBufferLike(value: Buffer | Uint8Array | { type: 'Buffer'; data: number[] }) {
+  if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
+    return {
+      omittedBinary: true,
+      byteLength: value.byteLength,
+      note: 'binary payload omitted from rawCarrierResponse',
+    };
+  }
+
+  return {
+    omittedBinary: true,
+    byteLength: value.data.length,
+    note: 'binary payload omitted from rawCarrierResponse',
+  };
+}
+
+function sanitizeRawValue(value: unknown, keyHint?: string): unknown {
+  if (typeof value === 'string') {
+    if (keyHint && BLOB_FIELDS.has(keyHint)) {
+      return `[truncated ${keyHint}; length=${value.length}]`;
+    }
+    return value;
+  }
+
+  if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
+    return summarizeBufferLike(value);
+  }
+
+  if (isSerializedBuffer(value)) {
+    return summarizeBufferLike(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeRawValue(item));
+  }
+
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = sanitizeRawValue(nested, key);
+    }
+    return out;
+  }
+
+  return value;
+}
+
+function sanitizeRawCarrierResponse(raw: unknown): unknown {
+  return sanitizeRawValue(raw);
+}
 
 /**
  * Create a label (generate PDF) for a single parcel
@@ -27,10 +97,10 @@ import { randomUUID } from "node:crypto";
  * Returns Promise<LabelResult> with file mapping and metadata
  */
 export async function createLabel(
-  req: CreateLabelRequest,
+  req: CreateLabelRequestFoxpost,
   ctx: AdapterContext,
   resolveBaseUrl: ResolveBaseUrl,
-): Promise<LabelResult> {
+): Promise<CreateLabelResponse> {
   // Validate request format and credentials
   const validated = safeValidateCreateLabelRequest(req);
   if (!validated.success) {
@@ -42,7 +112,7 @@ export async function createLabel(
   }
 
   // Convert single label request to batch request
-  const batchReq: CreateLabelsRequest = {
+  const batchReq: CreateLabelsRequestFoxpost = {
     parcelCarrierIds: [validated.data.parcelCarrierId],
     credentials: req.credentials,
     options: req.options,
@@ -70,7 +140,16 @@ export async function createLabel(
   }
 
   // Return the first (only) label result
-  return results[0];
+  const result = results[0];
+  const file = result.fileId
+    ? response.files?.find((candidate) => candidate.id === result.fileId)
+    : undefined;
+
+  return {
+    ...result,
+    file,
+    rawCarrierResponse: response.rawCarrierResponse,
+  };
 }
 
 /**
@@ -85,7 +164,7 @@ export async function createLabel(
  * Foxpost returns one PDF (combined), so all results reference the same file
  */
 export async function createLabels(
-  req: CreateLabelsRequest,
+  req: CreateLabelsRequestFoxpost,
   ctx: AdapterContext,
   resolveBaseUrl: ResolveBaseUrl,
 ): Promise<CreateLabelsResponse> {
@@ -121,25 +200,31 @@ export async function createLabels(
       };
     }
 
-    // Unwrap variables from validated request
-    const useTestApi = validated.data.options?.useTestApi ?? false;
-    const size = validated.data.options?.size ?? "A7";
-    const baseUrl = resolveBaseUrl(validated.data.options);
-    const startPos = validated.data.options?.startPos;
-    const isPortrait = (validated.data.options as any)?.isPortrait;
+    // Normalize public request options to adapter internal options.
+    const internalOptions = {
+      useTestApi: validated.data.options?.useTestApi ?? false,
+      size: validated.data.options?.size ?? "A7",
+      startPos: validated.data.options?.foxpost?.startPos,
+      isPortrait: validated.data.options?.foxpost?.isPortrait ?? false,
+    };
+    const baseUrl = resolveBaseUrl({ useTestApi: internalOptions.useTestApi });
 
     // Construct URL with page size and optional params
     const params = new URLSearchParams();
-    if (startPos !== undefined && startPos !== null) params.set('startPos', String(startPos));
-    if (isPortrait !== undefined && isPortrait !== null) params.set('isPortrait', String(isPortrait));
-    const url = `${baseUrl}/api/label/${size}${params.toString() ? `?${params.toString()}` : ''}`;
+    if (internalOptions.startPos !== undefined && internalOptions.startPos !== null) {
+      params.set('startPos', String(internalOptions.startPos));
+    }
+    if (internalOptions.isPortrait !== undefined && internalOptions.isPortrait !== null) {
+      params.set('isPortrait', String(internalOptions.isPortrait));
+    }
+    const url = `${baseUrl}/api/label/${internalOptions.size}${params.toString() ? `?${params.toString()}` : ''}`;
 
     ctx.logger?.debug("Foxpost: Creating labels batch", {
-      testMode: useTestApi,
+      testMode: internalOptions.useTestApi,
       count: req.parcelCarrierIds.length,
-      size,
-      startPos,
-      isPortrait,
+      size: internalOptions.size,
+      startPos: internalOptions.startPos,
+      isPortrait: internalOptions.isPortrait,
     });
 
     try {
@@ -179,19 +264,21 @@ export async function createLabels(
          contentType: "application/pdf",
          byteLength,
          pages: req.parcelCarrierIds.length, // One page per label (Foxpost behavior)
-         orientation: isPortrait === false ? 'landscape' : 'portrait',
+         orientation: internalOptions.isPortrait === false ? 'landscape' : 'portrait',
          metadata: {
-           size,
-           isPortrait,
+           size: internalOptions.size,
+           isPortrait: internalOptions.isPortrait,
            barcodeCount: req.parcelCarrierIds.length,
            combined: true, // All labels in one file
          },
+        // Attach raw bytes so dev-server responses can include file bytes directly
+        rawBytes: pdfBuffer,
        };
 
        ctx.logger?.info("Foxpost: Labels created successfully", {
          count: req.parcelCarrierIds.length,
-         size,
-         testMode: useTestApi,
+         size: internalOptions.size,
+         testMode: internalOptions.useTestApi,
        });
 
        // Create per-item results, all referencing the same file
@@ -200,21 +287,28 @@ export async function createLabels(
          status: "created" as const,
          fileId,
          pageRange: { start: idx + 1, end: idx + 1 }, // One page per label
-         raw: { barcode, format: "PDF", pageSize: size, startPos, pageNumber: idx + 1 },
+         raw: {
+           barcode,
+           format: "PDF",
+           pageSize: internalOptions.size,
+           startPos: internalOptions.startPos,
+           pageNumber: idx + 1,
+         },
        }));
 
-       return {
-         results,
-         files: [file],
-         successCount: results.length,
-         failureCount: 0,
-         totalCount: results.length,
-         allSucceeded: true,
-         allFailed: false,
-         someFailed: false,
-         summary: `All ${results.length} labels generated successfully`,
-         rawCarrierResponse: { pdfBuffer, size, barcodesCount: req.parcelCarrierIds.length },
-       };
+      return {
+        results,
+        files: [file],
+        successCount: results.length,
+        failureCount: 0,
+        totalCount: results.length,
+        allSucceeded: true,
+        allFailed: false,
+        someFailed: false,
+        summary: `All ${results.length} labels generated successfully`,
+        // Preserve status/headers but strip embedded label/blob payloads.
+        rawCarrierResponse: sanitizeRawCarrierResponse(serializeForLog(httpResponse)),
+      };
       } catch (labelError) {
         // Try to parse error response as Foxpost ApiError
         let errorMessage = `Failed to generate label: ${(labelError as any)?.message || "Unknown error"}`;
@@ -301,7 +395,7 @@ export async function createLabels(
        // If PDF generation fails, return error results for all barcodes
        ctx.logger?.error("Foxpost: Label generation failed", {
          count: req.parcelCarrierIds.length,
-         size,
+         size: internalOptions.size,
          error: errorToLog(labelError),
        });
 
@@ -351,7 +445,7 @@ export async function createLabels(
          allFailed: true,
          someFailed: false,
          summary: `All ${results.length} labels failed`,
-         rawCarrierResponse: { error: serializeForLog(labelError) },
+         rawCarrierResponse: sanitizeRawCarrierResponse({ error: serializeForLog(labelError) }),
        };
      }
   } catch (error) {

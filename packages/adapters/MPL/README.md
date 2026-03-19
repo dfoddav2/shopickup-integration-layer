@@ -202,9 +202,11 @@ To test the auth endpoint with Postman, use the following setup:
 **Method:** `POST`
 
 **Headers:**
+
 - `Content-Type: application/json`
 
 **Body (raw JSON):**
+
 ```json
 {
   "credentials": {
@@ -218,12 +220,14 @@ To test the auth endpoint with Postman, use the following setup:
 ```
 
 **Important:** Make sure you're sending `Content-Type: application/json` header. In Postman:
+
 1. Click the "Body" tab
 2. Select "raw" option
 3. From the dropdown, choose "JSON" (this auto-sets the Content-Type header)
 4. Paste the JSON payload above
 
 **Success Response (200):**
+
 ```json
 {
   "access_token": "APRug5AE4VGAzNKDPAoxugLiDp0b",
@@ -237,6 +241,7 @@ To test the auth endpoint with Postman, use the following setup:
 **Error Responses:**
 
 If Basic auth is disabled (401):
+
 ```json
 {
   "message": "OAuth token exchange failed: Basic authentication is not enabled for this proxy or client. (RaiseFault.BasicAuthNotEnabled)",
@@ -246,6 +251,7 @@ If Basic auth is disabled (401):
 ```
 
 If credentials are invalid (400):
+
 ```json
 {
   "message": "Invalid request: credentials.apiKey: Required; credentials.apiSecret: Required",
@@ -398,6 +404,7 @@ POST /api/dev/mpl/pickup-points-oauth-fallback
 ```
 
 Request:
+
 ```json
 {
   "credentials": {
@@ -414,6 +421,7 @@ Request:
 ```
 
 Response (200 on success):
+
 ```json
 {
   "points": [

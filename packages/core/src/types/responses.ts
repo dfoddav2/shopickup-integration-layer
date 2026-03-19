@@ -5,7 +5,7 @@
 
 import type { CarrierResource } from '../interfaces/carrier-resource.js';
 import type { CreateLabelsResponse } from './label.js';
-export type { CreateLabelsResponse, LabelFileResource, LabelResult } from './label.js';
+export type { CreateLabelResponse, CreateLabelsResponse, LabelFileResource, LabelResult } from './label.js';
 
 /**
  * Response from getting shipment details

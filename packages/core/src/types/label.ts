@@ -99,6 +99,13 @@ export interface LabelFileResource {
     * Optional; only relevant for temporary URLs
     */
    expiresAt?: string;
+     /**
+    * Optional in-memory file bytes (preferred for package consumers).
+    *
+    * Adapters may return bytes here so callers can upload directly to storage
+    * without decoding from `rawCarrierResponse`.
+    */
+     rawBytes?: Buffer | Uint8Array;
 }
 
 /**
@@ -152,6 +159,25 @@ export interface LabelResult {
    * Raw carrier response for this specific parcel (if available)
    */
   raw?: unknown;
+}
+
+/**
+ * Singular label creation response.
+ *
+ * Extends per-item `LabelResult` with the resolved file metadata and batch-level
+ * raw response payload so callers don't need to invoke `createLabels` just to
+ * access file metadata or raw bytes/details for a single label.
+ */
+export interface CreateLabelResponse extends LabelResult {
+  /**
+   * The file referenced by `fileId` for this single result, if available.
+   */
+  file?: LabelFileResource;
+
+  /**
+   * Raw response payload from the underlying carrier operation.
+   */
+  rawCarrierResponse?: unknown;
 }
 
 /**
@@ -292,25 +318,12 @@ export interface CreateLabelsResponse {
     */
    summary: string;
 
-   /**
-    * **IMPORTANT:** Raw binary data or response from carrier
-    * 
-    * This is where adapters return the actual label bytes.
-    * Integrators extract, store, and populate file URLs.
-    * 
-    * Content depends on carrier and adapter:
-    * - Foxpost: `<Buffer>` (raw PDF bytes)
-    * - DHL: `{ files: [<Buffer>, ...] }` (multiple PDFs)
-    * - Other carriers: carrier-specific structure
-    * 
-    * Adapters MUST ensure this is serializable (Buffer → base64 if needed for some transports)
-    * or provide clear documentation of the expected type for integrators.
-    * 
-    * Integrators are responsible for:
-    * 1. Detecting/parsing the structure (if not just raw bytes)
-    * 2. Uploading to storage (S3, database, file system, etc.)
-    * 3. Updating `files[].url` with the storage location
-    * 4. Returning updated response to clients
-    */
+  /**
+   * Sanitized raw carrier response payload.
+   *
+   * Adapters should remove or truncate any embedded label blob fields
+   * (for example, `label`, `labelBase64`, or serialized binary body buffers)
+   * to avoid duplicating data that is already available in `files[].rawBytes`.
+   */
    rawCarrierResponse?: unknown;
 }

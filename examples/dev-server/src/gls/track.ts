@@ -233,29 +233,39 @@ export async function registerTrackRoute(fastify: FastifyInstance, adapter: GLSA
              },
            }),
          });
-      } catch (error) {
-        fastify.log.error(error);
+       } catch (error) {
+         fastify.log.error(error);
 
-        if (error instanceof CarrierError) {
-          // Map carrier error categories to HTTP status codes
-          const statusCode =
-            error.category === 'Permanent' && error.message.includes('not found') ? 404 :
-            error.category === 'Auth' ? 401 :
-            error.category === 'Validation' ? 400 :
-            500; // Transient and RateLimit errors get 500
+         if (error instanceof CarrierError) {
+           // Map carrier error categories to HTTP status codes
+           const statusCode =
+             error.category === 'Permanent' && error.message.includes('not found') ? 404 :
+             error.category === 'Auth' ? 401 :
+             error.category === 'Validation' ? 400 :
+             500; // Transient and RateLimit errors get 500
 
-          return reply.status(statusCode).send({
-            message: error.message,
-            category: error.category,
-            ...(error.carrierCode && { carrierCode: error.carrierCode }),
-          });
-        }
+           const errorResponse: any = {
+             message: error.message,
+             category: error.category,
+             ...(error.carrierCode && { carrierCode: error.carrierCode }),
+           };
 
-        return reply.status(500).send({
-          message: error instanceof Error ? error.message : String(error),
-          category: 'Internal',
-        });
-      }
+           // Include raw carrier response if available (allows integrators to parse custom fields)
+           if (error.raw && typeof error.raw === 'object') {
+             const raw = error.raw as any;
+             if (raw.rawCarrierResponse) {
+               errorResponse.rawCarrierResponse = raw.rawCarrierResponse;
+             }
+           }
+
+           return reply.status(statusCode).send(errorResponse);
+         }
+
+         return reply.status(500).send({
+           message: error instanceof Error ? error.message : String(error),
+           category: 'Internal',
+         });
+       }
     },
   });
 }

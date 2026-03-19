@@ -1000,9 +1000,94 @@ describe('GLS Tracking Integration Tests', () => {
           options: { useTestApi: true },
         };
 
-        const result = await track(request, mockContext);
+         const result = await track(request, mockContext);
 
-        expect(result.events[0].status).toBe(expectedStatus);
+         expect(result.events[0].status).toBe(expectedStatus);
+       }
+     });
+   });
+
+  describe('Error responses with rawCarrierResponse', () => {
+    it('should include rawCarrierResponse in error.raw when API returns error', async () => {
+      const mockResponse = {
+        ParcelNumber: 0,
+        ParcelStatusList: [],
+        GetParcelStatusErrors: [
+          {
+            ErrorCode: 26,
+            ErrorDescription: 'Parcel not found with current settings',
+            ParcelIdList: [],
+            ClientReferenceList: []
+          }
+        ],
+        ClientReference: null,
+        DeliveryCountryCode: null,
+        DeliveryZipCode: null,
+        Weight: null,
+        POD: null
+      };
+
+      mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
+
+      const request: TrackingRequest = {
+        trackingNumber: '999999999',
+        credentials: {
+          username: 'test@example.com',
+          password: 'testpass123',
+          clientNumberList: [12345],
+        },
+        options: { useTestApi: true },
+      };
+
+      await expect(track(request, mockContext)).rejects.toThrow(CarrierError);
+
+      try {
+        await track(request, mockContext);
+      } catch (error) {
+        expect(error).toBeInstanceOf(CarrierError);
+        const carrierError = error as CarrierError;
+        expect(carrierError.category).toBe('Permanent');
+        expect(carrierError.carrierCode).toBe('26');
+        expect(carrierError.raw).toBeDefined();
+        expect((carrierError.raw as any).rawCarrierResponse).toBeDefined();
+        expect((carrierError.raw as any).rawCarrierResponse.ParcelNumber).toBe(0);
+        expect((carrierError.raw as any).rawCarrierResponse.GetParcelStatusErrors).toHaveLength(1);
+        expect((carrierError.raw as any).rawCarrierResponse.GetParcelStatusErrors[0].ErrorCode).toBe(26);
+      }
+    });
+
+    it('should include rawCarrierResponse for validation errors', async () => {
+      const mockResponse = {
+        ParcelNumber: 0,
+        ParcelStatusList: [],
+        GetParcelStatusErrors: 'invalid array format', // Invalid - should be array
+        ClientReference: null,
+        DeliveryCountryCode: null,
+        DeliveryZipCode: null,
+        Weight: null,
+        POD: null
+      };
+
+      mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
+
+      const request: TrackingRequest = {
+        trackingNumber: '123456789',
+        credentials: {
+          username: 'test@example.com',
+          password: 'testpass123',
+          clientNumberList: [12345],
+        },
+        options: { useTestApi: true },
+      };
+
+      try {
+        await track(request, mockContext);
+      } catch (error) {
+        expect(error).toBeInstanceOf(CarrierError);
+        const carrierError = error as CarrierError;
+        expect(carrierError.raw).toBeDefined();
+        expect((carrierError.raw as any).rawCarrierResponse).toBeDefined();
+        expect((carrierError.raw as any).rawCarrierResponse.GetParcelStatusErrors).toBe('invalid array format');
       }
     });
   });

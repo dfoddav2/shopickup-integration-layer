@@ -85,7 +85,7 @@ If you see all tests passing, your environment is ready!
 
 ## Project Structure
 
-```
+```text
 shopickup-integration-layer/
 ├── packages/
 │   ├── core/                    # Main library (canonical types, interfaces)
@@ -154,6 +154,7 @@ Shopickup uses a **build-first workflow**:
 3. **IDE resolution uses `dist/` types** (same as consumers)
 
 This ensures that:
+
 - Tests verify the same code that will be published
 - All TypeScript errors are caught at build time
 - Module paths are validated (import errors surface immediately)
@@ -286,6 +287,7 @@ export class <CarrierAdapter> implements CarrierAdapter {
 ### 4. Write Tests
 
 Create `src/tests/mapper.spec.ts` and `src/tests/integration.spec.ts` with at least:
+
 - Unit tests for all mapper functions
 - Integration tests for all implemented capabilities
 - Error handling tests
@@ -408,7 +410,7 @@ ctx.logger?.error("Label creation failed", { parcelId, error: err.message });
 
 // Bad
 ctx.logger?.log("Creating label");  // No context
-ctx.logger?.log(res);                // Logging entire object
+ctx.logger?.log(res);               // Logging entire object
 ```
 
 ---
@@ -419,7 +421,7 @@ ctx.logger?.log(res);                // Logging entire object
 
 Follow conventional commit format:
 
-```
+```text
 type(scope): subject
 
 body (optional)
@@ -428,6 +430,7 @@ footer (optional)
 ```
 
 **Types:**
+
 - `feat` — New feature
 - `fix` — Bug fix
 - `docs` — Documentation only
@@ -436,7 +439,8 @@ footer (optional)
 - `chore` — Build, dependencies, etc.
 
 **Examples:**
-```
+
+```text
 feat(foxpost): add TRACK capability support
 
 Implemented tracking status normalization and added 5 integration tests.
@@ -444,24 +448,27 @@ Implemented tracking status normalization and added 5 integration tests.
 Closes #42
 ```
 
-```
+```text
 fix(core): handle null labelUrl in CarrierResource
 ```
 
 ### Creating a Pull Request
 
 1. **Fork the repository** and create a feature branch
+
    ```bash
    git checkout -b feat/my-new-adapter
    ```
 
 2. **Make your changes** and verify
+
    ```bash
    pnpm run build    # Compile
    pnpm run test     # All tests pass
    ```
 
 3. **Push to your fork**
+
    ```bash
    git push origin feat/my-new-adapter
    ```
@@ -524,6 +531,7 @@ pnpm run test
 **Cause:** IDE using different TypeScript config
 
 **Fix:**
+
 1. Check VS Code is using workspace TypeScript: `Cmd+Shift+P` → "TypeScript: Select TypeScript Version"
 2. Ensure `.vscode/settings.json` has `typescript.tsdk` configured
 3. Reload window: `Cmd+K Cmd+W` then reopen
@@ -533,6 +541,7 @@ pnpm run test
 **Cause:** Mock server didn't start or HTTP client is stuck
 
 **Fix:**
+
 1. Check if port 3456 is already in use: `lsof -i :3456`
 2. Kill process if needed: `kill -9 <pid>`
 3. Increase test timeout: `it("test", () => { ... }, { timeout: 10000 })`
@@ -542,6 +551,7 @@ pnpm run test
 **Cause:** Missing or incompatible Node version
 
 **Fix:**
+
 ```bash
 node --version  # Should be 18+
 pnpm --version  # Should be 8+
@@ -556,6 +566,7 @@ npm install -g pnpm@latest
 **Cause:** Tests didn't run or coverage collection failed
 
 **Fix:**
+
 ```bash
 # Run with explicit coverage
 pnpm run test:coverage

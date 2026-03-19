@@ -10,7 +10,17 @@
  * Response is JSON array of LabelQueryResult objects with base64-encoded label data.
  */
 
-import { CreateLabelsMPLRequest, LabelOrderBy, LabelFormat, LabelType } from '../validation.js';
+import type {
+  CreateLabelsMPLRequest,
+  CreateLabelsMPLOptions,
+  LabelOrderBy,
+  LabelFormat,
+  LabelType,
+} from '../validation.js';
+
+type CreateLabelsMPLRequestWithOptions = Omit<CreateLabelsMPLRequest, 'options'> & {
+  options: CreateLabelsMPLOptions;
+};
 
 /**
  * Query parameters for the MPL label API GET request
@@ -32,13 +42,14 @@ export interface LabelQueryParams {
  * @param req - Canonical label request
  * @returns Query parameters object
  */
-export function buildLabelQueryParams(req: CreateLabelsMPLRequest): LabelQueryParams {
+export function buildLabelQueryParams(req: CreateLabelsMPLRequestWithOptions): LabelQueryParams {
   return {
     trackingNumbers: req.parcelCarrierIds,
-    labelType: req.options?.labelType,
-    labelFormat: req.options?.labelFormat,
-    orderBy: req.options?.orderBy,
-    singleFile: req.options?.singleFile,
+    // prefer canonical `size` (options.size) then carrier override under options.mpl.labelType
+    labelType: (req.options.size ?? req.options.mpl.labelType) as LabelType | undefined,
+    labelFormat: req.options.mpl.labelFormat,
+    orderBy: req.options.mpl.orderBy,
+    singleFile: req.options.mpl.singleFile,
   };
 }
 

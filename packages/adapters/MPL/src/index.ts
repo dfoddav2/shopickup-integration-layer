@@ -1,4 +1,4 @@
-import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelsRequest, CreateLabelsResponse, LabelResult, CreateParcelRequest, CreateParcelsRequest, CreateParcelsResponse, TrackingRequest, TrackingUpdate, ShipmentDetailsRequest, ShipmentDetailsResponse, FetchPickupPointsRequest, FetchPickupPointsResponse } from '@shopickup/core';
+import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelResponse, CreateLabelsRequest, CreateLabelsResponse, CreateParcelRequest, CreateParcelsRequest, CreateParcelsResponse, TrackingRequest, TrackingUpdate, ShipmentDetailsRequest, ShipmentDetailsResponse, FetchPickupPointsRequest, FetchPickupPointsResponse } from '@shopickup/core';
 import { createResolveBaseUrl, createResolveOAuthUrl, ResolveBaseUrl, ResolveOAuthUrl } from './utils/resolveBaseUrl.js';
 import { fetchPickupPoints as fetchPickupPointsImpl } from './capabilities/index.js';
 import { getShipmentDetails as getShipmentDetailsImpl } from './capabilities/get-shipment-details.js';
@@ -6,7 +6,7 @@ import { track as trackImpl } from './capabilities/track.js';
 import { exchangeAuthToken as exchangeAuthTokenImpl } from './capabilities/auth.js';
 import { createParcel as createParcelImpl, createParcels as createParcelsImpl } from './capabilities/parcels.js';
 import { createLabel as createLabelImpl, createLabels as createLabelsImpl } from './capabilities/label.js';
-import type { ExchangeAuthTokenRequest, ExchangeAuthTokenResponse } from './validation.js';
+import type { CreateParcelMPLRequest, CreateParcelsMPLRequest, CreateLabelMPLRequest, CreateLabelsMPLRequest, ExchangeAuthTokenRequest, ExchangeAuthTokenResponse } from './validation.js';
 
 /**
  * MPLAdapter
@@ -90,7 +90,7 @@ export class MPLAdapter implements CarrierAdapter {
         ctx: AdapterContext
     ): Promise<CarrierResource> {
         return createParcelImpl(
-            req,
+            req as CreateParcelMPLRequest,
             ctx,
             (batchReq, batchCtx) => this.createParcels(batchReq, batchCtx)
         );
@@ -103,21 +103,21 @@ export class MPLAdapter implements CarrierAdapter {
         req: CreateParcelsRequest,
         ctx: AdapterContext
     ): Promise<CreateParcelsResponse> {
-        return createParcelsImpl(req, ctx, this.resolveBaseUrl);
+        return createParcelsImpl(req as CreateParcelsMPLRequest, ctx, this.resolveBaseUrl);
     }
 
     async createLabel(
         req: CreateLabelRequest,
         ctx: AdapterContext
-    ): Promise<LabelResult> {
-        return createLabelImpl(req, ctx);
+    ): Promise<CreateLabelResponse> {
+        return createLabelImpl(req as CreateLabelMPLRequest, ctx, this.resolveBaseUrl);
     }
 
     async createLabels(
         req: CreateLabelsRequest,
         ctx: AdapterContext
     ): Promise<CreateLabelsResponse> {
-        return createLabelsImpl(req, ctx);
+        return createLabelsImpl(req as CreateLabelsMPLRequest, ctx, this.resolveBaseUrl);
     }
 
     async track(

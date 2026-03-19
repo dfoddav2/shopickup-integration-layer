@@ -155,6 +155,7 @@ interface Parcel {
 **Key Design Decisions:**
 
 1. **Delivery as Discriminated Union:** Enables compile-time type safety:
+
    ```typescript
    if (parcel.recipient.delivery.method === 'HOME') {
      // TypeScript knows delivery.address exists
@@ -196,6 +197,7 @@ interface PickupPointDelivery {
 ```
 
 This design enables:
+
 - **Type-safe adapter code:** Discriminator checked at compile time
 - **Multi-carrier support:** Different carriers can map to same discriminator
 - **Validation efficiency:** Validation layers catch mapping bugs before API calls

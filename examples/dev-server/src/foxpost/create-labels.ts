@@ -8,6 +8,7 @@ import { FoxpostAdapter } from '@shopickup/adapters-foxpost';
 import { safeValidateCreateLabelsRequest } from '@shopickup/adapters-foxpost/validation';
 import { CarrierError, type AdapterContext, type CreateLabelsRequest, getHttpStatusForLabelBatchResponse } from '@shopickup/core';
 import { wrapPinoLogger } from '../http-client.js';
+import { formatLabelResponseForHttp } from '../label-response-http.js';
 import {
   FOXPOST_CREDENTIALS_SCHEMA,
   EXAMPLE_CREDENTIALS,
@@ -43,18 +44,28 @@ export async function registerCreateLabelsRoute(
                 description: 'Use test API endpoint instead of production',
                 default: false,
               },
-                size: {
-                  type: 'string',
-                  enum: ['A6', 'A7', '_85X85'],
-                  description: 'Label size format',
-                  default: 'A7',
+              size: {
+                type: 'string',
+                enum: ['A6', 'A7', '_85X85'],
+                description: 'Label size format',
+                default: 'A7',
+              },
+              foxpost: {
+                type: 'object',
+                description: 'Foxpost-specific label options',
+                properties: {
+                  startPos: {
+                    type: 'integer',
+                    minimum: 0,
+                    maximum: 7,
+                    description: 'Starting position for A7 labels on A4 page (0-7)',
+                  },
+                  isPortrait: {
+                    type: 'boolean',
+                    description: 'Label orientation flag for Foxpost rendering',
+                  },
                 },
-               startPos: {
-                 type: 'integer',
-                 minimum: 0,
-                 maximum: 7,
-                 description: 'Starting position for A7 labels on A4 page (0-7)',
-               },
+              },
             },
           },
         },
@@ -67,7 +78,7 @@ export async function registerCreateLabelsRoute(
           {
             parcelCarrierIds: ['CLFOX0000000001', 'CLFOX0000000002'],
             credentials: EXAMPLE_CREDENTIALS,
-            options: { useTestApi: true, size: 'A7', startPos: 3 },
+            options: { useTestApi: true, size: 'A7', foxpost: { startPos: 3 } },
           },
         ],
       },
@@ -131,7 +142,7 @@ export async function registerCreateLabelsRoute(
         // Determine HTTP status code based on batch results
         const statusCode = getHttpStatusForLabelBatchResponse(result);
 
-        return reply.status(statusCode).send(result);
+        return reply.status(statusCode).send(formatLabelResponseForHttp(result));
       } catch (error) {
         fastify.log.error(error);
 

@@ -23,10 +23,30 @@ import {
   safeLog,
   createLogEntry,
 } from '@shopickup/core';
+import { z } from 'zod';
 import { mapGLSDeliveryPointsToPickupPoints } from '../mappers/index.js';
 import type { GLSDeliveryPointsFeed } from '../types/index.js';
 
 const GLS_PICKUP_POINTS_BASE_URL = 'https://map.gls-hungary.com/data/deliveryPoints';
+
+const GLSFetchPickupPointsCarrierOptionsSchema = z.object({
+  country: z.string().min(2).max(2),
+}).catchall(z.unknown());
+
+const GLSFetchPickupPointsOptionsSchema = z.object({
+  gls: GLSFetchPickupPointsCarrierOptionsSchema,
+}).catchall(z.unknown());
+
+const GLSFetchPickupPointsRequestSchema = z.object({
+  credentials: z.record(z.string(), z.unknown()).optional(),
+  options: GLSFetchPickupPointsOptionsSchema,
+});
+
+type GLSFetchPickupPointsRequest = z.infer<typeof GLSFetchPickupPointsRequestSchema>;
+
+function safeValidateFetchPickupPointsRequest(input: unknown) {
+  return GLSFetchPickupPointsRequestSchema.safeParse(input);
+}
 
 /**
  * Supported GLS countries (ISO 3166-1 alpha-2)
@@ -105,7 +125,7 @@ function translateHttpError(status: number, statusText: string): CarrierError {
  * The GLS public pickup points feed is unauthenticated and returns all delivery points
  * for a given country.
  * 
- * @param req FetchPickupPointsRequest with country code required in credentials or options
+ * @param req FetchPickupPointsRequest with country code required in options.gls.country
  * @param ctx AdapterContext with HTTP client
  * @returns FetchPickupPointsResponse with normalized pickup points
  * @throws CarrierError on validation, network, or parsing errors
@@ -121,11 +141,21 @@ export async function fetchPickupPoints(
   }
 
   try {
-    // Extract country from request
-    // Country can be in credentials or in options (custom field)
-    const countryFromCredentials = (req.credentials?.country as string) || '';
-    const countryFromOptions = (req.options?.country as string) || '';
-    const country = countryFromOptions || countryFromCredentials;
+    const validatedReq = safeValidateFetchPickupPointsRequest(req);
+    if (!validatedReq.success) {
+      throw new CarrierError(
+        `Invalid request: ${validatedReq.error.message}`,
+        'Validation',
+        { raw: validatedReq.error.issues }
+      );
+    }
+
+    // Normalize namespaced options into a flat internal shape for adapter logic.
+    const internalOptions = {
+      country: validatedReq.data.options.gls.country,
+    };
+
+    const country = internalOptions.country;
 
     // Validate country code
     const validation = validateCountryCode(country);

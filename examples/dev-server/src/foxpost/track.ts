@@ -60,7 +60,7 @@ export async function registerTrackRoute(
         if (!trackingReqValidation.success) {
           return reply.status(400).send({
             message: 'Invalid request',
-            details: trackingReqValidation.error.flatten(),
+            details: trackingReqValidation.error.issues,
           });
         }
 

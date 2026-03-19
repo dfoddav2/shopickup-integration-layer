@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import type {
+     Parcel,
+     FetchPickupPointsRequest as CoreFetchPickupPointsRequest,
+} from '@shopickup/core';
 
 /**
  * Schemas for MPL adapter credentials
@@ -54,6 +58,31 @@ export type ServicePointType = z.infer<typeof ServicePointTypeSchema>;
 const PickupServicePointTypeSchema = z.enum(['PM', 'PP', 'CS']);
 export type PickupServicePointType = z.infer<typeof PickupServicePointTypeSchema>;
 
+export const FetchPickupPointsMPLCarrierOptionsSchema = z.object({
+     accountingCode: z.string().min(1),
+     postCode: z.preprocess((val) => {
+          if (typeof val === 'string' && val.trim() === '') return undefined;
+          return val;
+     }, z.string().length(4).optional()),
+     city: z.preprocess((val) => {
+          if (typeof val === 'string' && val.trim() === '') return undefined;
+          return val;
+     }, z.string().optional()),
+     servicePointType: z.array(PickupServicePointTypeSchema).optional(),
+});
+export type FetchPickupPointsMPLCarrierOptions = z.infer<typeof FetchPickupPointsMPLCarrierOptionsSchema>;
+
+export const FetchPickupPointsMPLOptionsSchema = z.object({
+     useTestApi: z.boolean().optional(),
+     mpl: FetchPickupPointsMPLCarrierOptionsSchema,
+}).catchall(z.unknown());
+export type FetchPickupPointsMPLOptions = z.infer<typeof FetchPickupPointsMPLOptionsSchema>;
+
+export interface FetchPickupPointsRequestMPL extends Omit<CoreFetchPickupPointsRequest, 'options' | 'credentials'> {
+     credentials: MPLCredentials;
+     options: FetchPickupPointsMPLOptions;
+}
+
 /**
  * Schema for fetchPickupPoints request
  * 
@@ -66,22 +95,10 @@ export type PickupServicePointType = z.infer<typeof PickupServicePointTypeSchema
  */
 export const FetchPickupPointsMPLSchema = z.object({
     credentials: MPLCredentialsSchema,
-    accountingCode: z.string().min(1),
-    postCode: z.preprocess((val) => {
-        if (typeof val === 'string' && val.trim() === '') return undefined;
-        return val;
-    }, z.string().length(4).optional()),
-    city: z.preprocess((val) => {
-        if (typeof val === 'string' && val.trim() === '') return undefined;
-        return val;
-    }, z.string().optional()),
-    servicePointType: z.array(PickupServicePointTypeSchema).optional(),
-    options: z.object({
-        useTestApi: z.boolean().optional(),
-    }).optional(),
+     options: FetchPickupPointsMPLOptionsSchema,
 });
 
-export type FetchPickupPointsMPLRequest = z.infer<typeof FetchPickupPointsMPLSchema>;
+export type FetchPickupPointsMPLRequest = FetchPickupPointsRequestMPL;
 
 /**
  * Schema for exchangeAuthToken request
@@ -499,6 +516,72 @@ export function safeValidateShipmentCreateResult(input: unknown) {
      return ShipmentCreateResultSchema.safeParse(input);
 }
 
+/**
+ * MPL-specific request options for CREATE_PARCELS.
+ *
+ * Cross-cutting fields stay at options root (e.g. useTestApi),
+ * while carrier-specific fields are namespaced under `options.mpl`.
+ * `accountingCode` is required for MPL.
+ */
+export const CreateParcelsMPLCarrierOptionsSchema = z.object({
+     accountingCode: z.string().min(1),
+     agreementCode: z.string().min(1),
+     bankAccountNumber: z.string().min(1),
+     labelType: LabelTypeSchema.optional(),
+});
+export type CreateParcelsMPLCarrierOptions = z.infer<typeof CreateParcelsMPLCarrierOptionsSchema>;
+
+export const CreateParcelsMPLOptionsSchema = z.object({
+     useTestApi: z.boolean().optional(),
+     mpl: CreateParcelsMPLCarrierOptionsSchema,
+}).catchall(z.unknown());
+export type CreateParcelsMPLOptions = z.infer<typeof CreateParcelsMPLOptionsSchema>;
+
+/**
+ * Full CREATE_PARCELS request validator for MPL.
+ *
+ * This validates request envelope + credentials first, then capability-specific
+ * shipment payload validation continues in the mapper/Shipment schemas.
+ */
+export const CreateParcelsMPLRequestSchema = z.object({
+     parcels: z.array(z.custom<Parcel>(
+          (value) => value !== null && typeof value === 'object',
+          { message: 'Each parcel must be an object' },
+     )),
+     credentials: MPLCredentialsSchema,
+     options: CreateParcelsMPLOptionsSchema,
+});
+export type CreateParcelsMPLRequest = z.infer<typeof CreateParcelsMPLRequestSchema>;
+
+/**
+ * Helper: validate full createParcels request
+ */
+export function safeValidateCreateParcelsRequest(input: unknown) {
+     return CreateParcelsMPLRequestSchema.safeParse(input);
+}
+
+/**
+ * Full CREATE_PARCEL request validator for MPL.
+ *
+ * Mirrors CREATE_PARCELS requirements for a single parcel envelope.
+ */
+export const CreateParcelMPLRequestSchema = z.object({
+     parcel: z.custom<Parcel>(
+          (value) => value !== null && typeof value === 'object',
+          { message: 'parcel must be an object' },
+     ),
+     credentials: MPLCredentialsSchema,
+     options: CreateParcelsMPLOptionsSchema,
+});
+export type CreateParcelMPLRequest = z.infer<typeof CreateParcelMPLRequestSchema>;
+
+/**
+ * Helper: validate full createParcel request
+ */
+export function safeValidateCreateParcelRequest(input: unknown) {
+     return CreateParcelMPLRequestSchema.safeParse(input);
+}
+
 // ===== LABEL TYPES (CREATE_LABEL capability) =====
 
 /**
@@ -523,29 +606,34 @@ export type LabelQueryResult = z.infer<typeof LabelQueryResultSchema>;
 
 /**
  * Request for creating labels via GET /shipments/label
- * 
- * Required:
- * - parcelCarrierIds: array of tracking numbers
- * - credentials: MPLCredentials
- * - accountingCode: string
- * 
- * Optional:
- * - labelType: label format (default: A5)
- * - labelFormat: file format (default: PDF)
- * - orderBy: sorting order in PDF
- * - singleFile: combine all labels in single file
+ *
+ * Pattern: cross-cutting options (e.g. `size`) live at `options.size` and
+ * MPL-specific knobs (accountingCode, labelFormat, singleFile, orderBy)
+ * live under `options.mpl`.
  */
+export const CreateLabelsMPLCarrierOptionsSchema = z.object({
+     accountingCode: z.string().min(1),
+     labelFormat: LabelFormatSchema.optional(),
+     singleFile: z.boolean().optional(),
+     orderBy: LabelOrderBySchema.optional(),
+     // adapter may accept an explicit labelType override under mpl,
+     // but integrators should prefer `options.size` (canonical) when present
+     labelType: LabelTypeSchema.optional(),
+}).catchall(z.unknown());
+export type CreateLabelsMPLCarrierOptions = z.infer<typeof CreateLabelsMPLCarrierOptionsSchema>;
+
+export const CreateLabelsMPLOptionsSchema = z.object({
+     useTestApi: z.boolean(),
+     // canonical cross-cutting size field (maps to MPL labelType)
+     size: LabelTypeSchema.optional(),
+     mpl: CreateLabelsMPLCarrierOptionsSchema,
+}).catchall(z.unknown());
+export type CreateLabelsMPLOptions = z.infer<typeof CreateLabelsMPLOptionsSchema>;
+
 export const CreateLabelsMPLRequestSchema = z.object({
      parcelCarrierIds: z.array(z.string().min(1)).min(1),
      credentials: MPLCredentialsSchema,
-     accountingCode: z.string().min(1),
-     options: z.object({
-          useTestApi: z.boolean().optional(),
-          labelType: LabelTypeSchema.optional(),
-          labelFormat: LabelFormatSchema.optional(),
-          orderBy: LabelOrderBySchema.optional(),
-          singleFile: z.boolean().optional(),
-     }).optional(),
+     options: CreateLabelsMPLOptionsSchema,
 });
 export type CreateLabelsMPLRequest = z.infer<typeof CreateLabelsMPLRequestSchema>;
 
@@ -554,6 +642,21 @@ export type CreateLabelsMPLRequest = z.infer<typeof CreateLabelsMPLRequestSchema
  */
 export function safeValidateCreateLabelsRequest(input: unknown) {
      return CreateLabelsMPLRequestSchema.safeParse(input);
+}
+
+/**
+ * Single-label request schema (carrier-specific)
+ * Mirrors the batch request but for a single `parcelCarrierId`.
+ */
+export const CreateLabelMPLRequestSchema = z.object({
+     parcelCarrierId: z.string().min(1),
+     credentials: MPLCredentialsSchema,
+     options: CreateLabelsMPLOptionsSchema,
+});
+export type CreateLabelMPLRequest = z.infer<typeof CreateLabelMPLRequestSchema>;
+
+export function safeValidateCreateLabelRequest(input: unknown) {
+     return CreateLabelMPLRequestSchema.safeParse(input);
 }
 /**
  * Schema for GET_SHIPMENT_DETAILS request

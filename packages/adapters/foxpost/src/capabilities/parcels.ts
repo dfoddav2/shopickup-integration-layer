@@ -181,7 +181,7 @@ export async function createParcels(
      const responseValidation = safeValidateFoxpostCreateResponse(carrierRespBody);
      if (!responseValidation.success) {
        ctx.logger?.warn("Foxpost: Response validation failed", {
-         errors: serializeForLog(responseValidation.error.flatten()) as any
+         errors: serializeForLog(responseValidation.error.issues) as any
        });
        // Continue anyway - be lenient with response shape
      }

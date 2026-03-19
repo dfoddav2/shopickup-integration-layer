@@ -51,45 +51,58 @@ export async function registerPickupPointsOAuthFallbackRoute(
               apiSecret: { type: 'string', description: 'API secret for Basic auth' },
             }
           },
-          accountingCode: {
-            type: 'string',
-            description: 'MPL accounting code for the request',
-          },
-          postCode: {
-            type: 'string',
-            description: 'Optional: filter by postal code (4 characters)',
-          },
-          city: {
-            type: 'string',
-            description: 'Optional: filter by city name',
-          },
-          servicePointType: {
-            type: 'array',
-            items: {
-              type: 'string',
-              enum: ['PM', 'PP', 'CS'],
-            },
-            description: 'Optional: filter by service point type (PM=Post Office, PP=Post Point, CS=Parcel Locker)',
-          },
           options: {
             type: 'object',
             properties: {
+              mpl: {
+                type: 'object',
+                description: 'MPL-specific options (namespaced under "mpl")',
+                properties: {
+                  accountingCode: {
+                    type: 'string',
+                    description: 'MPL accounting code for the request',
+                  },
+                  postCode: {
+                    type: 'string',
+                    description: 'Optional: filter by postal code (4 characters)',
+                  },
+                  city: {
+                    type: 'string',
+                    description: 'Optional: filter by city name',
+                  },
+                  servicePointType: {
+                    type: 'array',
+                    items: {
+                      type: 'string',
+                      enum: ['PM', 'PP', 'CS'],
+                    },
+                    description: 'Optional: filter by service point type (PM=Post Office, PP=Post Point, CS=Parcel Locker)',
+                  },
+                },
+                required: ['accountingCode'],
+              },
               useTestApi: {
                 type: 'boolean',
                 description: 'Use test/sandbox API endpoint',
                 default: false
               }
-            }
+            },
+            required: ['mpl']
           }
         },
-        required: ['credentials', 'accountingCode'],
+        required: ['credentials', 'options'],
         examples: [
           {
             credentials: EXAMPLE_MPL_CREDENTIALS_APIKEY,
-            accountingCode: 'ACC123456',
-            postCode: '',
-            city: '',
-            servicePointType: [],
+            options: {
+              mpl: {
+                accountingCode: 'ACC123456',
+                postCode: '',
+                city: '',
+                servicePointType: [],
+              },
+              useTestApi: false,
+            },
           }
         ]
       },
@@ -98,7 +111,7 @@ export async function registerPickupPointsOAuthFallbackRoute(
     async handler(request: any, reply: any) {
       try {
         // Validate request body
-        const { credentials, accountingCode, options } = request.body;
+        const { credentials, options } = request.body;
 
         if (!credentials || typeof credentials !== 'object') {
           return reply.status(400).send({
@@ -114,9 +127,10 @@ export async function registerPickupPointsOAuthFallbackRoute(
           });
         }
 
-        if (!accountingCode) {
+        const mplOptions = options?.mpl;
+        if (!mplOptions?.accountingCode) {
           return reply.status(400).send({
-            message: 'Invalid request: accountingCode required',
+            message: 'Invalid request: options.mpl.accountingCode required',
             category: 'Validation',
           });
         }
@@ -140,7 +154,7 @@ export async function registerPickupPointsOAuthFallbackRoute(
              apiKey: credentials.apiKey,
              apiSecret: credentials.apiSecret,
            },
-           accountingCode,
+           mplOptions.accountingCode,
            resolveOAuthUrl,
            logger,
            useTestApi
@@ -168,11 +182,15 @@ export async function registerPickupPointsOAuthFallbackRoute(
             apiKey: credentials.apiKey,
             apiSecret: credentials.apiSecret,
           },
-          accountingCode,
-          postCode: request.body.postCode || '',
-          city: request.body.city || '',
-          servicePointType: request.body.servicePointType || [],
-          options: options || {},
+          options: {
+            ...(options || {}),
+            mpl: {
+              accountingCode: mplOptions.accountingCode,
+              postCode: mplOptions.postCode || '',
+              city: mplOptions.city || '',
+              servicePointType: mplOptions.servicePointType || [],
+            },
+          },
         };
 
         // Call adapter with wrapped HTTP client

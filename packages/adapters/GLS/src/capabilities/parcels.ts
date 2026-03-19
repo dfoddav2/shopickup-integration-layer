@@ -253,7 +253,7 @@ export async function createParcels(
         'warn',
         'GLS: Response validation failed',
         {
-          errors: serializeForLog(responseValidation.error.flatten()) as any,
+          errors: serializeForLog(responseValidation.error.issues) as any,
         },
         ctx,
         ['createParcels']

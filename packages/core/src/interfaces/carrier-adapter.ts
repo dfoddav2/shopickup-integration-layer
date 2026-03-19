@@ -1,7 +1,7 @@
 import type { Capability } from './capabilities.js';
 import type { AdapterContext } from './adapter-context.js';
 import type { CarrierResource } from './carrier-resource.js';
-import type { Parcel, RatesResponse, TrackingUpdate, CreateParcelsResponse, CreateLabelsResponse, LabelResult, FetchPickupPointsRequest, FetchPickupPointsResponse, ShipmentDetailsResponse } from '../types/index.js';
+import type { Parcel, RatesResponse, TrackingUpdate, CreateParcelsResponse, CreateLabelResponse, CreateLabelsResponse, FetchPickupPointsRequest, FetchPickupPointsResponse, ShipmentDetailsResponse } from '../types/index.js';
 
 /**
  * Request options
@@ -88,6 +88,20 @@ export interface CreateParcelsRequest {
   options?: RequestOptions;
 }
 
+/**
+ * Label request options shared by CREATE_LABEL and CREATE_LABELS.
+ *
+ * Keep carrier-specific fields out of core. Adapters can narrow/extend this
+ * at their own boundary validators and types.
+ */
+export type LabelRequestOptions = RequestOptions & {
+  /**
+   * Label size/format (carrier-specific interpretation)
+   * Examples: "A6", "A7", "4x6", "85x85"
+   */
+  size?: string;
+};
+
 export interface CreateLabelRequest {
   /**
    * Carrier-specific parcel ID to create label for
@@ -101,32 +115,12 @@ export interface CreateLabelRequest {
    */
   credentials: Record<string, unknown>;
   /**
-   * Per-call options (e.g., useTestApi, label size, startPos)
+    * Per-call options.
+    *
+    * Includes shared label options (e.g., size) while keeping carrier-specific
+    * knobs in adapter-level schemas.
    */
-  options?: RequestOptions & {
-    /**
-     * Label size/format (carrier-specific)
-     * Examples: "A6", "A7", "4x6", "85x85"
-     * Default depends on carrier (typically "A7" for Foxpost)
-     * 
-     * - Used by: Foxpost
-     */
-    size?: string;
-    /**
-     * Starting position on page (carrier-specific)
-     * For A7 labels on A4 page: 1-7
-     * Ignored for other sizes
-     * 
-     * - Used by: Foxpost
-     */
-    startPos?: number;
-    /**
-     * Direction of label printing on page
-     * 
-     * - Used by: Foxpost
-     */
-    isPortrait?: boolean;
-  };
+  options?: LabelRequestOptions;
 }
 
 /**
@@ -146,29 +140,12 @@ export interface CreateLabelsRequest {
    */
   credentials: Record<string, unknown>;
   /**
-   * Shared options for the entire batch (size, startPos, etc.)
+   * Shared options for the entire batch.
+   *
+   * Includes shared label options (e.g., size) while keeping carrier-specific
+   * knobs in adapter-level schemas.
    */
-  options?: RequestOptions & {
-    /**
-     * Label size/format (carrier-specific)
-     * Examples: "A6", "A7", "4x6", "85x85"
-     * 
-     * - Used by: Foxpost
-     */
-    size?: string;
-    /**
-     * Starting position on page (carrier-specific, e.g., 1-7 for A7)
-     * 
-     * - Used by: Foxpost
-     */
-    startPos?: number;
-    /**
-     * Direction of label printing on page
-     * 
-     * - Used by: Foxpost
-     */
-    isPortrait?: boolean;
-  };
+  options?: LabelRequestOptions;
 }
 
 export interface TrackingRequest {
@@ -295,24 +272,17 @@ export interface CarrierAdapter {
   ): Promise<CarrierResource>;
 
   /**
-   * Generate a label for a parcel
-   * Capability: CREATE_LABEL
-   * 
-   * Can accept either:
-   * - Original CreateLabelRequest (for backward compatibility)
-   * - New extended request with size and startPos options
-   */
-  /**
    * Generate a label for a single parcel
    * Capability: CREATE_LABEL
    * 
-   * Returns LabelResult with file mapping and metadata
+   * Returns singular label response with per-item result, file metadata,
+   * and raw carrier response payload.
    * Delegates to createLabels for batch-first implementation
    */
   createLabel?(
     req: CreateLabelRequest,
     ctx: AdapterContext
-  ): Promise<LabelResult>;
+  ): Promise<CreateLabelResponse>;
 
   /**
    * Generate labels for multiple parcels in one call

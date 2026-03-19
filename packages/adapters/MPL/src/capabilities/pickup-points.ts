@@ -16,7 +16,6 @@ import type {
 } from "@shopickup/core";
 import { CarrierError, safeLog, createLogEntry, serializeForLog } from "@shopickup/core";
 import type { ResolveBaseUrl } from "../utils/resolveBaseUrl.js";
-import type { HttpResponse } from "@shopickup/core";
 import {
   safeValidateFetchPickupPointsRequest,
   isGatewayError,
@@ -220,11 +219,18 @@ export async function fetchPickupPoints(
       );
     }
 
-    // Extract details from validated request
-    const useTestApi = validated.data.options?.useTestApi ?? false;
-    const postCode = validated.data.postCode || "";
-    const city = validated.data.city || "";
-    const servicePointType = validated.data.servicePointType || [];
+    // Normalize namespaced options into a flat internal shape for adapter logic.
+    const internalOptions = {
+      useTestApi: validated.data.options.useTestApi ?? false,
+      accountingCode: validated.data.options.mpl.accountingCode,
+      postCode: validated.data.options.mpl.postCode || "",
+      city: validated.data.options.mpl.city || "",
+      servicePointType: validated.data.options.mpl.servicePointType || [],
+    };
+    const useTestApi = internalOptions.useTestApi;
+    const postCode = internalOptions.postCode;
+    const city = internalOptions.city;
+    const servicePointType = internalOptions.servicePointType;
     const filters = { postCode, city, servicePointType };
     const credentialType = validated.data.credentials.authType;
     const baseUrl = resolveBaseUrl(validated.data.options);
@@ -255,7 +261,7 @@ export async function fetchPickupPoints(
         servicePointType,
       },
       {
-        headers: buildMPLHeaders(validated.data.credentials, validated.data.accountingCode),
+        headers: buildMPLHeaders(validated.data.credentials, internalOptions.accountingCode),
       }
     );
 

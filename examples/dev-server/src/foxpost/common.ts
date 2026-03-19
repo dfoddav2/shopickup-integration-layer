@@ -475,6 +475,23 @@ export const SINGLE_LABEL_RESPONSE_SCHEMA = {
         additionalProperties: true,
         description: 'Raw carrier API response'
       },
+      file: {
+        type: ['object', 'null'],
+        description: 'Resolved file metadata for this label (if available)',
+        nullable: true,
+        additionalProperties: true,
+        properties: {
+          rawBytes: {
+            type: ['string', 'object'],
+            description: 'Raw file bytes (Buffer serialized or base64 string). Only used in dev responses',
+          }
+        },
+      },
+      rawCarrierResponse: {
+        type: ['object', 'array', 'string', 'number', 'boolean', 'null'],
+        description: 'Raw carrier payload from underlying batch operation',
+        nullable: true,
+      },
     },
   },
   400: {
@@ -583,6 +600,10 @@ export const BATCH_LABEL_RESPONSE_SCHEMA = {
               type: 'string',
               description: 'Base64-encoded PDF data URL (remove for production CDN upload)',
               example: 'data:application/pdf;base64,JVBERi0xLjQK...'
+            },
+            rawBytes: {
+              type: ['string', 'object'],
+              description: 'Raw file bytes (Buffer serialized or base64 string). Only used in dev responses',
             },
             contentType: { 
               type: 'string',

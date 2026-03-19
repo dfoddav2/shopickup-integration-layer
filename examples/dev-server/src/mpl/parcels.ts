@@ -25,12 +25,11 @@
  */
 
 import { FastifyInstance } from 'fastify';
-import type { CarrierAdapter } from '@shopickup/core';
+import type { MPLAdapter } from '@shopickup/adapters-mpl';
 import { CarrierError, type AdapterContext, type CreateParcelsRequest } from '@shopickup/core';
 import { wrapPinoLogger } from '../http-client.js';
 import {
   MPL_CREDENTIALS_SCHEMA,
-  MPL_OPTIONS_SCHEMA,
   MPL_AUTHENTICATION_ERROR_SCHEMA,
   EXAMPLE_MPL_CREDENTIALS_OAUTH,
 } from './common.js';
@@ -235,9 +234,38 @@ const CREATE_PARCELS_RESPONSE_SCHEMA = {
   },
 };
 
+const CREATE_PARCEL_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    carrierId: { type: 'string', description: 'Tracking number assigned by MPL' },
+    status: { type: 'string', enum: ['created', 'failed'] },
+    errors: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          field: { type: 'string' },
+          code: { type: 'string' },
+          message: { type: 'string' },
+        },
+      },
+    },
+    raw: {
+      type: 'object',
+      description: 'Per-parcel raw carrier payload',
+      additionalProperties: true,
+    },
+    rawCarrierResponse: {
+      type: 'object',
+      description: 'Full HTTP response context from carrier call',
+      additionalProperties: true,
+    },
+  },
+};
+
 export async function registerCreateParcelsRoute(
   fastify: FastifyInstance,
-  adapter: CarrierAdapter
+  adapter: MPLAdapter
 ) {
   fastify.post('/api/dev/mpl/create-parcels', {
     schema: {
@@ -259,20 +287,39 @@ export async function registerCreateParcelsRoute(
             type: 'object',
             description: 'Optional request options',
             properties: {
-              ...MPL_OPTIONS_SCHEMA.properties,
-              labelType: {
-                type: 'string',
-                enum: ['A4', 'A5', 'A5inA4', 'A5E', 'A5E_EXTRA', 'A5E_STAND', 'A6', 'A6inA4', 'A4ONE'],
-                description: 'Label size/format (A5 default)',
+              // ...MPL_OPTIONS_SCHEMA.properties,
+              useTestApi: {
+                type: 'boolean',
+                description: 'Whether to use MPL test API endpoints (default false)',
+                default: false,
               },
-              accountingCode: {
-                type: 'string',
-                description: 'MPL accounting code',
-              },
+              mpl: {
+                type: 'object',
+                properties: {
+                  labelType: {
+                    type: 'string',
+                    enum: ['A4', 'A5', 'A5inA4', 'A5E', 'A5E_EXTRA', 'A5E_STAND', 'A6', 'A6inA4', 'A4ONE'],
+                    description: 'Label size/format (A5 default)',
+                  },
+                  accountingCode: {
+                    type: 'string',
+                    description: 'MPL accounting code',
+                  },
+                  agreementCode: {
+                    type: 'string',
+                    description: 'MPL agreement code (contract ID)',
+                  },
+                  bankAccountNumber: {
+                    type: 'string',
+                    description: 'MPL bank account number (required for all COD type parcels and recommended for all)',
+                  }
+                },
+                required: ['accountingCode', 'agreementCode', 'bankAccountNumber'],
+              }
             },
           },
         },
-        required: ['credentials', 'parcels'],
+        required: ['credentials', 'parcels', 'options'],
         examples: [
           {
             credentials: EXAMPLE_MPL_CREDENTIALS_OAUTH,
@@ -304,7 +351,7 @@ export async function registerCreateParcelsRoute(
                   },
                 },
                 service: 'standard',
-                package: { 
+                package: {
                   weightGrams: 850,
                   dimensionsCm: { length: 30, width: 20, height: 10 },
                 },
@@ -343,7 +390,7 @@ export async function registerCreateParcelsRoute(
                   },
                 },
                 service: 'standard',
-                package: { 
+                package: {
                   weightGrams: 1200,
                   dimensionsCm: { length: 25, width: 25, height: 15 },
                 },
@@ -386,7 +433,7 @@ export async function registerCreateParcelsRoute(
                 },
                 service: 'express',
                 carrierServiceCode: 'MPLEX',
-                package: { 
+                package: {
                   weightGrams: 500,
                   dimensionsCm: { length: 20, width: 15, height: 8 },
                 },
@@ -422,7 +469,7 @@ export async function registerCreateParcelsRoute(
                   },
                 },
                 service: 'economy',
-                package: { 
+                package: {
                   weightGrams: 2500,
                   dimensionsCm: { length: 40, width: 30, height: 20 },
                 },
@@ -465,7 +512,7 @@ export async function registerCreateParcelsRoute(
                   },
                 },
                 service: 'standard',
-                package: { 
+                package: {
                   weightGrams: 3800,
                   dimensionsCm: { length: 50, width: 35, height: 25 },
                 },
@@ -482,9 +529,13 @@ export async function registerCreateParcelsRoute(
               },
             ],
             options: {
-              useTestApi: false,
-              accountingCode: 'ACC123456',
-              labelType: 'A5',
+              useTestApi: true,
+              mpl: {
+                accountingCode: 'ACC123456',
+                agreementCode: 'AGREEMENT123',
+                bankAccountNumber: '123456781234567812345678',
+                labelType: 'A5',
+              }
             },
           },
         ],
@@ -529,7 +580,7 @@ export async function registerCreateParcelsRoute(
         };
 
         // Call adapter
-        const response = await (adapter as any).createParcels!(createParcelsReq, ctx);
+        const response = await adapter.createParcels(createParcelsReq, ctx);
 
         return reply.status(200).send(response);
       } catch (error) {
@@ -566,7 +617,7 @@ export async function registerCreateParcelsRoute(
  */
 export async function registerCreateParcelRoute(
   fastify: FastifyInstance,
-  adapter: CarrierAdapter
+  adapter: MPLAdapter
 ) {
   fastify.post('/api/dev/mpl/create-parcel', {
     schema: {
@@ -581,28 +632,48 @@ export async function registerCreateParcelRoute(
           options: {
             type: 'object',
             properties: {
-              ...MPL_OPTIONS_SCHEMA.properties,
-              labelType: {
-                type: 'string',
-                enum: ['A4', 'A5', 'A5inA4', 'A5E', 'A5E_EXTRA', 'A5E_STAND', 'A6', 'A6inA4', 'A4ONE'],
+              // ...MPL_OPTIONS_SCHEMA.properties,
+              useTestApi: {
+                type: 'boolean',
+                description: 'Whether to use MPL test API endpoints (default false)',
+                default: false,
               },
-              accountingCode: {
-                type: 'string',
-              },
+              mpl: {
+                type: 'object',
+                properties: {
+                  labelType: {
+                    type: 'string',
+                    enum: ['A4', 'A5', 'A5inA4', 'A5E', 'A5E_EXTRA', 'A5E_STAND', 'A6', 'A6inA4', 'A4ONE'],
+                  },
+                  accountingCode: {
+                    type: 'string',
+                    description: 'MPL accounting code',
+                  },
+                  agreementCode: {
+                    type: 'string',
+                    description: 'MPL agreement code (contract ID)',
+                  },
+                  bankAccountNumber: {
+                    type: 'string',
+                    description: 'MPL bank account number (required for all COD type parcels and recommended for all)',
+                  }
+                },
+                required: ['accountingCode', 'agreementCode', 'bankAccountNumber'],
+              }
             },
           },
         },
-        required: ['credentials', 'parcel'],
-         examples: [
+        required: ['credentials', 'parcel', 'options'],
+        examples: [
           {
             credentials: EXAMPLE_MPL_CREDENTIALS_OAUTH,
             parcel: {
               id: 'WEBSHOP-2025-SINGLE-001',
               shipper: {
-                contact: { 
-                  name: 'Fashion Store Budapest', 
-                  phone: '+36203334444', 
-                  email: 'orders@fashionstore.hu' 
+                contact: {
+                  name: 'Fashion Store Budapest',
+                  phone: '+36203334444',
+                  email: 'orders@fashionstore.hu'
                 },
                 address: {
                   name: 'Fashion Store Budapest Warehouse',
@@ -613,10 +684,10 @@ export async function registerCreateParcelRoute(
                 },
               },
               recipient: {
-                contact: { 
-                  name: 'Varga Zsuzsanna', 
-                  phone: '+36301112222', 
-                  email: 'zsuzsanna@email.hu' 
+                contact: {
+                  name: 'Varga Zsuzsanna',
+                  phone: '+36301112222',
+                  email: 'zsuzsanna@email.hu'
                 },
                 delivery: {
                   method: 'HOME',
@@ -630,7 +701,7 @@ export async function registerCreateParcelRoute(
                 },
               },
               service: 'standard',
-              package: { 
+              package: {
                 weightGrams: 650,
                 dimensionsCm: { length: 25, width: 20, height: 10 },
               },
@@ -640,9 +711,13 @@ export async function registerCreateParcelRoute(
               },
             },
             options: {
-              useTestApi: false,
-              accountingCode: 'ACC123456',
-              labelType: 'A5',
+              useTestApi: true,
+              mpl: {
+                accountingCode: 'ACC123456',
+                agreementCode: 'AGREEMENT123',
+                bankAccountNumber: '123456781234567812345678',
+                labelType: 'A5',
+              }
             },
           },
           {
@@ -650,10 +725,10 @@ export async function registerCreateParcelRoute(
             parcel: {
               id: 'WEBSHOP-2025-SINGLE-COD-PP',
               shipper: {
-                contact: { 
-                  name: 'Electronics Hub', 
-                  phone: '+36209876543', 
-                  email: 'shipping@electronicshu.hu' 
+                contact: {
+                  name: 'Electronics Hub',
+                  phone: '+36209876543',
+                  email: 'shipping@electronicshu.hu'
                 },
                 address: {
                   name: 'Electronics Hub Distribution',
@@ -664,10 +739,10 @@ export async function registerCreateParcelRoute(
                 },
               },
               recipient: {
-                contact: { 
-                  name: 'Kiss László', 
-                  phone: '+36306665555', 
-                  email: 'laszlo@email.hu' 
+                contact: {
+                  name: 'Kiss László',
+                  phone: '+36306665555',
+                  email: 'laszlo@email.hu'
                 },
                 delivery: {
                   method: 'PICKUP_POINT',
@@ -684,7 +759,7 @@ export async function registerCreateParcelRoute(
                 },
               },
               service: 'standard',
-              package: { 
+              package: {
                 weightGrams: 1500,
                 dimensionsCm: { length: 30, width: 25, height: 15 },
               },
@@ -700,15 +775,19 @@ export async function registerCreateParcelRoute(
               },
             },
             options: {
-              useTestApi: false,
-              accountingCode: 'ACC123456',
-              labelType: 'A5',
+              useTestApi: true,
+              mpl: {
+                accountingCode: 'ACC123456',
+                agreementCode: 'AGREEMENT123',
+                bankAccountNumber: '123456781234567812345678',
+                labelType: 'A5',
+              }
             },
           }
         ]
       },
       response: {
-        200: CREATE_PARCELS_RESPONSE_SCHEMA,
+        200: CREATE_PARCEL_RESPONSE_SCHEMA,
         400: { description: 'Validation error' },
         401: { description: 'Authentication error' },
         500: { description: 'Internal server error' },
@@ -731,7 +810,7 @@ export async function registerCreateParcelRoute(
         };
 
         // Call adapter with single parcel
-        const response = await (adapter as any).createParcel!(
+        const response = await adapter.createParcel(
           {
             parcel: request.body.parcel,
             credentials: request.body.credentials,
@@ -739,6 +818,12 @@ export async function registerCreateParcelRoute(
           },
           ctx
         );
+
+        // Defensive fallback: if an adapter returns a failed resource instead of throwing,
+        // translate it to a client-visible validation error status.
+        if (response?.status === 'failed') {
+          return reply.status(400).send(response);
+        }
 
         return reply.status(200).send(response);
       } catch (error) {

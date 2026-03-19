@@ -24,22 +24,22 @@ import type {
 } from '@shopickup/core';
 import {
   CarrierError,
-  safeLog,
-  createLogEntry,
   serializeForLog,
   errorToLog,
 } from '@shopickup/core';
 
 import type { ResolveBaseUrl } from '../utils/resolveBaseUrl.js';
-import type { HttpResponse } from '@shopickup/core';
 import {
+  safeValidateCreateParcelRequest,
+  safeValidateCreateParcelsRequest,
   safeValidateShipmentCreateRequest,
   safeValidateShipmentCreateResult,
-  type ShipmentCreateRequest,
+  type CreateParcelMPLRequest,
+  type CreateParcelsMPLRequest,
   type ShipmentCreateResult,
   type ErrorDescriptor,
 } from '../validation.js';
-import { mapParcelToMPLShipment, mapParcelsToMPLShipments } from '../mappers/shipment.js';
+import { mapParcelsToMPLShipments } from '../mappers/shipment.js';
 import { buildMPLHeaders } from '../utils/httpUtils.js';
 
 /**
@@ -111,25 +111,28 @@ function translateMPLShipmentError(
  * Delegates to createParcels to reuse batching logic
  */
 export async function createParcel(
-  req: CreateParcelRequest,
+  req: CreateParcelMPLRequest,
   ctx: AdapterContext,
   createParcelsImpl: (
-    req: CreateParcelsRequest,
+    req: CreateParcelsMPLRequest,
     ctx: AdapterContext,
   ) => Promise<CreateParcelsResponse>,
 ): Promise<CarrierResource> {
-  // Validate request format
-  if (!req.parcel) {
+  const validated = safeValidateCreateParcelRequest(req);
+  if (!validated.success) {
     throw new CarrierError(
-      'Missing parcel in createParcel request',
+      `Invalid request: ${validated.error.message}`,
       'Validation',
+      { raw: serializeForLog(validated.error.issues) as any },
     );
   }
 
-  const batchReq: CreateParcelsRequest = {
-    parcels: [req.parcel],
-    credentials: req.credentials,
-    options: req.options,
+  const parsedReq = validated.data;
+
+  const batchReq: CreateParcelsMPLRequest = {
+    parcels: [parsedReq.parcel],
+    credentials: parsedReq.credentials,
+    options: parsedReq.options,
   };
 
   const response = await createParcelsImpl(batchReq, ctx);
@@ -154,6 +157,22 @@ export async function createParcel(
 
   // Return the first parcel result, attach full response for context
   const result = results[0];
+  if (result.status === 'failed') {
+    const firstError = result.errors?.[0]?.message;
+    throw new CarrierError(
+      firstError
+        ? `Parcel creation failed: ${firstError}`
+        : 'Parcel creation failed',
+      'Validation',
+      {
+        raw: serializeForLog({
+          result,
+          rawCarrierResponse: response.rawCarrierResponse,
+        }) as any,
+      },
+    );
+  }
+
   return {
     ...result,
     rawCarrierResponse: response.rawCarrierResponse,
@@ -170,11 +189,29 @@ export async function createParcel(
  * @returns CreateParcelsResponse with summary and per-item results
  */
 export async function createParcels(
-  req: CreateParcelsRequest,
+  req: CreateParcelsMPLRequest,
   ctx: AdapterContext,
   resolveBaseUrl: ResolveBaseUrl,
 ): Promise<CreateParcelsResponse> {
   try {
+    const validated = safeValidateCreateParcelsRequest(req);
+    if (!validated.success) {
+      throw new CarrierError(
+        `Invalid request: ${validated.error.message}`,
+        'Validation',
+        { raw: serializeForLog(validated.error.issues) as any },
+      );
+    }
+
+    const parsedReq = validated.data;
+    const internalOptions = {
+      useTestApi: parsedReq.options.useTestApi ?? false,
+      labelType: parsedReq.options.mpl.labelType,
+      accountingCode: parsedReq.options.mpl.accountingCode,
+      agreementCode: parsedReq.options.mpl.agreementCode,
+      bankAccountNumber: parsedReq.options.mpl.bankAccountNumber,
+    };
+
     // Validate we have required context
     if (!ctx.http) {
       throw new CarrierError(
@@ -183,7 +220,7 @@ export async function createParcels(
       );
     }
 
-    if (!Array.isArray(req.parcels) || req.parcels.length === 0) {
+    if (!Array.isArray(parsedReq.parcels) || parsedReq.parcels.length === 0) {
       return {
         results: [],
         successCount: 0,
@@ -197,24 +234,24 @@ export async function createParcels(
     }
 
     // Enforce batch size limit (OpenAPI: max 100 shipments per call)
-    if (req.parcels.length > 100) {
+    if (parsedReq.parcels.length > 100) {
       throw new CarrierError(
-        `Too many parcels: ${req.parcels.length} > 100 (MPL API limit)`,
+        `Too many parcels: ${parsedReq.parcels.length} > 100 (MPL API limit)`,
         'Validation',
-        { raw: { maxAllowed: 100, requested: req.parcels.length } },
+        { raw: { maxAllowed: 100, requested: parsedReq.parcels.length } },
       );
     }
 
-    const baseUrl = resolveBaseUrl(req.options);
-    const useTestApi = req.options?.useTestApi ?? false;
+    const baseUrl = resolveBaseUrl({ useTestApi: internalOptions.useTestApi });
+    const useTestApi = internalOptions.useTestApi;
 
     ctx.logger?.debug('MPL: Creating parcels batch', {
-      count: req.parcels.length,
+      count: parsedReq.parcels.length,
       testMode: useTestApi,
     });
 
     // Extract sender information from first parcel (assumes uniform sender across batch)
-    const firstParcel = req.parcels[0];
+    const firstParcel = parsedReq.parcels[0];
     if (!firstParcel.shipper) {
       throw new CarrierError(
         'Missing shipper information in parcel',
@@ -222,23 +259,18 @@ export async function createParcels(
       );
     }
 
-    // Get agreement number from credentials or metadata
-    // IMPORTANT: This should come from MPL-specific credentials
-    let agreementNumber = '00000000';
-    if (req.credentials && typeof req.credentials === 'object') {
-      const creds = req.credentials as any;
-      if (creds.agreementNumber) {
-        agreementNumber = creds.agreementNumber;
-      }
-    }
-
     // Map canonical parcels to MPL shipments
     const mplShipments = mapParcelsToMPLShipments(
-      req.parcels,
+      parsedReq.parcels,
       firstParcel.shipper,
-      agreementNumber,
-      req.options?.labelType as any, // Cast to satisfy type constraint
+      internalOptions.agreementCode,
+      internalOptions.bankAccountNumber,
+      internalOptions.labelType as any, // Cast to satisfy type constraint
     );
+
+    ctx.logger?.debug('MPL: Mapped parcels to MPL shipments', {
+      shipments: serializeForLog(mplShipments) as any,
+    });
 
     // Validate each mapped shipment
     const mplShipmentsWithValidation = mplShipments.map((shipment, idx) => {
@@ -246,24 +278,19 @@ export async function createParcels(
       if (!validation.success) {
         ctx.logger?.warn('MPL: Shipment validation failed', {
           shipmentIdx: idx,
-          errors: serializeForLog(validation.error.flatten()) as any,
+          errors: serializeForLog(validation.error.issues) as any,
         });
         // Continue anyway - be lenient
       }
       return shipment;
     });
 
-    // Get accounting code from options
-    const accountingCode = (req.options && 'accountingCode' in req.options)
-      ? (req.options.accountingCode as string)
-      : 'DEFAULT';
-
     // Call MPL API
     const httpResponse = await ctx.http.post<ShipmentCreateResult[]>(
       `${baseUrl}/shipments`,
       mplShipmentsWithValidation,
       {
-        headers: buildMPLHeaders(req.credentials as any, accountingCode),
+        headers: buildMPLHeaders(parsedReq.credentials as any, internalOptions.accountingCode),
       },
     );
 
@@ -286,7 +313,7 @@ export async function createParcels(
         if (!resultValidation.success) {
           ctx.logger?.warn('MPL: Result validation failed', {
             resultIdx: idx,
-            errors: serializeForLog(resultValidation.error.flatten()) as any,
+            errors: serializeForLog(resultValidation.error.issues) as any,
           });
         }
 

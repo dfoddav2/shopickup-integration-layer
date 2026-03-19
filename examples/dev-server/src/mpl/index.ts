@@ -5,7 +5,6 @@
 
 import { FastifyInstance } from 'fastify';
 import { MPLAdapter, createResolveBaseUrl, createResolveOAuthUrl } from '@shopickup/adapters-mpl';
-import type { CarrierAdapter } from '@shopickup/core';
 import { withOperationName, withCallTracing, composeAdapterWrappers } from '@shopickup/core';
 import { registerPickupPointsRoute } from './pickup-points.js';
 import { registerPickupPointsOAuthFallbackRoute } from './pickup-points-oauth-fallback.js';
@@ -62,8 +61,8 @@ export async function registerMPLRoutes(fastify: FastifyInstance) {
   // 1. withOperationName: automatically injects operation name into context
   // 2. withCallTracing: logs method timing information
   const adapter = composeAdapterWrappers(baseAdapter, [
-    (a: CarrierAdapter) => withOperationName(a),
-    (a: CarrierAdapter) => withCallTracing(a, fastify.log),
+    (a) => withOperationName(a),
+    (a) => withCallTracing(a, fastify.log),
   ]);
 
   // Create resolver for API base URLs (production vs. test)
@@ -79,16 +78,16 @@ export async function registerMPLRoutes(fastify: FastifyInstance) {
   );
 
     // Register individual route handlers
-    await registerExchangeAuthTokenRoute(fastify, adapter as unknown as MPLAdapter);
-    await registerPickupPointsRoute(fastify, adapter as unknown as MPLAdapter);
-    await registerPickupPointsOAuthFallbackRoute(fastify, adapter as unknown as MPLAdapter, resolveBaseUrl, resolveOAuthUrl);
-    await registerCreateParcelRoute(fastify, adapter as unknown as MPLAdapter);
-    await registerCreateParcelsRoute(fastify, adapter as unknown as MPLAdapter);
-    await registerCreateLabelRoute(fastify, adapter as unknown as MPLAdapter);
-    await registerCreateLabelsRoute(fastify, adapter as unknown as MPLAdapter);
-    await registerTrackRoute(fastify, adapter as unknown as MPLAdapter);
-    await registerPull500Routes(fastify, adapter as unknown as MPLAdapter);
-    await registerShipmentDetailsRoute(fastify, adapter as unknown as MPLAdapter);
+    await registerExchangeAuthTokenRoute(fastify, adapter);
+    await registerPickupPointsRoute(fastify, adapter);
+    await registerPickupPointsOAuthFallbackRoute(fastify, adapter, resolveBaseUrl, resolveOAuthUrl);
+    await registerCreateParcelRoute(fastify, adapter);
+    await registerCreateParcelsRoute(fastify, adapter);
+    await registerCreateLabelRoute(fastify, adapter);
+    await registerCreateLabelsRoute(fastify, adapter);
+    await registerTrackRoute(fastify, adapter);
+    await registerPull500Routes(fastify, adapter);
+    await registerShipmentDetailsRoute(fastify, adapter);
 }
 
 // Export common utilities for tests or external use

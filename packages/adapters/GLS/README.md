@@ -6,39 +6,27 @@ GLS (GeneralLogisticsSystems) adapter for Shopickup integration layer. Provides 
 
 ## Features
 
-### Phase 1: Pickup Points ✅ Complete
-- **LIST_PICKUP_POINTS**: Fetch list of GLS pickup locations, parcel shops, and lockers
-  - Public, unauthenticated API
-  - 20+ countries supported
-  - 3,608+ pickup points for Hungary
-  - Real-time data from GLS network
+## State of Implementation
 
-### Phase 2: Parcel Creation ✅ Complete (HU-specific)
-- **CREATE_PARCEL**: Create single parcel via GLS MyGLS API
-- **CREATE_PARCELS**: Create multiple parcels in batch (up to 50 per request)
-  - HTTP Basic authentication (SHA512-hashed passwords)
-  - Partial failure support (per-parcel status)
-  - Hungary (HU) fully tested and supported
-  - Other regions (CZ, HR, RO, SI, SK, RS) supported with caveats
+The following table shows what API endpoints and features of the Foxpost API have or have not been implemented in this adapter yet:
 
-### Phase 3: Label Generation ✅ Complete (HU-specific)
-- **CREATE_LABEL**: Create single label via GLS MyGLS API
-- **CREATE_LABELS**: Create multiple labels in batch
-  - PDF format support
-  - Parcel ID based retrieval
-  - Hungary (HU) fully tested and supported
-
-### Phase 4: Tracking ✅ Complete (HU-specific)
-- **TRACK**: Track parcel status and events via GLS MyGLS API
-  - Real-time status updates
-  - Event timeline history
-  - Hungary (HU) fully tested and supported
-
-### Future: Advanced Features
-- Modify COD (Cash on Delivery) amounts
-- Close shipments for label generation
-- Delete labels
-- Advanced parcel modifications
+| Endpoint / Feature                  | Description                          | Implemented  | Details                                                           |
+|-------------------------------------|--------------------------------------|--------------|-------------------------------------------------------------------|
+| POST/addresses/cityToZipCode        | Get Zip Codes by City                | 🗓️ No        | Not implemented yet, planned                                      |
+| POST/addresses/zipCodeToCity        | Get City by Zip Code                 | 🗓️ No        | Not implemented yet, planned                                      |
+| GET/data/deliveryPoints/{country}.json | Get Pickup Locations                 | 🗓️ No        | Not implemented yet, planned                                      |
+| POST/reports                        | Report on Disp. Packages             | ❌ No        | Not planned; nieche feature                                       |
+| POST/shipments                      | Submission of Parcel Data            | 🗓️ No        | Not implemented yet, planned                                      |
+| GET/shipments                       | Get Details of Shipments             | 🗓️ No        | Not implemented yet, planned                                      |
+| POST/shipments{trackingNumber}/item | Add Package to Separate Consignment  | ❌ No        | Not planned; custom barcodes are niche                            |
+| GET/shipments/label                 | Query Address Label of Parcel(s)     | 🗓️ No        | Not implemented yet, planned                                      |
+| GET/shipments/{trackingNumber}      | Query Item through Tracking Number   | 🗓️ No        | Not implemented yet, planned                                      |
+| DELETE/shipments/{trackingNumber}   | Delete Item through Tracking Number  | 🗓️ No        | Not implemented yet, planned                                      |
+| POST/shipments/close                | Request Closing List + Delivery Note | 🗓️ No        | Not implemented yet, planned                                      |
+| PULL 1 Tracking /registered         | Get Detailed Tracking Information    | 🗓️ No        | Not implemented yet, planned                                      |
+| PULL 1 Tracking /guest              | Get Tracking Information             | 🗓️ No        | Not implemented yet, planned                                      |
+| POST 500 Trackings /tracking        | Bulk Detailed Tracking Information   | 🗓️ No        | Not implemented yet, planned                                      |
+| GET 500 /tracking/{trackingGUID}    | Bulk Tracking Information            | 🗓️ No        | Not implemented yet, planned                                      |
 
 ## Installation
 
@@ -120,6 +108,7 @@ console.log(`Created parcel: ${result.carrierId}`);
 | 🇷🇸 Serbia (RS) | ⚠️ Secondary | No | Requires senderIdentityCardNumber |
 
 **Important**: The parcel creation features are HU (Hungary) specific. While the GLS MyGLS API supports other countries, this adapter has only been tested for Hungary. Other regions may require:
+
 - Adjusted service codes
 - Country-specific address validation
 - Special required fields (e.g., Serbia)
@@ -141,6 +130,7 @@ See [PARCELS.md](./docs/PARCELS.md) for detailed regional information.
 ## API Documentation
 
 ### Public Pickup Points (Unauthenticated)
+
 - **Endpoint**: `https://map.gls-hungary.com/data/deliveryPoints/{country}.json`
 - **Countries**: 20+ (AT, BE, BG, CZ, DE, DK, ES, FI, FR, GR, HR, HU, IT, LU, NL, PL, PT, RO, SI, SK, RS)
 - **Auth**: None required
@@ -148,6 +138,7 @@ See [PARCELS.md](./docs/PARCELS.md) for detailed regional information.
 - **Response**: JSON with pickup point array
 
 ### MyGLS API (Authenticated)
+
 - **Endpoints**: Regional (HU, CZ, HR, RO, SI, SK, RS)
 - **Auth**: JSON body authentication with SHA512-hashed password (NOT HTTP Basic Auth)
 - **JSON Key Format**: PascalCase (e.g., Username, Password, ParcelList, ClientNumberList)
@@ -169,6 +160,7 @@ The GLS MyGLS API uses JSON-based authentication (not HTTP Basic Auth):
 ```
 
 **Important Notes**:
+
 - Password must be SHA512 hashed (NOT hex-encoded, but as byte array of integers 0-255)
 - All JSON keys use **PascalCase** (not camelCase)
 - This matches the official GLS PHP reference implementation (`php_rest_client.php`)
@@ -176,6 +168,7 @@ The GLS MyGLS API uses JSON-based authentication (not HTTP Basic Auth):
 ## Configuration
 
 ### HTTP Client
+
 Choose appropriate HTTP client for your environment:
 
 ```typescript
@@ -189,6 +182,7 @@ const httpClient = createFetchHttpClient();
 ```
 
 ### Credentials
+
 Pass credentials at runtime (never store in adapter):
 
 ```typescript
@@ -201,6 +195,7 @@ const credentials = {
 ```
 
 ### Test vs Production
+
 ```typescript
 // Production
 options: { country: 'HU', useTestApi: false }
@@ -279,12 +274,14 @@ If you encounter 401 Unauthorized responses from GLS API:
    - Hash is serialized as a JSON array of bytes, NOT hex string
 3. **Verify client number** is correct and active in GLS MyGLS
 4. **Enable debug logging** to inspect actual request:
+
    ```typescript
    const ctx = {
      http: httpClient,
      logger: { log: (...args) => console.log(...args) }
    };
    ```
+
 5. **Check debug output** for "GLS: Request payload (PascalCase test)" entries showing:
    - Correct keys: `Username`, `Password`, `ClientNumberList`, `ParcelList`
    - Password array has 64 elements (SHA512 = 512 bits = 64 bytes)
@@ -322,6 +319,6 @@ Proprietary - GLS. Adapter licensed under the Shopickup project license.
 
 ## Support
 
-For GLS API support, contact GLS Customer Support: https://www.gls-group.eu
+For GLS API support, contact GLS Customer Support: <https://www.gls-group.eu>
 
 For Shopickup adapter issues, see project documentation.
