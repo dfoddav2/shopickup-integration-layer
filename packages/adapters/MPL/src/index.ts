@@ -185,3 +185,5 @@ export { withOAuthFallback } from './utils/oauthFallback.js';
 export { createResolveBaseUrl, createResolveOAuthUrl };
 export type { ResolveBaseUrl, ResolveOAuthUrl };
 export { track, trackPull500Start, trackPull500Check, trackRegistered } from './capabilities/track.js';
+// Re-export validation helpers for consumers (dev-server uses these)
+export * from './validation.js';

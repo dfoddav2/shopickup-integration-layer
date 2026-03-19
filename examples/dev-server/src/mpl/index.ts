@@ -83,11 +83,12 @@ export async function registerMPLRoutes(fastify: FastifyInstance) {
     await registerPickupPointsOAuthFallbackRoute(fastify, adapter, resolveBaseUrl, resolveOAuthUrl);
     await registerCreateParcelRoute(fastify, adapter);
     await registerCreateParcelsRoute(fastify, adapter);
-    await registerCreateLabelRoute(fastify, adapter);
-    await registerCreateLabelsRoute(fastify, adapter);
-    await registerTrackRoute(fastify, adapter);
-    await registerPull500Routes(fastify, adapter);
-    await registerShipmentDetailsRoute(fastify, adapter);
+  await registerCreateLabelRoute(fastify, adapter);
+  await registerCreateLabelsRoute(fastify, adapter);
+  await (await import('./close.js')).registerCloseShipmentsRoute(fastify, adapter);
+  await registerTrackRoute(fastify, adapter);
+  await registerPull500Routes(fastify, adapter);
+  await registerShipmentDetailsRoute(fastify, adapter);
 }
 
 // Export common utilities for tests or external use
