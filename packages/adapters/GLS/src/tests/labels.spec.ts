@@ -11,7 +11,7 @@ import {
   mapGLSPrintLabelsToCanonicalCreateLabels,
 } from '../mappers/labels.js';
 import {
-  safeValidateCreateLabelsRequest,
+  GLSCreateLabelsRequestSchema,
   safeValidateGLSPrintLabelsRequest,
   safeValidateGLSPrintLabelsResponse,
 } from '../validation/labels.js';
@@ -218,10 +218,9 @@ describe('GLS Label Validators', () => {
         },
       };
 
-      const result = safeValidateCreateLabelsRequest(req);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(req);
+      const parsed = GLSCreateLabelsRequestSchema.safeParse(req);
+      expect(parsed.success).toBe(true);
+      if (parsed.success) expect(parsed.data).toEqual(req);
     });
 
     it('should reject request with missing parcelCarrierIds', () => {
@@ -231,10 +230,8 @@ describe('GLS Label Validators', () => {
         },
       };
 
-      const result = safeValidateCreateLabelsRequest(req);
-
-      expect(result.success).toBe(false);
-      expect(result.error?.message).toContain('parcelCarrierIds must be an array');
+      const parsed = GLSCreateLabelsRequestSchema.safeParse(req);
+      expect(parsed.success).toBe(false);
     });
 
     it('should reject request with empty parcelCarrierIds', () => {
@@ -243,10 +240,8 @@ describe('GLS Label Validators', () => {
         credentials: { username: 'test@example.com' },
       };
 
-      const result = safeValidateCreateLabelsRequest(req);
-
-      expect(result.success).toBe(false);
-      expect(result.error?.message).toContain('cannot be empty');
+      const parsed = GLSCreateLabelsRequestSchema.safeParse(req);
+      expect(parsed.success).toBe(false);
     });
 
     it('should reject request with missing credentials', () => {
@@ -254,17 +249,13 @@ describe('GLS Label Validators', () => {
         parcelCarrierIds: ['GLS-12345'],
       };
 
-      const result = safeValidateCreateLabelsRequest(req);
-
-      expect(result.success).toBe(false);
-      expect(result.error?.message).toContain('credentials object is required');
+      const parsed = GLSCreateLabelsRequestSchema.safeParse(req);
+      expect(parsed.success).toBe(false);
     });
 
     it('should handle undefined request', () => {
-      const result = safeValidateCreateLabelsRequest(undefined);
-
-      expect(result.success).toBe(false);
-      expect(result.error?.message).toContain('is required');
+      const parsed = GLSCreateLabelsRequestSchema.safeParse(undefined);
+      expect(parsed.success).toBe(false);
     });
   });
 

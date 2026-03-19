@@ -24,7 +24,7 @@ import {
   convertToPascalCase,
 } from '../utils/authentication.js';
 import {
-  safeValidateCreateLabelsRequest,
+  GLSCreateLabelsRequestSchema,
   safeValidateGLSPrintLabelsResponse,
 } from '../validation/labels.js';
 import {
@@ -86,15 +86,16 @@ export async function printLabels(
   ctx: AdapterContext
 ): Promise<CreateLabelsResponse> {
   try {
-    // Validate request
-    const validated = safeValidateCreateLabelsRequest(req);
-    if (!validated.success) {
+    // Validate request using Zod schema
+    const parsed = GLSCreateLabelsRequestSchema.safeParse(req);
+    if (!parsed.success) {
       throw new CarrierError(
-        `Invalid request: ${validated.error?.message}`,
+        `Invalid request: ${parsed.error.message}`,
         'Validation',
-        { raw: validated.error }
+        { raw: parsed.error.issues }
       );
     }
+    const validated = parsed.data;
 
     if (!ctx.http) {
       throw new CarrierError(
@@ -103,7 +104,7 @@ export async function printLabels(
       );
     }
 
-    if (!Array.isArray(req.parcelCarrierIds) || req.parcelCarrierIds.length === 0) {
+    if (!Array.isArray(validated.parcelCarrierIds) || validated.parcelCarrierIds.length === 0) {
       return {
         results: [],
         successCount: 0,
@@ -117,14 +118,14 @@ export async function printLabels(
     }
 
     // Extract country and test mode from options
-    const country = (req.options?.country as string) || 'HU';
-    const useTestApi = (req.options?.useTestApi as boolean) || false;
+    const country = (validated.options?.gls?.country as string) || 'HU';
+    const useTestApi = (validated.options?.useTestApi as boolean) || false;
 
     // Resolve GLS base URL
     const baseUrl = resolveGLSBaseUrl(country, useTestApi);
 
     // Extract and validate credentials
-    const credentials = req.credentials as any;
+    const credentials = validated.credentials as any;
     validateGLSCredentials({
       username: credentials.username,
       password: credentials.password,
@@ -140,7 +141,7 @@ export async function printLabels(
     // Map canonical request to GLS PrintLabels request
     // Password is now a byte array included in JSON body
     const glsRequestCamelCase = mapCanonicalCreateLabelsToGLSPrintLabels(
-      req,
+      validated,
       clientNumber,
       credentials.username,
       hashedPassword,
@@ -155,7 +156,7 @@ export async function printLabels(
       'debug',
       'GLS: Creating labels batch (PrintLabels endpoint)',
       {
-        count: req.parcelCarrierIds.length,
+        count: validated.parcelCarrierIds.length,
         country,
         testMode: useTestApi,
         requestKeys: Object.keys(glsRequest),
@@ -241,7 +242,7 @@ export async function printLabels(
     // Map response to canonical format
     const response = mapGLSPrintLabelsToCanonicalCreateLabels(
       carrierRespBody,
-      req.parcelCarrierIds.length
+      validated.parcelCarrierIds.length
     );
 
     safeLog(

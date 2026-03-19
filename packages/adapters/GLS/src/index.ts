@@ -171,7 +171,7 @@ export class GLSAdapter implements CarrierAdapter {
        credentials: req.credentials,
        options: req.options,
      };
-     const batchResponse = await createLabelsImpl(batchReq, ctx);
+    const batchResponse = await createLabelsImpl(batchReq as any, ctx);
      
      // Return the first result from the batch response
      if (!batchResponse.results || batchResponse.results.length === 0) {
@@ -197,7 +197,7 @@ export class GLSAdapter implements CarrierAdapter {
        * @returns Response with file metadata, per-label results, and PDF bytes
        */
       async createLabels(req: CreateLabelsRequest, ctx: AdapterContext): Promise<CreateLabelsResponse> {
-        return createLabelsImpl(req, ctx);
+        return createLabelsImpl(req as any, ctx);
       }
 
       /**

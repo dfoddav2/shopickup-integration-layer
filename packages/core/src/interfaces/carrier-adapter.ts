@@ -266,10 +266,21 @@ export interface CarrierAdapter {
    * Required by some carriers before labeling
    * Capability: CLOSE_SHIPMENT
    */
+  // Old closeShipment signature (deprecated for batch close support)
   closeShipment?(
     shipmentCarrierId: string,
     ctx: AdapterContext
   ): Promise<CarrierResource>;
+
+  /**
+   * Close/finalize shipments in batch (new capability)
+   * Accepts a carrier-agnostic CloseShipmentsRequest and returns CloseShipmentsResponse
+   * Capability: CLOSE_SHIPMENT
+   */
+  closeShipments?(
+    req: import('../types/close.js').CloseShipmentsRequest,
+    ctx: AdapterContext
+  ): Promise<import('../types/close.js').CloseShipmentsResponse>;
 
   /**
    * Generate a label for a single parcel

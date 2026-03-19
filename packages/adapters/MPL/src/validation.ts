@@ -631,9 +631,9 @@ export const CreateLabelsMPLOptionsSchema = z.object({
 export type CreateLabelsMPLOptions = z.infer<typeof CreateLabelsMPLOptionsSchema>;
 
 export const CreateLabelsMPLRequestSchema = z.object({
-     parcelCarrierIds: z.array(z.string().min(1)).min(1),
-     credentials: MPLCredentialsSchema,
-     options: CreateLabelsMPLOptionsSchema,
+      parcelCarrierIds: z.array(z.string().min(1)).min(1),
+      credentials: MPLCredentialsSchema,
+      options: CreateLabelsMPLOptionsSchema,
 });
 export type CreateLabelsMPLRequest = z.infer<typeof CreateLabelsMPLRequestSchema>;
 
@@ -656,7 +656,44 @@ export const CreateLabelMPLRequestSchema = z.object({
 export type CreateLabelMPLRequest = z.infer<typeof CreateLabelMPLRequestSchema>;
 
 export function safeValidateCreateLabelRequest(input: unknown) {
-     return CreateLabelMPLRequestSchema.safeParse(input);
+      return CreateLabelMPLRequestSchema.safeParse(input);
+}
+
+// ===== CLOSE SHIPMENTS TYPES (CLOSE_SHIPMENT capability) =====
+
+/**
+ * ShipmentCloseRequest mirrors OpenAPI components.schemas.ShipmentCloseRequest
+ * Only includes fields we need for building the MPL /shipments/close request.
+ */
+export const ShipmentCloseRequestSchema = z.object({
+     fromDate: z.string().optional(),
+     toDate: z.string().optional(),
+     trackingNumbers: z.array(z.string().min(1)).optional(),
+     checkList: z.boolean().optional(),
+     checkListWithPrice: z.boolean().optional(),
+     tag: z.string().max(50).optional(),
+     requestId: z.string().max(100).optional(),
+     summaryList: z.boolean().optional(),
+     singleFile: z.boolean().optional(),
+});
+export type ShipmentCloseRequest = z.infer<typeof ShipmentCloseRequestSchema>;
+
+/**
+ * Full CLOSE_SHIPMENTS request envelope for MPL adapter
+ */
+export const CloseShipmentsMPLRequestSchema = z.object({
+     close: ShipmentCloseRequestSchema.optional(),
+     trackingNumbers: z.array(z.string().min(1)).optional(),
+     credentials: MPLCredentialsSchema,
+     options: z.object({
+         useTestApi: z.boolean().optional(),
+         mpl: z.object({ accountingCode: z.string().min(1) }).optional(),
+     }).optional(),
+}).catchall(z.unknown());
+export type CloseShipmentsMPLRequest = z.infer<typeof CloseShipmentsMPLRequestSchema>;
+
+export function safeValidateCloseShipmentsRequest(input: unknown) {
+     return CloseShipmentsMPLRequestSchema.safeParse(input);
 }
 /**
  * Schema for GET_SHIPMENT_DETAILS request

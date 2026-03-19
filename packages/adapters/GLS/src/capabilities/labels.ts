@@ -26,9 +26,12 @@ import {
   convertToPascalCase,
 } from '../utils/authentication.js';
 import {
-  safeValidateCreateLabelsRequest,
   safeValidateGetPrintedLabelsRequest,
   safeValidateGLSGetPrintedLabelsResponse,
+  GLSCreateLabelsRequestSchema,
+  GLSCreateLabelsRequest,
+  GLSCreateLabelRequest,
+  GLSCreateLabelRequestSchema,
 } from '../validation/labels.js';
 import {
   mapCanonicalCreateLabelsToGLSGetPrintedLabels,
@@ -40,33 +43,34 @@ import {
  * Delegates to createLabels for batch processing
  */
 export async function createLabel(
-  req: any, // CreateLabelRequest type
+  req: GLSCreateLabelRequest,
   ctx: AdapterContext,
-  createLabelsImpl: (req: any, ctx: AdapterContext) => Promise<any>
-): Promise<any> {
-  // Create batch request with single parcel ID
+  createLabelsImpl: (req: GLSCreateLabelsRequest, ctx: AdapterContext) => Promise<CreateLabelsResponse>
+): Promise<CreateLabelsResponse> {
+  // Build typed batch request from singular
   const batchReq = {
     parcelCarrierIds: [req.parcelCarrierId],
     credentials: req.credentials,
     options: req.options,
   };
 
-  const response = await createLabelsImpl(batchReq, ctx);
-
-  // Return first result or throw if empty
-  if (!response || !Array.isArray(response.results) || response.results.length === 0) {
+  const parsed = GLSCreateLabelsRequestSchema.safeParse(batchReq);
+  if (!parsed.success) {
     throw new CarrierError(
-      'createLabels returned empty results',
-      'Transient',
-      { raw: serializeForLog(response) as any }
+      `Invalid request: ${parsed.error.message}`,
+      'Validation',
+      { raw: serializeForLog(parsed.error.issues) }
     );
   }
 
-  const result = response.results[0];
-  return {
-    ...result,
-    rawCarrierResponse: response.rawCarrierResponse,
-  };
+  const response = await createLabelsImpl(parsed.data, ctx);
+
+  if (!response || !Array.isArray(response.results) || response.results.length === 0) {
+    throw new CarrierError('createLabels returned empty results', 'Transient', { raw: serializeForLog(response) as any });
+  }
+
+  // Return the whole CreateLabelsResponse but with singular semantics callers expect
+  return response;
 }
 
 /**
@@ -86,19 +90,20 @@ export async function createLabel(
  * @returns CreateLabelsResponse with file metadata and PDF bytes
  */
 export async function createLabels(
-  req: any, // CreateLabelsRequest type
+  req: GLSCreateLabelsRequest,
   ctx: AdapterContext
 ): Promise<CreateLabelsResponse> {
   try {
-    // Validate canonical request format
-    const validated = safeValidateCreateLabelsRequest(req);
-    if (!validated.success) {
+    // Validate canonical request format using Zod schema
+    const parsed = GLSCreateLabelsRequestSchema.safeParse(req);
+    if (!parsed.success) {
       throw new CarrierError(
-        `Invalid request: ${validated.error?.message}`,
+        `Invalid request: ${parsed.error.message}`,
         'Validation',
-        { raw: validated.error }
+        { raw: parsed.error.flatten() }
       );
     }
+    const validated = parsed.data;
 
     if (!ctx.http) {
       throw new CarrierError(
@@ -107,7 +112,7 @@ export async function createLabels(
       );
     }
 
-    if (!Array.isArray(req.parcelCarrierIds) || req.parcelCarrierIds.length === 0) {
+    if (!Array.isArray(validated.parcelCarrierIds) || validated.parcelCarrierIds.length === 0) {
       return {
         results: [],
         successCount: 0,
@@ -121,14 +126,14 @@ export async function createLabels(
     }
 
     // Extract country and test mode from options
-    const country = (req.options?.country as string) || 'HU';
-    const useTestApi = (req.options?.useTestApi as boolean) || false;
+    const country = (validated.options?.gls?.country as string) || 'HU';
+    const useTestApi = (validated.options?.useTestApi as boolean) || false;
 
     // Resolve GLS base URL
     const baseUrl = resolveGLSBaseUrl(country, useTestApi);
 
     // Extract and validate credentials
-    const credentials = req.credentials as any;
+    const credentials = validated.credentials as any;
     validateGLSCredentials({
       username: credentials.username,
       password: credentials.password,
@@ -144,11 +149,11 @@ export async function createLabels(
     // Map canonical request to GLS GetPrintedLabels request
     // Password is now a byte array included in JSON body
     const glsRequestCamelCase = mapCanonicalCreateLabelsToGLSGetPrintedLabels(
-      req,
+      validated,
       clientNumber,
       credentials.username,
       hashedPassword,
-      (req.options?.printerType as string)
+      (validated.options?.gls?.printerType as string)
     );
 
     // Convert to PascalCase (matching PHP example)
@@ -159,7 +164,7 @@ export async function createLabels(
       'debug',
       'GLS: Retrieving labels (GetPrintedLabels endpoint)',
       {
-        count: req.parcelCarrierIds.length,
+        count: validated.parcelCarrierIds.length,
         country,
         testMode: useTestApi,
         requestKeys: Object.keys(glsRequest),
@@ -261,7 +266,7 @@ export async function createLabels(
     // Map response to canonical format
     const response = mapGLSGetPrintedLabelsToCanonicalCreateLabels(
       carrierRespBody,
-      req.parcelCarrierIds.length
+      validated.parcelCarrierIds.length
     );
 
     safeLog(

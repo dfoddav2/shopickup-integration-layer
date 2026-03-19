@@ -9,6 +9,80 @@ import type {
   CreateLabelsRequest,
   ParcelValidationError,
 } from '@shopickup/core';
+import { z } from 'zod';
+
+/**
+ * Zod schema for GLS create labels request. Mirrors canonical `CreateLabelsRequest`
+ * but nests GLS-specific options under `options.gls`.
+ */
+export const GLSCreateLabelsRequestSchema = z.object({
+  parcelCarrierIds: z.array(z.string()).min(1),
+  credentials: z.object({
+    username: z.string(),
+    password: z.string(),
+    clientNumberList: z.array(z.number()).min(1),
+    webshopEngine: z.string().optional(),
+  }),
+  options: z
+    .object({
+      useTestApi: z.boolean().optional(),
+      gls: z
+        .object({
+          printerType: z
+            .enum([
+              'A4_2x2',
+              'A4_4x1',
+              'Connect',
+              'Thermo',
+              'ThermoZPL',
+              'ShipItThermoPdf',
+              'ThermoZPL_300DPI',
+            ])
+            .optional(),
+          // Carrier-specific country override lives under options.gls.country
+          country: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
+
+export type GLSCreateLabelsRequest = z.infer<typeof GLSCreateLabelsRequestSchema>;
+/**
+ * Singular create-label request (typed)
+ */
+export const GLSCreateLabelRequestSchema = z.object({
+  parcelCarrierId: z.string(),
+  credentials: z.object({
+    username: z.string(),
+    password: z.string(),
+    clientNumberList: z.array(z.number()).min(1),
+    webshopEngine: z.string().optional(),
+  }),
+  options: z
+    .object({
+      useTestApi: z.boolean().optional(),
+      gls: z
+        .object({
+          printerType: z
+            .enum([
+              'A4_2x2',
+              'A4_4x1',
+              'Connect',
+              'Thermo',
+              'ThermoZPL',
+              'ShipItThermoPdf',
+              'ThermoZPL_300DPI',
+            ])
+            .optional(),
+          country: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
+
+export type GLSCreateLabelRequest = z.infer<typeof GLSCreateLabelRequestSchema>;
 import type {
   GLSPrintLabelsRequest,
   GLSPrintLabelsResponse,
@@ -22,70 +96,6 @@ export interface ValidationResult<T = any> {
   success: boolean;
   data?: T;
   error?: ParcelValidationError;
-}
-
-/**
- * Safely validate CreateLabelsRequest
- * Checks for required fields and proper structure
- */
-export function safeValidateCreateLabelsRequest(
-  req: any
-): ValidationResult<CreateLabelsRequest> {
-  try {
-    if (!req) {
-      return {
-        success: false,
-        error: {
-          message: 'CreateLabelsRequest is required',
-          field: 'req',
-        },
-      };
-    }
-
-    if (!Array.isArray(req.parcelCarrierIds)) {
-      return {
-        success: false,
-        error: {
-          message: 'parcelCarrierIds must be an array',
-          field: 'parcelCarrierIds',
-        },
-      };
-    }
-
-    if (req.parcelCarrierIds.length === 0) {
-      return {
-        success: false,
-        error: {
-          message: 'parcelCarrierIds array cannot be empty',
-          field: 'parcelCarrierIds',
-        },
-      };
-    }
-
-    // Check credentials
-    if (!req.credentials || typeof req.credentials !== 'object') {
-      return {
-        success: false,
-        error: {
-          message: 'credentials object is required',
-          field: 'credentials',
-        },
-      };
-    }
-
-    return {
-      success: true,
-      data: req as CreateLabelsRequest,
-    };
-  } catch (e) {
-    return {
-      success: false,
-      error: {
-        message: `Validation error: ${e instanceof Error ? e.message : String(e)}`,
-        field: 'unknown',
-      },
-    };
-  }
 }
 
 /**

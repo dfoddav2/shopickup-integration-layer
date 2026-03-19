@@ -196,11 +196,17 @@ export async function registerCreateLabelsRoute(
                  description: 'Use test API endpoint instead of production',
                  default: false,
                },
-               printerType: {
-                 type: 'string',
-                 enum: ['A4_2x2', 'A4_4x1', 'Connect', 'Thermo', 'ThermoZPL', 'ShipItThermoPdf', 'ThermoZPL_300DPI'],
-                 description: 'Printer type for label generation',
-                 default: 'Thermo',
+               gls: {
+                 type: 'object',
+                 description: 'GLS-specific options placed under `options.gls`',
+                 properties: {
+                   printerType: {
+                     type: 'string',
+                     enum: ['A4_2x2', 'A4_4x1', 'Connect', 'Thermo', 'ThermoZPL', 'ShipItThermoPdf', 'ThermoZPL_300DPI'],
+                     description: 'Printer type for label generation',
+                     default: 'Thermo',
+                   },
+                 },
                },
              },
            },
@@ -262,28 +268,22 @@ export async function registerCreateLabelsRoute(
           },
         };
 
-         // Call adapter
-         const labelResponse = await adapter.createLabels(createReq, ctx);
+        // Call adapter
+        const labelResponse = await adapter.createLabels(createReq, ctx);
 
-         // Log PDF status and convert for JSON response
-         if (labelResponse.rawCarrierResponse && typeof labelResponse.rawCarrierResponse === 'object' && 'pdfBuffer' in labelResponse.rawCarrierResponse) {
-           const pdfData = (labelResponse.rawCarrierResponse as any).pdfBuffer;
-           if (Buffer.isBuffer(pdfData)) {
-             fastify.log.info({
-               msg: 'PDF label retrieved successfully',
-               pdfSizeBytes: pdfData.length,
-               parcelCount: labelResponse.successCount,
-             });
-             // Convert PDF Buffer to base64 for JSON response
-             (labelResponse.rawCarrierResponse as any).pdfBuffer = pdfData.toString('base64');
-           }
-         } else if (labelResponse.rawCarrierResponse) {
-           fastify.log.warn({
-             msg: 'Unexpected rawCarrierResponse format',
-             type: typeof labelResponse.rawCarrierResponse,
-           });
-         }
+        // Log PDF status (adapter keeps bytes in-memory as Buffer)
+        if (labelResponse.files && labelResponse.files.length > 0) {
+          const anyFile: any = labelResponse.files[0];
+          fastify.log.info({
+            msg: 'GLS adapter returned files',
+            fileId: anyFile.id,
+            byteLength: anyFile.byteLength,
+          });
+        }
 
+        // Use HTTP formatter to avoid large binary payloads in Swagger/UI
+        const { formatLabelResponseForHttp } = await import('../label-response-http.js');
+        const httpSafe = formatLabelResponseForHttp(labelResponse as any);
         // Determine HTTP status based on results
         const statusCode =
           labelResponse.allSucceeded ? 200 :
@@ -291,7 +291,7 @@ export async function registerCreateLabelsRoute(
           labelResponse.someFailed ? 207 : // Multi-status for partial success
           200;
 
-        return reply.status(statusCode).send(labelResponse);
+        return reply.status(statusCode).send(httpSafe);
       } catch (error) {
         fastify.log.error(error);
 

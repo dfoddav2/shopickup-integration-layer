@@ -12,12 +12,12 @@ The following table shows what API endpoints and features of the Foxpost API hav
 |-------------------------------------|--------------------------------------|--------------|-------------------------------------------------------------------|
 | POST/addresses/cityToZipCode        | Get Zip Codes by City                | 🗓️ No        | Not implemented yet, planned                                      |
 | POST/addresses/zipCodeToCity        | Get City by Zip Code                 | 🗓️ No        | Not implemented yet, planned                                      |
-| POST/deliveryplace                  | Get Pickup Locations                 | 🗓️ No        | Not implemented yet, planned                                      |
+| POST/deliveryplace                  | Get Pickup Locations                 | ✅ Yes       | Not implemented yet, planned                                      |
 | POST/reports                        | Report on Disp. Packages             | ❌ No        | Not planned; nieche feature                                       |
-| POST/shipments                      | Submission of Parcel Data            | 🗓️ No        | Not implemented yet, planned                                      |
+| POST/shipments                      | Submission of Parcel Data            | ✅ Yes       | Not implemented yet, planned                                      |
 | GET/shipments                       | Get Details of Shipments             | 🗓️ No        | Not implemented yet, planned                                      |
 | POST/shipments{trackingNumber}/item | Add Package to Separate Consignment  | ❌ No        | Not planned; custom barcodes are niche                            |
-| GET/shipments/label                 | Query Address Label of Parcel(s)     | 🗓️ No        | Not implemented yet, planned                                      |
+| GET/shipments/label                 | Query Address Label of Parcel(s)     | ✅ Yes       | Not implemented yet, planned                                      |
 | GET/shipments/{trackingNumber}      | Query Item through Tracking Number   | 🗓️ No        | Not implemented yet, planned                                      |
 | DELETE/shipments/{trackingNumber}   | Delete Item through Tracking Number  | 🗓️ No        | Not implemented yet, planned                                      |
 | POST/shipments/close                | Request Closing List + Delivery Note | 🗓️ No        | Not implemented yet, planned                                      |

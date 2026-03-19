@@ -166,6 +166,18 @@ export class MPLAdapter implements CarrierAdapter {
     ): Promise<FetchPickupPointsResponse> {
         return fetchPickupPointsImpl(req, ctx, this.resolveBaseUrl);
     }
+
+    /**
+     * Close shipments (batch) - delegates to capability implementation
+     */
+    async closeShipments(
+        req: import('@shopickup/core').CloseShipmentsRequest,
+        ctx: AdapterContext,
+    ): Promise<import('@shopickup/core').CloseShipmentsResponse> {
+        // Lazy import to avoid circular deps in some test environments
+        const { closeShipments: closeImpl } = await import('./capabilities/index.js');
+        return closeImpl(req, ctx, this.resolveBaseUrl);
+    }
 }
 
 // Export utilities for use with dev server or other integrations
