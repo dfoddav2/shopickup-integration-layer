@@ -1,0 +1,21 @@
+{
+  "name": "@shopickup/functions",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Local examples/functions workspace for calling adapter capabilities",
+  "scripts": {
+    "cli": "ts-node ./cli.ts"
+  },
+  "dependencies": {
+    "@shopickup/core": "workspace:packages/core",
+    "@shopickup/adapters-mpl": "workspace:packages/adapters/MPL",
+    "@shopickup/adapters-gls": "workspace:packages/adapters/GLS",
+    "@shopickup/adapters-foxpost": "workspace:packages/adapters/foxpost"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.1",
+    "inquirer": "^9.2.7",
+    "dotenv": "^16.4.0"
+  }
+}
