@@ -31,6 +31,7 @@ import type {
   CreateParcelsResponse,
   AdapterContext,
   CarrierResource,
+  FailedCarrierResource,
 } from '@shopickup/core';
 import {
   CarrierError,
@@ -267,43 +268,59 @@ export async function createParcels(
       });
     }
 
-    // Check for API-level errors
-    // GLS API returns both prepareLabelsError and PrepareLabelsError (case varies)
-    const errorList = (carrierRespBody.prepareLabelsError || (carrierRespBody as any).PrepareLabelsError) as any[];
-    if (errorList && errorList.length > 0) {
-      const firstError = errorList[0];
-      const errorCode = firstError.errorCode || firstError.ErrorCode;
-      const errorDescription = firstError.errorDescription || firstError.ErrorDescription;
-      
-      // Determine error category based on error code
-      let category: 'Auth' | 'Validation' | 'Permanent' | 'Transient' = 'Validation';
-      if (errorCode === -1) {
-        // -1 appears to be an authentication error not in Appendix A
-        category = 'Auth';
-      } else if (errorCode === 14 || errorCode === 15 || errorCode === 27) {
-        // Authorization/access errors
-        category = 'Auth';
-      } else if (errorCode >= 1000) {
-        // Internal errors (1000+) are likely permanent issues
-        category = 'Permanent';
-      }
-      
-      throw new CarrierError(
-        `GLS API error: ${errorDescription} (code: ${errorCode})`,
-        category,
-        {
-          carrierCode: errorCode.toString(),
-          raw: serializeForLog(firstError) as any,
-        }
-      );
-    }
-
     // Map carrier response array -> CarrierResource[]
     // GLS API returns both parcelInfoList and ParcelInfoList (case varies)
     const parcelList = (carrierRespBody.parcelInfoList || (carrierRespBody as any).ParcelInfoList || []) as any[];
-    const results: CarrierResource[] = parcelList.map(
-      (p: any, idx: number) => mapGLSParcelInfoToCarrierResource(p, idx)
-    );
+    const errorList = (carrierRespBody.prepareLabelsError || (carrierRespBody as any).PrepareLabelsError || []) as any[];
+
+    const results: CarrierResource[] = [
+      ...parcelList.map((p: any, idx: number) => mapGLSParcelInfoToCarrierResource(p, idx)),
+      ...errorList.map((err: any, idx: number) => {
+        const errorCode = err.errorCode || err.ErrorCode;
+        const errorDescription = err.errorDescription || err.ErrorDescription || 'Unknown error';
+        const clientRefs = err.clientReferenceList || err.ClientReferenceList || [];
+        const inputId = clientRefs[0] || `error-${idx}`;
+
+        let category: 'Auth' | 'Validation' | 'Permanent' | 'Transient' = 'Validation';
+        if (errorCode === -1 || errorCode === 14 || errorCode === 15 || errorCode === 27) {
+          category = 'Auth';
+        } else if (errorCode >= 1000) {
+          category = 'Permanent';
+        }
+
+        const failed: FailedCarrierResource = {
+          carrierId: undefined,
+          status: 'failed',
+          raw: serializeForLog(err) as any,
+          errors: [
+            {
+              code: String(errorCode),
+              message: errorDescription,
+            },
+          ],
+        };
+
+        safeLog(
+          ctx.logger,
+          'warn',
+          'GLS: Parcel creation error',
+          {
+            inputId,
+            errorCode,
+            errorDescription,
+            category,
+          },
+          ctx,
+          ['createParcels']
+        );
+
+        return failed;
+      }),
+    ];
+
+    if (results.length === 0) {
+      throw new CarrierError('GLS returned no parcel results', 'Transient', { raw: carrierRespBody as any });
+    }
 
     // Calculate summary statistics
     const successCount = results.filter((r) => r.status === 'created').length;
@@ -345,7 +362,7 @@ export async function createParcels(
       allFailed: successCount === 0 && totalCount > 0,
       someFailed: successCount > 0 && failureCount > 0,
       summary,
-      rawCarrierResponse: serializeForLog(httpResponse),
+      rawCarrierResponse: serializeForLog(carrierRespBody),
     };
   } catch (error) {
     safeLog(
@@ -365,7 +382,7 @@ export async function createParcels(
 
     // Translate unknown errors
     if ((error as any).response?.status === 401 || (error as any).response?.status === 403) {
-      throw new CarrierError('GLS authentication failed', 'Permanent', { raw: error });
+      throw new CarrierError('GLS authentication failed', 'Auth', { raw: error });
     }
 
     throw new CarrierError(

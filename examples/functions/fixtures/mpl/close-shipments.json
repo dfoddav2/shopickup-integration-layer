@@ -1,0 +1,12 @@
+{
+  "trackingNumbers": [
+    "PN69G50029642"
+  ],
+  "credentials": {
+    "authType": "oauth2",
+    "oAuth2Token": "MPL_OAUTH_TOKEN"
+  },
+  "options": {
+    "useTestApi": true
+  }
+}

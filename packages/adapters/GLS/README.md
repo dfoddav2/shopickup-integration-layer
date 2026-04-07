@@ -1,324 +1,61 @@
-# GLS Adapter for Shopickup
+# @shopickup/adapters-gls
 
-[![npm version](https://img.shields.io/npm/v/@shopickup/adapters-gls)](https://www.npmjs.com/package/@shopickup/adapters-gls)
+GLS adapter for Shopickup.
 
-GLS (GeneralLogisticsSystems) adapter for Shopickup integration layer. Provides access to GLS logistics services for Hungarian and Eastern European shipping.
+[GitHub repo](https://github.com/shopickup/shopickup-integration-layer)
+[Issues](https://github.com/shopickup/shopickup-integration-layer/issues)
 
-## Features
+## What it does
 
-## State of Implementation
+- `CREATE_PARCEL` and `CREATE_PARCELS`
+- `CREATE_LABEL` and `CREATE_LABELS`
+- `TRACK`
+- `LIST_PICKUP_POINTS`
 
-The following table shows what API endpoints and features of the Foxpost API have or have not been implemented in this adapter yet:
-
-| Endpoint / Feature                  | Description                          | Implemented  | Details                                                           |
-|-------------------------------------|--------------------------------------|--------------|-------------------------------------------------------------------|
-| POST/addresses/cityToZipCode        | Get Zip Codes by City                | 🗓️ No        | Not implemented yet, planned                                      |
-| POST/addresses/zipCodeToCity        | Get City by Zip Code                 | 🗓️ No        | Not implemented yet, planned                                      |
-| GET/data/deliveryPoints/{country}.json | Get Pickup Locations                 | 🗓️ No        | Not implemented yet, planned                                      |
-| POST/reports                        | Report on Disp. Packages             | ❌ No        | Not planned; nieche feature                                       |
-| POST/shipments                      | Submission of Parcel Data            | 🗓️ No        | Not implemented yet, planned                                      |
-| GET/shipments                       | Get Details of Shipments             | 🗓️ No        | Not implemented yet, planned                                      |
-| POST/shipments{trackingNumber}/item | Add Package to Separate Consignment  | ❌ No        | Not planned; custom barcodes are niche                            |
-| GET/shipments/label                 | Query Address Label of Parcel(s)     | 🗓️ No        | Not implemented yet, planned                                      |
-| GET/shipments/{trackingNumber}      | Query Item through Tracking Number   | 🗓️ No        | Not implemented yet, planned                                      |
-| DELETE/shipments/{trackingNumber}   | Delete Item through Tracking Number  | 🗓️ No        | Not implemented yet, planned                                      |
-| POST/shipments/close                | Request Closing List + Delivery Note | 🗓️ No        | Not implemented yet, planned                                      |
-| PULL 1 Tracking /registered         | Get Detailed Tracking Information    | 🗓️ No        | Not implemented yet, planned                                      |
-| PULL 1 Tracking /guest              | Get Tracking Information             | 🗓️ No        | Not implemented yet, planned                                      |
-| POST 500 Trackings /tracking        | Bulk Detailed Tracking Information   | 🗓️ No        | Not implemented yet, planned                                      |
-| GET 500 /tracking/{trackingGUID}    | Bulk Tracking Information            | 🗓️ No        | Not implemented yet, planned                                      |
-
-## Installation
+## Install
 
 ```bash
-npm install @shopickup/adapters-gls @shopickup/core
+pnpm add @shopickup/adapters-gls @shopickup/core
 ```
 
-## Quick Start
+## Quick start
 
-### Fetching Pickup Points
-
-```typescript
+```ts
 import { GLSAdapter } from '@shopickup/adapters-gls';
-import { createAxiosHttpClient } from '@shopickup/core/http';
+import { createAxiosHttpClient } from '@shopickup/core';
 
 const adapter = new GLSAdapter();
-const httpClient = createAxiosHttpClient();
+const http = createAxiosHttpClient();
 
-// Fetch Hungarian pickup points
-const response = await adapter.fetchPickupPoints(
-  {
-    credentials: { country: 'hu' },
-    options: { country: 'hu' },
-  },
-  { http: httpClient, logger: console }
-);
-
-console.log(`Found ${response.summary.totalCount} pickup points`);
-response.points.forEach(point => {
-  console.log(`${point.name}: ${point.city}`);
-});
-```
-
-### Creating Parcels
-
-```typescript
-// Create a single parcel
-const result = await adapter.createParcel(
+const result = await adapter.createParcel!(
   {
     parcel: {
       id: 'ORDER-001',
+      package: { weightGrams: 1200 },
+      service: 'standard',
       shipper: {
-        contact: { name: 'Seller Inc', phone: '+36123456', email: 'seller@co.hu' },
-        address: { street: 'Main St 1', city: 'Budapest', postalCode: '1012', country: 'HU' }
+        contact: { name: 'Shop', phone: '+361111111', email: 'ship@example.com' },
+        address: { name: 'Shop', street: 'Main utca 1', city: 'Budapest', postalCode: '1011', country: 'HU' },
       },
       recipient: {
-        contact: { name: 'Customer', phone: '+36987654', email: 'customer@co.hu' },
+        contact: { name: 'Customer', phone: '+362222222', email: 'customer@example.com' },
         delivery: {
           method: 'HOME',
-          address: { street: 'Main St 5', city: 'Debrecen', postalCode: '4025', country: 'HU' }
-        }
+          address: { name: 'Customer', street: 'Fo utca 2', city: 'Siofok', postalCode: '8600', country: 'HU' },
+        },
       },
-      package: { weightGrams: 2500, dimensionsCm: { length: 30, width: 20, height: 15 } },
-      service: 'standard'
     },
     credentials: {
-      username: 'integration@mygls.hu',
-      password: 'myPassword123',
-      clientNumberList: [12345]
+      username: 'integration@example.com',
+      password: 'your-password',
+      clientNumberList: [12345],
     },
-    options: { country: 'HU', useTestApi: false }
+    options: { useTestApi: true, gls: { country: 'HU' } },
   },
-  { http: httpClient, logger: console }
+  { http, logger: console }
 );
-
-console.log(`Created parcel: ${result.carrierId}`);
 ```
 
-## Regional Support
+## Status
 
-| Region | Status | Tested | Notes |
-|--------|--------|--------|-------|
-| 🇭🇺 Hungary (HU) | ✅ Primary | Yes | Fully tested and supported |
-| 🇨🇿 Czech Republic (CZ) | ⚠️ Secondary | No | May work with adjustments |
-| 🇭🇷 Croatia (HR) | ⚠️ Secondary | No | May work with adjustments |
-| 🇷🇴 Romania (RO) | ⚠️ Secondary | No | May work with adjustments |
-| 🇸🇮 Slovenia (SI) | ⚠️ Secondary | No | May work with adjustments |
-| 🇸🇰 Slovakia (SK) | ⚠️ Secondary | No | May work with adjustments |
-| 🇷🇸 Serbia (RS) | ⚠️ Secondary | No | Requires senderIdentityCardNumber |
-
-**Important**: The parcel creation features are HU (Hungary) specific. While the GLS MyGLS API supports other countries, this adapter has only been tested for Hungary. Other regions may require:
-
-- Adjusted service codes
-- Country-specific address validation
-- Special required fields (e.g., Serbia)
-- Regional endpoint configuration
-
-See [PARCELS.md](./docs/PARCELS.md) for detailed regional information.
-
-## Capabilities
-
-| Capability | Status | Methods |
-|------------|--------|---------|
-| `LIST_PICKUP_POINTS` | ✅ Implemented | `fetchPickupPoints()` |
-| `CREATE_PARCEL` | ✅ Implemented | `createParcel()` |
-| `CREATE_PARCELS` | ✅ Implemented | `createParcels()` |
-| `CREATE_LABEL` | ✅ Implemented | `createLabel()` |
-| `CREATE_LABELS` | ✅ Implemented | `createLabels()` |
-| `TRACK` | ✅ Implemented | `track()` |
-
-## API Documentation
-
-### Public Pickup Points (Unauthenticated)
-
-- **Endpoint**: `https://map.gls-hungary.com/data/deliveryPoints/{country}.json`
-- **Countries**: 20+ (AT, BE, BG, CZ, DE, DK, ES, FI, FR, GR, HR, HU, IT, LU, NL, PL, PT, RO, SI, SK, RS)
-- **Auth**: None required
-- **Rate Limit**: None documented
-- **Response**: JSON with pickup point array
-
-### MyGLS API (Authenticated)
-
-- **Endpoints**: Regional (HU, CZ, HR, RO, SI, SK, RS)
-- **Auth**: JSON body authentication with SHA512-hashed password (NOT HTTP Basic Auth)
-- **JSON Key Format**: PascalCase (e.g., Username, Password, ParcelList, ClientNumberList)
-- **Operations**: Parcel creation, label generation, tracking, etc.
-- **Batch Size**: Max 50 parcels per request
-- **Rate Limit**: Check GLS documentation
-
-#### Authentication Details
-
-The GLS MyGLS API uses JSON-based authentication (not HTTP Basic Auth):
-
-```json
-{
-  "Username": "your.email@example.com",
-  "Password": [194, 106, 210, ...],  // SHA512 hash as byte array
-  "ClientNumberList": [100000001],
-  "WebshopEngine": "shopickup-adapter/1.0"
-}
-```
-
-**Important Notes**:
-
-- Password must be SHA512 hashed (NOT hex-encoded, but as byte array of integers 0-255)
-- All JSON keys use **PascalCase** (not camelCase)
-- This matches the official GLS PHP reference implementation (`php_rest_client.php`)
-
-## Configuration
-
-### HTTP Client
-
-Choose appropriate HTTP client for your environment:
-
-```typescript
-// Node.js (recommended)
-import { createAxiosHttpClient } from '@shopickup/core/http/axios-client';
-const httpClient = createAxiosHttpClient({ debug: true });
-
-// Node 18+ or browser
-import { createFetchHttpClient } from '@shopickup/core/http/fetch-client';
-const httpClient = createFetchHttpClient();
-```
-
-### Credentials
-
-Pass credentials at runtime (never store in adapter):
-
-```typescript
-const credentials = {
-  username: process.env.GLS_USERNAME,        // MyGLS email
-  password: process.env.GLS_PASSWORD,        // Plain password (hashed by adapter)
-  clientNumberList: [parseInt(process.env.GLS_CLIENT_NUMBER)],
-  webshopEngine: 'my-shop/1.0'               // Optional identifier
-};
-```
-
-### Test vs Production
-
-```typescript
-// Production
-options: { country: 'HU', useTestApi: false }
-// → https://api.mygls.hu/ParcelService.svc
-
-// Testing/Development
-options: { country: 'HU', useTestApi: true }
-// → https://api.test.mygls.hu/ParcelService.svc
-```
-
-## Code Architecture
-
-The adapter is organized by capability for maintainability:
-
-```
-packages/adapters/GLS/src/
-├── capabilities/
-│   ├── index.ts              # Clean exports
-│   ├── pickup-points.ts      # fetchPickupPoints()
-│   ├── parcels.ts            # createParcel(), createParcels()
-│   ├── labels.ts             # createLabel(), createLabels()
-│   └── tracking.ts           # track()
-├── mappers/                  # Data transformation
-├── validation/               # Request/response validation
-├── types/                    # TypeScript interfaces
-├── utils/                    # Authentication, URL resolution
-└── tests/                    # Unit tests (84+ tests)
-```
-
-## Documentation
-
-- **[PARCELS.md](./docs/PARCELS.md)** - Comprehensive guide for parcel creation (CREATE_PARCEL, CREATE_PARCELS)
-- **[LABELS.md](./docs/LABELS.md)** - Comprehensive guide for label generation (CREATE_LABEL, CREATE_LABELS)
-- **[TRACKING.md](./docs/TRACKING.md)** - Comprehensive guide for parcel tracking (TRACK)
-- **[OpenAPI Spec](../../carrier-docs/hu-gls/hu-gls.openapi.yaml)** - Full GLS API specification
-
-## Error Handling
-
-The adapter throws `CarrierError` with categorized errors:
-
-```typescript
-import { CarrierError } from '@shopickup/core';
-
-try {
-  const result = await adapter.createParcels(req, ctx);
-} catch (err) {
-  if (err instanceof CarrierError) {
-    switch (err.category) {
-      case 'Validation':  // Invalid input
-        console.error('Fix your request:', err.message);
-        break;
-      case 'Auth':        // Auth failed
-        console.error('Check credentials:', err.message);
-        break;
-      case 'Permanent':   // Unrecoverable
-        console.error('Fatal error:', err.message);
-        break;
-      case 'Transient':   // Retry-able
-        console.error('Temporary issue, retry:', err.message);
-        break;
-    }
-  }
-}
-```
-
-## Troubleshooting
-
-### 401 Unauthorized Errors
-
-If you encounter 401 Unauthorized responses from GLS API:
-
-1. **Verify credentials** are correct (username and password)
-2. **Check password encoding**:
-   - Password must be plain text when passed to adapter
-   - Adapter converts it to SHA512 hash automatically
-   - Hash is serialized as a JSON array of bytes, NOT hex string
-3. **Verify client number** is correct and active in GLS MyGLS
-4. **Enable debug logging** to inspect actual request:
-
-   ```typescript
-   const ctx = {
-     http: httpClient,
-     logger: { log: (...args) => console.log(...args) }
-   };
-   ```
-
-5. **Check debug output** for "GLS: Request payload (PascalCase test)" entries showing:
-   - Correct keys: `Username`, `Password`, `ClientNumberList`, `ParcelList`
-   - Password array has 64 elements (SHA512 = 512 bits = 64 bytes)
-
-### Invalid Response from GLS
-
-If GLS returns errors or unexpected response structure:
-
-1. Check if endpoint is correct for your region (e.g., `api.mygls.hu` for Hungary)
-2. Verify request payload in debug logs matches GLS API specification
-3. Check if client account has necessary permissions
-4. Review error details in GLS response body
-5. For test environment, ensure `useTestApi: true` is set
-
-### Connection Issues
-
-- Verify network connectivity to `api.mygls.hu` (or your regional endpoint)
-- Check firewall/proxy settings
-- Try test endpoint first: `useTestApi: true`
-- Review HTTP client configuration
-
-## Testing
-
-```bash
-# Run unit tests
-pnpm --filter @shopickup/adapters-gls run test
-
-# Build adapter
-pnpm --filter @shopickup/adapters-gls run build
-```
-
-## License
-
-Proprietary - GLS. Adapter licensed under the Shopickup project license.
-
-## Support
-
-For GLS API support, contact GLS Customer Support: <https://www.gls-group.eu>
-
-For Shopickup adapter issues, see project documentation.
+Published as `0.x.x` while the adapter API is still evolving.

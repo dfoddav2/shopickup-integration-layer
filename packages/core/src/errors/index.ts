@@ -8,12 +8,13 @@ export class CarrierError extends Error {
    * Error category determines retry strategy
    *
    * - "Validation": Bad request (400) — don't retry
+   * - "NotFound": Missing resource / no matching record — don't retry
    * - "Auth": Credentials invalid (401/403) — don't retry
    * - "RateLimit": Too many requests (429) — retry with backoff
    * - "Transient": Server error, timeout, network error — retry
    * - "Permanent": Unrecoverable error — don't retry
    */
-  readonly category: "Validation" | "Auth" | "RateLimit" | "Transient" | "Permanent";
+  readonly category: "Validation" | "NotFound" | "Auth" | "RateLimit" | "Transient" | "Permanent";
 
   /**
    * Carrier-specific error code (e.g., "ERR_INVALID_ADDRESS")
@@ -32,7 +33,7 @@ export class CarrierError extends Error {
 
   constructor(
     message: string,
-    category: "Validation" | "Auth" | "RateLimit" | "Transient" | "Permanent",
+    category: "Validation" | "NotFound" | "Auth" | "RateLimit" | "Transient" | "Permanent",
     opts?: {
       carrierCode?: string;
       raw?: unknown;
@@ -55,6 +56,8 @@ export class CarrierError extends Error {
     return this.category === "RateLimit" || this.category === "Transient";
   }
 }
+
+export type CarrierErrorCategory = "Validation" | "NotFound" | "Auth" | "RateLimit" | "Transient" | "Permanent";
 
 /**
  * NotImplementedError

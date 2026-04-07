@@ -8,14 +8,16 @@
     "cli": "ts-node ./cli.ts"
   },
   "dependencies": {
-    "@shopickup/core": "workspace:packages/core",
-    "@shopickup/adapters-mpl": "workspace:packages/adapters/MPL",
-    "@shopickup/adapters-gls": "workspace:packages/adapters/GLS",
-    "@shopickup/adapters-foxpost": "workspace:packages/adapters/foxpost"
+    "@shopickup/core": "workspace:*",
+    "@shopickup/adapters-mpl": "workspace:*",
+    "@shopickup/adapters-gls": "workspace:*",
+    "@shopickup/adapters-foxpost": "workspace:*"
   },
   "devDependencies": {
     "ts-node": "^10.9.1",
     "inquirer": "^9.2.7",
     "dotenv": "^16.4.0"
   }
+  ,
+  "typeRoots": ["./types", "./node_modules/@types"]
 }

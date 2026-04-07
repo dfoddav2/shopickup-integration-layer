@@ -1,0 +1,14 @@
+{
+  "credentials": {
+    "authType": "oauth2",
+    "oAuth2Token": "MPL_OAUTH_TOKEN"
+  },
+  "parcelCarrierId": "PN69G50029642",
+  "options": {
+    "useTestApi": true,
+    "mpl": {
+      "accountingCode": "MPL_ACCOUNTING_CODE",
+      "labelType": "A5"
+    }
+  }
+}

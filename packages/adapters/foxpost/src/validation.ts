@@ -592,12 +592,12 @@ const PackageSchema = z.object({
      z.string(),
      z.number().transform(n => String(n)),
    ]).optional(),
-   barcode: z.string().optional(), // Fallback name for barcode
-   newBarcode: z.string().optional(), // Alternative barcode field
-   refCode: z.string().optional(),
-   uniqueBarcode: z.string().optional(),
-   errors: z.array(FieldErrorSchema).optional(),
- }).loose(); // Allow extra fields from API
+   barcode: z.string().nullable().optional(), // Fallback name for barcode
+   newBarcode: z.string().nullable().optional(), // Alternative barcode field
+   refCode: z.string().nullable().optional(),
+   uniqueBarcode: z.string().nullable().optional(),
+   errors: z.array(FieldErrorSchema).nullable().optional(),
+  }).loose(); // Allow extra fields from API
 
 export type FoxPackage = z.infer<typeof PackageSchema>;
 
@@ -1010,5 +1010,4 @@ export function safeValidateFoxpostApmEntry(entry: unknown) {
 export function safeValidateFetchPickupPointsRequest(input: unknown) {
   return FoxpostFetchPickupPointsRequestSchema.safeParse(input);
 }
-
 

@@ -1,6 +1,23 @@
 {
   "name": "@shopickup/adapters-gls",
-  "version": "1.0.0",
+  "version": "0.0.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "homepage": "https://github.com/dfoddav2/shopickup-integration-layer/tree/main/packages/adapters/GLS",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dfoddav2/shopickup-integration-layer.git",
+    "directory": "packages/adapters/GLS"
+  },
+  "bugs": {
+    "url": "https://github.com/dfoddav2/shopickup-integration-layer/issues"
+  },
   "description": "GLS shipping carrier adapter for Shopickup (Hungary & Eastern Europe)",
   "type": "module",
   "main": "./dist/index.js",
@@ -9,6 +26,26 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./validation": {
+      "import": "./dist/validation.js",
+      "types": "./dist/validation.d.ts"
+    },
+    "./validation/parcels": {
+      "import": "./dist/validation/parcels.js",
+      "types": "./dist/validation/parcels.d.ts"
+    },
+    "./validation/labels": {
+      "import": "./dist/validation/labels.js",
+      "types": "./dist/validation/labels.d.ts"
+    },
+    "./validation/tracking": {
+      "import": "./dist/validation/tracking.js",
+      "types": "./dist/validation/tracking.d.ts"
+    },
+    "./capabilities/pickup-points": {
+      "import": "./dist/capabilities/pickup-points.js",
+      "types": "./dist/capabilities/pickup-points.d.ts"
     },
     "./types": {
       "import": "./dist/types/index.js",
@@ -22,7 +59,7 @@
     "codegen": "openapi-typescript ../../carrier-docs/hu-gls/hu-gls.openapi.yaml --output ./src/types/generated.ts"
   },
   "peerDependencies": {
-    "@shopickup/core": "^1.0.0"
+    "@shopickup/core": "^0.0.2"
   },
   "devDependencies": {
     "@shopickup/core": "workspace:*",

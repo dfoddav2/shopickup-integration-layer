@@ -198,14 +198,13 @@ export async function track(
         const errorDescription = firstError.errorDescription;
         
         // Determine error category based on error code
-        let category: 'Auth' | 'Validation' | 'Permanent' | 'Transient' = 'Transient';
+        let category: 'Auth' | 'NotFound' | 'Validation' | 'Permanent' | 'Transient' = 'Transient';
         if (errorCode === -1) {
           category = 'Auth';
-        } else if (errorCode === '01' || errorCode === 14 || errorCode === 15 || errorCode === 27 || errorCode === 26) {
-          // 26 = "Parcel not found with current settings"
-          category = 'Permanent';
-        } else if (errorCode === 4 || errorCode === 9) {
-          // Parcel not found
+        } else if (errorCode === 4 || errorCode === 9 || errorCode === 26) {
+          // Parcel not found / not found with current settings
+          category = 'NotFound';
+        } else if (errorCode === '01' || errorCode === 14 || errorCode === 15 || errorCode === 27) {
           category = 'Permanent';
         }
         
@@ -259,11 +258,11 @@ export async function track(
 
     // Translate HTTP errors
     if ((error as any).response?.status === 401 || (error as any).response?.status === 403) {
-      throw new CarrierError('GLS authentication failed', 'Permanent', { raw: error });
+      throw new CarrierError('GLS authentication failed', 'Auth', { raw: error });
     }
 
     if ((error as any).response?.status === 404) {
-      throw new CarrierError('Parcel not found', 'Permanent', { raw: error });
+      throw new CarrierError('Parcel not found', 'NotFound', { raw: error });
     }
 
     if ((error as any).response?.status === 500 || (error as any).response?.status === 503) {

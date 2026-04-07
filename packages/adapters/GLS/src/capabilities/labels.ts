@@ -11,6 +11,7 @@
 
 import type {
   AdapterContext,
+  CreateLabelResponse,
   CreateLabelsResponse,
 } from '@shopickup/core';
 import {
@@ -46,7 +47,7 @@ export async function createLabel(
   req: GLSCreateLabelRequest,
   ctx: AdapterContext,
   createLabelsImpl: (req: GLSCreateLabelsRequest, ctx: AdapterContext) => Promise<CreateLabelsResponse>
-): Promise<CreateLabelsResponse> {
+): Promise<CreateLabelResponse> {
   // Build typed batch request from singular
   const batchReq = {
     parcelCarrierIds: [req.parcelCarrierId],
@@ -69,8 +70,16 @@ export async function createLabel(
     throw new CarrierError('createLabels returned empty results', 'Transient', { raw: serializeForLog(response) as any });
   }
 
-  // Return the whole CreateLabelsResponse but with singular semantics callers expect
-  return response;
+  const result = response.results[0];
+  const file = result.fileId
+    ? response.files?.find((candidate) => candidate.id === result.fileId)
+    : undefined;
+
+  return {
+    ...result,
+    file,
+    rawCarrierResponse: response.rawCarrierResponse,
+  };
 }
 
 /**
@@ -235,34 +244,6 @@ export async function createLabels(
       });
     }
 
-    // Check for API-level errors
-    // GLS API returns both getPrintedLabelsErrorList and GetPrintedLabelsErrorList (case varies)
-    const labelErrorList = (carrierRespBody.getPrintedLabelsErrorList || (carrierRespBody as any).GetPrintedLabelsErrorList) as any[];
-    if (labelErrorList && labelErrorList.length > 0) {
-      const firstError = labelErrorList[0];
-      const errorCode = firstError.errorCode || firstError.ErrorCode;
-      const errorDescription = firstError.errorDescription || firstError.ErrorDescription;
-      
-      // Determine error category based on error code
-      let category: 'Auth' | 'Validation' | 'Permanent' | 'Transient' = 'Validation';
-      if (errorCode === -1) {
-        category = 'Auth';
-      } else if (errorCode === 14 || errorCode === 15 || errorCode === 27) {
-        category = 'Auth';
-      } else if (errorCode >= 1000) {
-        category = 'Permanent';
-      }
-      
-      throw new CarrierError(
-        `GLS API error: ${errorDescription} (code: ${errorCode})`,
-        category,
-        {
-          carrierCode: errorCode.toString(),
-          raw: serializeForLog(carrierRespBody) as any,
-        }
-      );
-    }
-
     // Map response to canonical format
     const response = mapGLSGetPrintedLabelsToCanonicalCreateLabels(
       carrierRespBody,
@@ -303,7 +284,7 @@ export async function createLabels(
 
     // Translate unknown errors
     if ((error as any).response?.status === 401 || (error as any).response?.status === 403) {
-      throw new CarrierError('GLS authentication failed', 'Permanent', { raw: error });
+      throw new CarrierError('GLS authentication failed', 'Auth', { raw: error });
     }
 
     throw new CarrierError(

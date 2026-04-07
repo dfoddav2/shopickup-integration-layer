@@ -1,6 +1,23 @@
 {
   "name": "@shopickup/adapters-foxpost",
-  "version": "1.0.0",
+  "version": "0.0.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "homepage": "https://github.com/dfoddav2/shopickup-integration-layer/tree/main/packages/adapters/foxpost",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dfoddav2/shopickup-integration-layer.git",
+    "directory": "packages/adapters/foxpost"
+  },
+  "bugs": {
+    "url": "https://github.com/dfoddav2/shopickup-integration-layer/issues"
+  },
   "description": "Foxpost shipping carrier adapter for Shopickup",
   "type": "module",
   "main": "./dist/index.js",
@@ -26,7 +43,7 @@
     "codegen": "openapi-typescript ../../carrier-docs/hu-foxpost/hu-foxpost.openapi.yaml --output ./src/types/generated.ts"
   },
   "peerDependencies": {
-    "@shopickup/core": "^1.0.0"
+    "@shopickup/core": "^0.0.2"
   },
   "devDependencies": {
     "@shopickup/core": "workspace:*",

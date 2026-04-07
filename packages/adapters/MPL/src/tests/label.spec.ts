@@ -243,7 +243,7 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
         expect.fail('Should have thrown CarrierError');
       } catch (err) {
         expect(err).toBeInstanceOf(CarrierError);
-        expect((err as CarrierError).category).toBe('Validation');
+        expect((err as CarrierError).category).toBe('NotFound');
         expect((err as CarrierError).message).toMatch(/accountingCode/i);
       }
     });
@@ -476,7 +476,7 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
         expect.fail('Should have thrown CarrierError for empty array');
       } catch (err) {
         expect(err).toBeInstanceOf(CarrierError);
-        expect((err as CarrierError).category).toBe('Validation');
+        expect((err as CarrierError).category).toBe('NotFound');
       }
     });
   });

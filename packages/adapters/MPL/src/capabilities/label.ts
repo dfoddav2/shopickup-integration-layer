@@ -336,7 +336,7 @@ export async function createLabels(
     } catch (labelError) {
       // Handle HTTP errors
       let errorMessage = `Failed to generate label: ${(labelError as any)?.message || "Unknown error"}`;
-      let errorCategory: 'Validation' | 'Auth' | 'Transient' | 'Permanent' = 'Transient';
+      let errorCategory: 'Validation' | 'NotFound' | 'Auth' | 'Transient' | 'Permanent' = 'Transient';
 
       // If labelError is already a CarrierError, propagate it
       if (labelError instanceof CarrierError) {
@@ -347,8 +347,10 @@ export async function createLabels(
       const httpStatus = (labelError as any)?.response?.status;
 
       if (httpStatus === 400) {
-        errorCategory = 'Validation';
-        errorMessage = "Invalid label request parameters";
+        errorCategory = /not[_ -]?found/i.test(String((labelError as any)?.response?.data?.error || (labelError as any)?.response?.data?.message || errorMessage))
+          ? 'NotFound'
+          : 'Validation';
+        errorMessage = errorCategory === 'NotFound' ? 'Requested tracking number not found' : "Invalid label request parameters";
       } else if (httpStatus === 401 || httpStatus === 403) {
         errorCategory = 'Auth';
         errorMessage = "Authentication failed - invalid credentials or authorization";

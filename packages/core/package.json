@@ -1,6 +1,23 @@
 {
   "name": "@shopickup/core",
-  "version": "1.0.0",
+  "version": "0.0.2",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "homepage": "https://github.com/dfoddav2/shopickup-integration-layer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dfoddav2/shopickup-integration-layer.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/dfoddav2/shopickup-integration-layer/issues"
+  },
   "description": "Shopickup core library - canonical types, adapter interface, and orchestration helpers",
   "type": "module",
   "main": "./dist/index.js",
@@ -42,7 +59,7 @@
     "adapter",
     "logistics"
   ],
-  "author": "Shopickup Contributors",
+  "author": "David Fodor",
   "license": "MIT",
   "devDependencies": {
     "typescript": "^5.4.2"

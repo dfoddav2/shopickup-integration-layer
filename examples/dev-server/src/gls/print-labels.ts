@@ -5,12 +5,13 @@
  * Creates and generates PDF labels for GLS parcels in one step.
  * Uses the PrintLabels endpoint which combines PrepareLabels + GetPrintedLabels.
  * 
- * This is the bonus one-step flow (createLabels uses two-step GetPrintData by default).
+ * This route mirrors GLS PrintLabels endpoint semantics (full parcel payloads).
  */
 
 import { FastifyInstance } from 'fastify';
 import { GLSAdapter } from '@shopickup/adapters-gls';
-import { CarrierError, type AdapterContext, type CreateLabelsRequest } from '@shopickup/core';
+import type { GLSPrintLabelsRequest } from '@shopickup/adapters-gls/validation';
+import { CarrierError, type AdapterContext } from '@shopickup/core';
 import { wrapPinoLogger } from '../http-client.js';
 
 const GLS_CREDENTIALS_SCHEMA = {
@@ -152,13 +153,17 @@ export async function registerPrintLabelsRoute(
       summary: 'One-step batch create and print labels (PrintLabels endpoint)',
       body: {
         type: 'object',
-        required: ['parcelCarrierIds', 'credentials'],
+        required: ['parcels', 'credentials'],
         properties: {
-          parcelCarrierIds: {
+          parcels: {
             type: 'array',
-            items: { type: 'string' },
+            items: {
+              type: 'object',
+              additionalProperties: true,
+              description: 'Canonical parcel object used for GLS one-step print flow',
+            },
             minItems: 1,
-            description: 'Array of GLS parcel IDs to create and print labels for (from CREATE_PARCELS)',
+            description: 'Array of canonical parcels to create and print labels for',
           },
           credentials: GLS_CREDENTIALS_SCHEMA,
           options: {
@@ -185,7 +190,24 @@ export async function registerPrintLabelsRoute(
         },
         examples: [
           {
-            parcelCarrierIds: ['GLS-1001', 'GLS-1002', 'GLS-1003'],
+            parcels: [
+              {
+                id: 'GLS-PRINT-001',
+                package: { weightGrams: 1200 },
+                service: 'standard',
+                shipper: {
+                  contact: { name: 'Sender', phone: '+361111111', email: 'sender@example.com' },
+                  address: { name: 'Sender', street: 'Main utca 1', city: 'Budapest', postalCode: '1011', country: 'HU' },
+                },
+                recipient: {
+                  contact: { name: 'Recipient', phone: '+362222222', email: 'recipient@example.com' },
+                  delivery: {
+                    method: 'HOME',
+                    address: { name: 'Recipient', street: 'Fo utca 2', city: 'Siofok', postalCode: '8600', country: 'HU' },
+                  },
+                },
+              },
+            ],
             credentials: {
               username: 'integration@example.com',
               password: 'myPassword123',
@@ -194,7 +216,24 @@ export async function registerPrintLabelsRoute(
             options: { useTestApi: true, country: 'HU' },
           },
           {
-            parcelCarrierIds: ['GLS-1001'],
+            parcels: [
+              {
+                id: 'GLS-PRINT-002',
+                package: { weightGrams: 900 },
+                service: 'express',
+                shipper: {
+                  contact: { name: 'Sender', phone: '+361111111', email: 'sender@example.com' },
+                  address: { name: 'Sender', street: 'Main utca 1', city: 'Budapest', postalCode: '1011', country: 'HU' },
+                },
+                recipient: {
+                  contact: { name: 'Recipient 2', phone: '+363333333', email: 'recipient2@example.com' },
+                  delivery: {
+                    method: 'PICKUP_POINT',
+                    pickupPoint: { id: 'HU1234', provider: 'gls', name: 'GLS Point' },
+                  },
+                },
+              },
+            ],
             credentials: {
               username: 'integration@example.com',
               password: 'myPassword123',
@@ -209,10 +248,10 @@ export async function registerPrintLabelsRoute(
     },
     async handler(request: any, reply: any) {
       try {
-        const { parcelCarrierIds, credentials, options } = request.body as any;
+        const { parcels, credentials, options } = request.body as GLSPrintLabelsRequest;
 
-        const printReq: CreateLabelsRequest = {
-          parcelCarrierIds,
+        const printReq: GLSPrintLabelsRequest = {
+          parcels,
           credentials,
           options,
         };

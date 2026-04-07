@@ -27,7 +27,7 @@ import {
   mapMPLTrackingToCanonical,
 } from '../mappers/tracking.js';
 import { buildMPLHeaders } from '../utils/httpUtils.js';
-import type { ResolveBaseUrl } from '../utils/resolveBaseUrl.js';
+import type { ResolveTrackingUrl } from '../utils/resolveBaseUrl.js';
 import { randomUUID } from 'crypto';
 
 /**
@@ -39,14 +39,14 @@ import { randomUUID } from 'crypto';
  * 
  * @param request - Pull-500 request with tracking numbers
  * @param ctx - Adapter context with HTTP client
- * @param resolveBaseUrl - Function to resolve API base URL
+ * @param resolveTrackingUrl - Function to resolve tracking API base URL
  * @returns trackingGUID for use with trackPull500Check()
  * @throws CarrierError for validation, auth, or network errors
  */
 export async function trackPull500Start(
   request: Pull500StartRequest,
   ctx: AdapterContext,
-  resolveBaseUrl: ResolveBaseUrl
+  resolveTrackingUrl: ResolveTrackingUrl
 ): Promise<Pull500StartResponse> {
   // Validate request
   const validation = safeValidatePull500StartRequest(request);
@@ -68,7 +68,7 @@ export async function trackPull500Start(
   const validRequest = validation.data;
 
   // Resolve base URL and extract accounting code
-  const baseUrl = resolveBaseUrl(validRequest.options);
+  const baseUrl = resolveTrackingUrl(validRequest.options);
   const accountingCode = (validRequest.credentials as any)?.accountingCode;
   const isTestApi = validRequest.options?.useTestApi ?? false;
 
@@ -147,14 +147,14 @@ export async function trackPull500Start(
  * 
  * @param request - Pull-500 check request with trackingGUID
  * @param ctx - Adapter context with HTTP client
- * @param resolveBaseUrl - Function to resolve API base URL
+ * @param resolveTrackingUrl - Function to resolve tracking API base URL
  * @returns Pull-500 response with status and report (when ready)
  * @throws CarrierError for validation, auth, or network errors
  */
 export async function trackPull500Check(
   request: Pull500CheckRequest,
   ctx: AdapterContext,
-  resolveBaseUrl: ResolveBaseUrl
+  resolveTrackingUrl: ResolveTrackingUrl
 ): Promise<Pull500CheckResponse> {
   // Validate request
   const validation = safeValidatePull500CheckRequest(request);
@@ -176,7 +176,7 @@ export async function trackPull500Check(
   const validRequest = validation.data;
 
   // Resolve base URL and extract accounting code
-  const baseUrl = resolveBaseUrl(validRequest.options);
+  const baseUrl = resolveTrackingUrl(validRequest.options);
   const accountingCode = (validRequest.credentials as any)?.accountingCode;
   const isTestApi = validRequest.options?.useTestApi ?? false;
 
@@ -237,14 +237,14 @@ export async function trackPull500Check(
  * 
  * @param request - Tracking request with tracking numbers
  * @param ctx - Adapter context with HTTP client
- * @param resolveBaseUrl - Function to resolve API base URL
+ * @param resolveTrackingUrl - Function to resolve tracking API base URL
  * @returns Array of TrackingUpdate objects with financial data included
  * @throws CarrierError for validation, auth, or network errors
  */
 export async function trackRegistered(
   request: TrackingRequestMPL,
   ctx: AdapterContext,
-  resolveBaseUrl: ResolveBaseUrl
+  resolveTrackingUrl: ResolveTrackingUrl
 ): Promise<TrackingUpdate[]> {
   // Use core track() logic but force registered endpoint
   return track(
@@ -253,7 +253,7 @@ export async function trackRegistered(
       useRegisteredEndpoint: true,
     },
     ctx,
-    resolveBaseUrl
+    resolveTrackingUrl
   );
 }
 
@@ -262,14 +262,14 @@ export async function trackRegistered(
  * 
  * @param request - Tracking request with tracking numbers and credentials
  * @param ctx - Adapter context with HTTP client
- * @param resolveBaseUrl - Function to resolve API base URL
+ * @param resolveTrackingUrl - Function to resolve tracking API base URL
  * @returns Array of TrackingUpdate objects (one per tracking number)
  * @throws CarrierError for various error scenarios
  */
 export async function track(
   request: TrackingRequestMPL,
   ctx: AdapterContext,
-  resolveBaseUrl: ResolveBaseUrl
+  resolveTrackingUrl: ResolveTrackingUrl
 ): Promise<TrackingUpdate[]> {
   // Validate request
   const validation = safeValidateTrackingRequest(request);
@@ -292,13 +292,13 @@ export async function track(
 
   // Determine endpoint (guest vs registered)
   const isRegistered = validRequest.useRegisteredEndpoint ?? false;
-  const endpoint = isRegistered ? '/nyomkovetes/registered' : '/nyomkovetes/guest';
+  const endpoint = isRegistered ? 'registered' : 'guest';
   
-  // Build request payload
-  // MPL API requires:
+  // Build request payload.
+  // MPL Pull-1 API uses POST body fields:
   // - ids: comma-separated string of tracking numbers
   // - state: 'last' or 'all'
-  // - language: 'hu' (hardcoded for Hungarian, native carrier language)
+  // - language: 'hu' | 'en' | 'de'
   const idsParam = validRequest.trackingNumbers.join(',');
   const stateParam = validRequest.state ?? 'last';
   
@@ -306,7 +306,7 @@ export async function track(
   const accountingCode = (validRequest.credentials as any)?.accountingCode;
   
   // Resolve base URL
-  const baseUrl = resolveBaseUrl(validRequest.options);
+  const baseUrl = resolveTrackingUrl(validRequest.options);
   const isTestApi = validRequest.options?.useTestApi ?? false;
 
   ctx.logger?.debug('MPL: Tracking parcels', {
@@ -317,11 +317,15 @@ export async function track(
     registered: isRegistered,
   });
 
-  // Build URL with query parameters
-  const url = new URL(endpoint, baseUrl);
-  url.searchParams.set('ids', idsParam);
-  url.searchParams.set('state', stateParam);
-  url.searchParams.set('language', 'hu');
+  // Build URL and JSON body payload.
+  // Ensure base URL is treated as a path prefix, not as a file segment.
+  const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  const url = new URL(endpoint, normalizedBaseUrl);
+  const payload = {
+    ids: idsParam,
+    state: stateParam,
+    language: 'hu' as const,
+  };
 
   // Build authentication headers
   const headers = buildMPLHeaders(validRequest.credentials, accountingCode);
@@ -329,7 +333,7 @@ export async function track(
   // Make request
   let httpResponse: any;
   try {
-    httpResponse = await ctx.http.get(url.toString(), { headers });
+    httpResponse = await ctx.http.post(url.toString(), payload, { headers });
   } catch (error) {
     throw translateTrackingError(error, idsParam);
   }
@@ -354,7 +358,7 @@ export async function track(
   if (!records || records.length === 0) {
     throw new CarrierError(
       `No tracking information found for: ${idsParam}`,
-      'Validation'
+      'NotFound'
     );
   }
 
@@ -420,7 +424,7 @@ function translateTrackingError(
         // Not found
         return new CarrierError(
           `Not found (404): Tracking information not available`,
-          'Validation'
+          'NotFound'
         );
       } else if (status === 429) {
         // Rate limited
@@ -475,4 +479,3 @@ function getErrorMessage(data: any): string {
   }
   return 'Unknown error';
 }
-

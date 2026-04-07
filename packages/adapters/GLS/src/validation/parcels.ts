@@ -5,35 +5,114 @@
  */
 
 import { z, type ZodSafeParseResult } from 'zod';
+import type { Parcel } from '@shopickup/core';
 
 /**
  * Validates a CreateParcelRequest
  * Returns validation result with data or error details
  */
 export function safeValidateCreateParcelRequest(req: unknown): ZodSafeParseResult<any> {
-  const schema = z.object({
-    parcel: z.object({
+  const AddressSchema = z.object({
+    name: z.string().min(1, 'Name is required'),
+    street: z.string().min(1, 'Street is required'),
+    city: z.string().min(1, 'City is required'),
+    postalCode: z.string().min(1, 'Postal code is required'),
+    country: z.string().min(2).max(2, 'Country code must be 2 characters'),
+    phone: z.string().optional(),
+    email: z.string().email().optional(),
+    company: z.string().optional(),
+    province: z.string().optional(),
+    isPoBox: z.boolean().optional(),
+  });
+
+  const ContactSchema = z.object({
+    name: z.string().min(1, 'Name is required'),
+    phone: z.string().optional(),
+    email: z.string().email().optional(),
+    company: z.string().optional(),
+  });
+
+  const HomeDeliverySchema = z.object({
+    method: z.literal('HOME'),
+    address: AddressSchema,
+    instructions: z.string().optional(),
+  });
+
+  const PickupPointDeliverySchema = z.object({
+    method: z.literal('PICKUP_POINT'),
+    pickupPoint: z.object({
       id: z.string(),
-      weight: z.number().positive('Weight must be positive').optional(),
-      sender: z.object({
-        name: z.string().min(1),
-        street: z.string().min(1),
-        city: z.string().min(1),
-        postalCode: z.string().min(1),
-        country: z.string().min(2).max(2),
-      }),
-      destination: z.object({
-        name: z.string().min(1),
-        street: z.string().min(1),
-        city: z.string().min(1),
-        postalCode: z.string().min(1),
-        country: z.string().min(2).max(2),
-      }),
+      provider: z.string().optional(),
+      name: z.string().optional(),
+      address: AddressSchema.optional(),
+      type: z.enum(['LOCKER', 'SHOP', 'POST_OFFICE', 'OTHER']).optional(),
     }),
+    instructions: z.string().optional(),
+  });
+
+  const ParcelSchema = z.object({
+    id: z.string().min(1, 'Parcel ID is required'),
+    package: z.object({
+      weightGrams: z.number().positive('Weight must be positive'),
+      dimensionsCm: z.object({
+        length: z.number().positive(),
+        width: z.number().positive(),
+        height: z.number().positive(),
+      }).optional(),
+    }),
+    service: z.enum(['standard', 'express', 'economy', 'overnight']),
+    shipper: z.object({
+      contact: ContactSchema,
+      address: AddressSchema,
+    }),
+    recipient: z.object({
+      contact: ContactSchema,
+      delivery: z.union([HomeDeliverySchema, PickupPointDeliverySchema]),
+    }),
+    carrierServiceCode: z.string().optional(),
+    handling: z.object({
+      fragile: z.boolean().optional(),
+      perishables: z.boolean().optional(),
+      batteries: z.enum(['NONE', 'LITHIUM_ION', 'LITHIUM_METAL']).optional(),
+    }).optional(),
+    cod: z.object({
+      amount: z.object({
+        value: z.number().nonnegative(),
+        currency: z.string().length(3),
+      }),
+      reference: z.string().optional(),
+    }).optional(),
+    declaredValue: z.object({
+      value: z.number().nonnegative(),
+      currency: z.string().length(3),
+    }).optional(),
+    insurance: z.object({
+      amount: z.object({
+        value: z.number().nonnegative(),
+        currency: z.string().length(3),
+      }),
+    }).optional(),
+    references: z.object({
+      orderId: z.string().optional(),
+      customerReference: z.string().optional(),
+    }).optional(),
+    items: z.array(z.object({
+      sku: z.string().optional(),
+      quantity: z.number().positive('Quantity must be positive'),
+      description: z.string().optional(),
+      weight: z.number().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    })).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  });
+
+  const schema = z.object({
+    parcel: ParcelSchema,
     credentials: z.object({
-      username: z.string().min(1),
-      password: z.string().min(1),
-      clientNumberList: z.array(z.number().int().positive()).min(1),
+      username: z.string().min(1, 'Username is required'),
+      password: z.string().min(1, 'Password is required'),
+      clientNumberList: z.array(z.number().int().positive()).min(1, 'At least one client number required'),
+      webshopEngine: z.string().optional(),
     }),
     options: z.object({
       country: z.string().min(2).max(2).optional(),
@@ -43,6 +122,24 @@ export function safeValidateCreateParcelRequest(req: unknown): ZodSafeParseResul
   
   return schema.safeParse(req);
 }
+
+export type GLSCreateParcelRequest = {
+  parcel: Parcel;
+  credentials: {
+    username: string;
+    password: string;
+    clientNumberList: number[];
+    webshopEngine?: string;
+  };
+  options?: {
+    country?: string;
+    useTestApi?: boolean;
+    gls?: {
+      country?: string;
+      printerType?: string;
+    };
+  };
+};
 
 /**
  * Validates a CreateParcelsRequest (canonical format)
@@ -186,6 +283,12 @@ export function safeValidateCreateParcelsRequest(req: unknown): ZodSafeParseResu
   
   return schema.safeParse(req);
 }
+
+export type GLSCreateParcelsRequest = {
+  parcels: Parcel[];
+  credentials: GLSCreateParcelRequest['credentials'];
+  options?: GLSCreateParcelRequest['options'];
+};
 
 /**
  * Validates a single GLS address object

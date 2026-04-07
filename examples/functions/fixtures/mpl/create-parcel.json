@@ -1,0 +1,61 @@
+{
+  "credentials": {
+    "authType": "oauth2",
+    "oAuth2Token": "MPL_OAUTH_TOKEN"
+  },
+  "parcel": {
+    "id": "WEBSHOP-EX-001",
+    "shipper": {
+      "contact": {
+        "name": "Example Shop",
+        "phone": "+3612345678",
+        "email": "logistics@example.com"
+      },
+      "address": {
+        "name": "Example Shop Warehouse",
+        "street": "Alkotás utca 10",
+        "city": "Budapest",
+        "postalCode": "1123",
+        "country": "HU"
+      }
+    },
+    "recipient": {
+      "contact": {
+        "name": "Horváth Péter",
+        "phone": "+36201234567",
+        "email": "peter@example.hu"
+      },
+      "delivery": {
+        "method": "HOME",
+        "address": {
+          "name": "Horváth Péter",
+          "street": "Kossuth Lajos utca 14",
+          "city": "Siófok",
+          "postalCode": "8600",
+          "country": "HU"
+        }
+      }
+    },
+    "service": "standard",
+    "package": {
+      "weightGrams": 1200,
+      "dimensionsCm": {
+        "length": 30,
+        "width": 20,
+        "height": 10
+      }
+    },
+    "references": {
+      "orderId": "EX-001"
+    }
+  },
+  "options": {
+    "useTestApi": true,
+    "mpl": {
+      "accountingCode": "MPL_ACCOUNTING_CODE",
+      "agreementCode": "MPL_AGREEMENT_CODE",
+      "bankAccountNumber": "MPL_BANK_ACCOUNT_NUMBER",
+      "labelType": "A5"
+    }
+  }
+}

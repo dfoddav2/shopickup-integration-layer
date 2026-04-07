@@ -263,6 +263,35 @@ describe('getShipmentDetails()', () => {
     await expect(getShipmentDetails(request, ctx, resolveBaseUrl)).rejects.toThrow(CarrierError);
   });
 
+  it('should classify not found shipment as NotFound', async () => {
+    const trackingNumber = '12345678';
+    const mockResponse = {
+      body: {
+        shipment: null,
+        errors: [],
+        metadata: {},
+      },
+    };
+
+    httpClient.setResponse(
+      `https://core.api.posta.hu/v2/mplapi/shipments/${trackingNumber}`,
+      mockResponse
+    );
+
+    const request = {
+      trackingNumber,
+      credentials: testCredentials,
+    };
+
+    try {
+      await getShipmentDetails(request, ctx, resolveBaseUrl);
+      expect.fail('Should have thrown CarrierError');
+    } catch (error) {
+      expect(error).toBeInstanceOf(CarrierError);
+      expect((error as CarrierError).category).toBe('NotFound');
+    }
+  });
+
   it('should throw CarrierError when no shipment in response', async () => {
     const trackingNumber = '12345678';
     const mockResponse = {

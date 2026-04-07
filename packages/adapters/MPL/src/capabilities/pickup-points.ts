@@ -129,7 +129,7 @@ function translateMplError(
   const faultString = error.fault?.faultstring || 'Unknown error';
   const errorCode = error.fault?.detail?.errorcode || 'UNKNOWN';
 
-  let category: 'Validation' | 'Auth' | 'Transient' | 'RateLimit' | 'Permanent';
+  let category: 'Validation' | 'NotFound' | 'Auth' | 'Transient' | 'RateLimit' | 'Permanent';
   const details: Record<string, unknown> = {
     mplErrorCode: errorCode,
     mplFaultString: faultString,
@@ -137,7 +137,7 @@ function translateMplError(
   };
 
   if (httpStatus === 400 || httpStatus === 404) {
-    category = 'Validation';
+    category = httpStatus === 404 ? 'NotFound' : 'Validation';
   } else if (httpStatus === 401) {
     category = 'Auth';
   } else if (httpStatus === 403) {

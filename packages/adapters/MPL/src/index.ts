@@ -1,5 +1,5 @@
 import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelResponse, CreateLabelsRequest, CreateLabelsResponse, CreateParcelRequest, CreateParcelsRequest, CreateParcelsResponse, TrackingRequest, TrackingUpdate, ShipmentDetailsRequest, ShipmentDetailsResponse, FetchPickupPointsRequest, FetchPickupPointsResponse } from '@shopickup/core';
-import { createResolveBaseUrl, createResolveOAuthUrl, ResolveBaseUrl, ResolveOAuthUrl } from './utils/resolveBaseUrl.js';
+import { createResolveBaseUrl, createResolveOAuthUrl, createResolveTrackingUrl, ResolveBaseUrl, ResolveOAuthUrl, ResolveTrackingUrl } from './utils/resolveBaseUrl.js';
 import { fetchPickupPoints as fetchPickupPointsImpl } from './capabilities/index.js';
 import { getShipmentDetails as getShipmentDetailsImpl } from './capabilities/get-shipment-details.js';
 import { track as trackImpl } from './capabilities/track.js';
@@ -17,6 +17,7 @@ import type { CreateParcelMPLRequest, CreateParcelsMPLRequest, CreateLabelMPLReq
  * - CREATE_PARCEL: Create parcels directly
  * - CREATE_PARCELS: Batch create multiple parcels
  * - CREATE_LABEL: Generate PDF labels for parcels
+ * - CLOSE_SHIPMENTS: Closes shipments to finalize them before sendoff.
  * - TRACK: Track parcels by barcode
  * - EXCHANGE_AUTH_TOKEN: Exchange API credentials for OAuth2 Bearer token
  * - TEST_MODE_SUPPORTED: Can switch to test API for sandbox testing
@@ -68,8 +69,11 @@ export class MPLAdapter implements CarrierAdapter {
     private testBaseUrl = "https://sandbox.api.posta.hu/v2/mplapi";
     private prodOAuthUrl = "https://core.api.posta.hu/oauth2/token";
     private testOAuthUrl = "https://sandbox.api.posta.hu/oauth2/token";
+    private prodTrackingUrl = "https://core.api.posta.hu/v2/nyomkovetes";
+    private testTrackingUrl = "https://sandbox.api.posta.hu/v2/nyomkovetes";
     private resolveBaseUrl: ResolveBaseUrl;
     private resolveOAuthUrl: ResolveOAuthUrl;
+    private resolveTrackingUrl: ResolveTrackingUrl;
     private accountingCode: string = "";
 
     constructor(baseUrl: string = "https://core.api.posta.hu/v2/mplapi", accountingCode: string = "") {
@@ -77,8 +81,11 @@ export class MPLAdapter implements CarrierAdapter {
         this.testBaseUrl = "https://sandbox.api.posta.hu/v2/mplapi";
         this.prodOAuthUrl = "https://core.api.posta.hu/oauth2/token";
         this.testOAuthUrl = "https://sandbox.api.posta.hu/oauth2/token";
+        this.prodTrackingUrl = "https://core.api.posta.hu/v2/nyomkovetes";
+        this.testTrackingUrl = "https://sandbox.api.posta.hu/v2/nyomkovetes";
         this.resolveBaseUrl = createResolveBaseUrl(this.prodBaseUrl, this.testBaseUrl);
         this.resolveOAuthUrl = createResolveOAuthUrl(this.prodOAuthUrl, this.testOAuthUrl);
+        this.resolveTrackingUrl = createResolveTrackingUrl(this.prodTrackingUrl, this.testTrackingUrl);
         this.accountingCode = accountingCode;
     }
 
@@ -134,12 +141,12 @@ export class MPLAdapter implements CarrierAdapter {
             options: req.options,
         };
         
-        const results = await trackImpl(batchRequest, ctx, this.resolveBaseUrl);
+        const results = await trackImpl(batchRequest, ctx, this.resolveTrackingUrl);
         
         if (results.length === 0) {
             throw new CarrierError(
                 `No tracking information found for: ${req.trackingNumber}`,
-                'Validation'
+                'NotFound'
             );
         }
         

@@ -1,0 +1,10 @@
+{
+  "credentials": {
+    "username": "GLS_USERNAME",
+    "password": "GLS_PASSWORD",
+    "clientNumberList": [12345],
+    "webshopEngine": "shopickup/1.0"
+  },
+  "parcelCarrierId": "11321272",
+  "options": { "useTestApi": true, "gls": { "country": "HU", "printerType": "Thermo" } }
+}

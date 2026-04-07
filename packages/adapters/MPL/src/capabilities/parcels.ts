@@ -408,7 +408,9 @@ export async function createParcels(
       failureCount,
     });
 
-    // Return strongly-typed response with full carrier response for debugging
+    // Return strongly-typed response with a sanitized carrier response for debugging
+    // Avoid serializing the whole httpResponse (which may contain streams/buffers)
+    // — include only the most useful parts: status, headers, body
     return {
       results,
       successCount,
@@ -418,7 +420,7 @@ export async function createParcels(
       allFailed: successCount === 0 && totalCount > 0,
       someFailed: successCount > 0 && failureCount > 0,
       summary,
-      rawCarrierResponse: serializeForLog(httpResponse),
+      rawCarrierResponse: serializeForLog({ status: httpResponse.status, headers: httpResponse.headers, body: httpResponse.body }),
     };
   } catch (error) {
     ctx.logger?.error('MPL: Error creating parcels batch', {

@@ -545,7 +545,7 @@ describe('GLS Tracking Integration Tests', () => {
         options: { useTestApi: true },
       };
 
-      await expect(track(request, mockContext)).rejects.toThrow(CarrierError);
+      await expect(track(request, mockContext)).rejects.toMatchObject({ category: 'Permanent' });
     });
 
     it('should throw CarrierError for negative tracking number', async () => {
@@ -1046,7 +1046,7 @@ describe('GLS Tracking Integration Tests', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(CarrierError);
         const carrierError = error as CarrierError;
-        expect(carrierError.category).toBe('Permanent');
+        expect(carrierError.category).toBe('NotFound');
         expect(carrierError.carrierCode).toBe('26');
         expect(carrierError.raw).toBeDefined();
         expect((carrierError.raw as any).rawCarrierResponse).toBeDefined();

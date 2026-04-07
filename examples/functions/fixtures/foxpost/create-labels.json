@@ -1,0 +1,15 @@
+{
+  "credentials": {
+    "apiKey": "FOXPOST_API_KEY",
+    "basicUsername": "FOXPOST_BASIC_USERNAME",
+    "basicPassword": "FOXPOST_BASIC_PASSWORD"
+  },
+  "parcelCarrierIds": [
+    "CLFOX0000000001",
+    "CLFOX0000000002"
+  ],
+  "options": {
+    "useTestApi": true,
+    "size": "A7"
+  }
+}

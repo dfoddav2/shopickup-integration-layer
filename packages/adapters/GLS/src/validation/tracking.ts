@@ -5,10 +5,13 @@
  */
 
 import { z, type ZodSafeParseResult } from 'zod';
+import type { TrackingRequest } from '@shopickup/core';
 import type {
   GLSGetParcelStatusesRequest,
   GLSGetParcelStatusesResponse,
 } from '../types/index.js';
+
+export type GLSTrackingRequest = TrackingRequest;
 
 /**
  * Validates a canonical TrackingRequest

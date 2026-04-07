@@ -1,0 +1,59 @@
+{
+  "parcel": {
+    "id": "GLS-PRINT-001",
+    "package": {
+      "weightGrams": 1200,
+      "dimensionsCm": {
+        "length": 30,
+        "width": 20,
+        "height": 10
+      }
+    },
+    "service": "standard",
+    "shipper": {
+      "contact": {
+        "name": "Example Shop",
+        "phone": "+36301234567",
+        "email": "logistics@example.com"
+      },
+      "address": {
+        "name": "Example Shop Warehouse",
+        "street": "Alkotas utca 10",
+        "city": "Budapest",
+        "postalCode": "1123",
+        "country": "HU",
+        "phone": "+36301234567",
+        "email": "logistics@example.com"
+      }
+    },
+    "recipient": {
+      "contact": {
+        "name": "Horvath Peter",
+        "phone": "+36201234567",
+        "email": "peter@example.hu"
+      },
+      "delivery": {
+        "method": "HOME",
+        "address": {
+          "name": "Horvath Peter",
+          "street": "Kossuth Lajos utca 14",
+          "city": "Siofok",
+          "postalCode": "8600",
+          "country": "HU",
+          "phone": "+36201234567",
+          "email": "peter@example.hu"
+        }
+      }
+    },
+    "references": {
+      "orderId": "GLS-PRINT-001"
+    }
+  },
+  "credentials": {
+    "username": "GLS_USERNAME",
+    "password": "GLS_PASSWORD",
+    "clientNumberList": [12345],
+    "webshopEngine": "shopickup/1.0"
+  },
+  "options": { "useTestApi": true, "gls": { "country": "HU", "printerType": "Thermo" } }
+}

@@ -312,7 +312,7 @@ export async function createLabels(
       } catch (labelError) {
         // Try to parse error response as Foxpost ApiError
         let errorMessage = `Failed to generate label: ${(labelError as any)?.message || "Unknown error"}`;
-        let errorCategory: 'Validation' | 'Auth' | 'Transient' | 'Permanent' = 'Transient';
+        let errorCategory: 'Validation' | 'NotFound' | 'Auth' | 'Transient' | 'Permanent' = 'Transient';
 
         // If labelError is from Foxpost API and contains status/error info, extract it
         if (labelError instanceof CarrierError) {
@@ -363,7 +363,9 @@ export async function createLabels(
                 }
                 // Map HTTP status to error category
                 if (httpStatus === 400) {
-                  errorCategory = 'Validation';
+                  errorCategory = /not[_ -]?found/i.test(String(apiError.error || errorMessage))
+                    ? 'NotFound'
+                    : 'Validation';
                 } else if (httpStatus === 401 || httpStatus === 403) {
                   errorCategory = 'Auth';
                 } else if (httpStatus >= 500) {

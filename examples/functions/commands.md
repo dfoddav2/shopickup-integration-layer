@@ -1,0 +1,45 @@
+Quick Commands & Examples
+=========================
+
+This file collects common commands you can run from the repository root to exercise the examples/functions harness.
+
+Run interactively
+-----------------
+
+Open the interactive editor-based CLI and pick a function:
+
+  pnpm dlx ts-node ./examples/functions/cli.ts
+
+Run non-interactively with fixture file (mock HTTP)
+--------------------------------------------------
+
+  pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.create-parcels \
+    --args examples/functions/fixtures/mpl/create-parcels.json --mock
+
+Run non-interactively with inline JSON
+--------------------------------------
+
+  pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.exchange-auth \
+    --args '{"credentials":{"apiKey":"x","apiSecret":"y"}}'
+
+Show full logs (env alias)
+-------------------------
+
+Set env alias to always show full logs (or pass `--full-logs`):
+
+  FULL_LOGS=1 pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.create-parcels --args examples/functions/fixtures/mpl/create-parcels.json
+
+Use the mock HTTP client (no network)
+------------------------------------
+
+  USE_MOCK_HTTP_CLIENT=1 pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.create-parcels --args examples/functions/fixtures/mpl/create-parcels.json
+
+- Run and perform token exchange first (useful when you have API key/secret and want a fresh token):
+
+  pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.create-parcels --args examples/functions/fixtures/mpl/create-parcels.json --exchange-first
+
+Notes
+-----
+
+- `--mock` and `USE_MOCK_HTTP_CLIENT=1` are equivalent; pick whichever you prefer.
+- `--full-logs` or `FULL_LOGS=1` disable truncation and show full response payloads — handy for development, but avoid in CI where logs should be concise.

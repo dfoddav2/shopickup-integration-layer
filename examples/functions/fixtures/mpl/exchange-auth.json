@@ -1,0 +1,10 @@
+{
+  "credentials": {
+    "authType": "apiKey",
+    "apiKey": "MPL_API_KEY",
+    "apiSecret": "MPL_API_SECRET"
+  },
+  "options": {
+    "useTestApi": true
+  }
+}

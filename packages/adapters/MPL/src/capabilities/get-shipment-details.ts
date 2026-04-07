@@ -131,9 +131,14 @@ export async function getShipmentDetails(
       const errorMsg = validatedResponse.errors
         .map((e: any) => e.text || e.code)
         .join('; ');
+      const notFound = validatedResponse.errors.some((e: any) => {
+        const code = String(e.code || '').toUpperCase();
+        const text = String(e.text || '').toLowerCase();
+        return code.includes('NOT_FOUND') || text.includes('not found');
+      });
       throw new CarrierError(
         `MPL error: ${errorMsg}`,
-        'Validation',
+        notFound ? 'NotFound' : 'Validation',
         { raw: validatedResponse.errors }
       );
     }
@@ -141,7 +146,7 @@ export async function getShipmentDetails(
     if (!validatedResponse.shipment) {
       throw new CarrierError(
         `No shipment found for tracking number ${trackingNumber}`,
-        'Validation'
+        'NotFound'
       );
     }
 

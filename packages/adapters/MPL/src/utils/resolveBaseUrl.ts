@@ -42,6 +42,31 @@ export function createResolveOAuthUrl(prodOAuthUrl: string, testOAuthUrl: string
   };
 }
 
+
+/**
+ * Factory that creates a resolver function for tracking endpoints.
+ * 
+ * MPL tracking endpoints are separate from the main API:
+ * - Production: https://core.api.posta.hu/nyomkovetes
+ * - Test/Sandbox: https://sandbox.api.posta.hu/nyomkovetes
+ * 
+ * Usage:
+ *   const resolveTrackingUrl = createResolveTrackingUrl(
+ *     'https://core.api.posta.hu/nyomkovetes',
+ *     'https://sandbox.api.posta.hu/nyomkovetes'
+ *   );
+ *   const url = resolveTrackingUrl(req.options); // returns test or prod endpoint
+ * 
+ * @param prodTrackingBaseUrl Production tracking API base URL
+ * @param testTrackingBaseUrl Test/sandbox tracking API base URL
+ * @returns A pure resolver function that accepts request options and returns the appropriate tracking URL
+ */
+export function createResolveTrackingUrl(prodTrackingBaseUrl: string, testTrackingBaseUrl: string) {
+  return (opts?: { useTestApi?: boolean }): string => {
+    return opts?.useTestApi ? testTrackingBaseUrl : prodTrackingBaseUrl;
+  };
+}
+
 /**
  * Type definition for the resolver function returned by createResolveBaseUrl.
  * Useful for typing capability function parameters.
@@ -54,3 +79,8 @@ export type ResolveBaseUrl = ReturnType<typeof createResolveBaseUrl>;
  */
 export type ResolveOAuthUrl = ReturnType<typeof createResolveOAuthUrl>;
 
+/**
+ * Type definition for the resolver function returned by createResolveTrackingUrl.
+ * Useful for typing capability function parameters.
+ */
+export type ResolveTrackingUrl = ReturnType<typeof createResolveTrackingUrl>;

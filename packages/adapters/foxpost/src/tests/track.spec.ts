@@ -188,7 +188,7 @@ describe('FoxpostAdapter track', () => {
        credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
      };
 
-     await expect(adapter.track!(req, ctx)).rejects.toThrow('No tracking information found');
+      await expect(adapter.track!(req, ctx)).rejects.toMatchObject({ category: 'NotFound' });
    });
 
    it('throws error when traces array is missing', async () => {

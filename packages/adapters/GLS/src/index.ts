@@ -9,8 +9,8 @@
  * - CREATE_PARCELS: Create multiple parcels in batch via GLS MyGLS API
  * - CREATE_LABEL: Create single label/PDF (delegates to CREATE_LABELS)
  * - CREATE_LABELS: Create multiple labels/PDFs in batch via GLS GetPrintData (two-step, default)
- * - PRINT_LABEL: Create single label/PDF (delegates to PRINT_LABELS)
- * - PRINT_LABELS: Create/Print labels in one step via GLS PrintLabels (one-step, bonus)
+ * - PRINT_LABEL: Create single label/PDF from full parcel payload (delegates to PRINT_LABELS)
+ * - PRINT_LABELS: Create/Print labels from full parcel payloads in one step via GLS PrintLabels endpoint
  * - TRACK: Track shipments and parcels (Phase 3)
  * 
  * IMPORTANT: This adapter is HU (Hungary) specific for parcel/label creation and tracking.
@@ -50,12 +50,12 @@ import type {
   AdapterContext,
   Capability,
   CarrierAdapter,
+  CreateLabelRequest,
+  CreateLabelsRequest,
   CreateParcelRequest,
   CreateParcelsRequest,
   CreateParcelsResponse,
-  CreateLabelRequest,
   CreateLabelResponse,
-  CreateLabelsRequest,
   CreateLabelsResponse,
   CarrierResource,
   FetchPickupPointsRequest,
@@ -63,7 +63,7 @@ import type {
   TrackingRequest,
   TrackingUpdate,
 } from '@shopickup/core';
-import { Capabilities } from '@shopickup/core';
+import { Capabilities, NotImplementedError } from '@shopickup/core';
 import {
   fetchPickupPoints as fetchPickupPointsImpl,
   createParcel as createParcelImpl,
@@ -74,6 +74,21 @@ import {
   printLabels as printLabelsImpl,
   track as trackImpl,
 } from './capabilities/index.js';
+import type {
+  GLSCreateParcelRequest,
+  GLSCreateParcelsRequest,
+  GLSCreateLabelRequest,
+  GLSCreateLabelsRequest,
+  GLSPrintLabelRequest,
+  GLSPrintLabelsRequest,
+  GLSTrackingRequest,
+  GLSFetchPickupPointsRequest,
+} from './validation.js';
+
+type GLSAdapterWithPrintContracts = CarrierAdapter & {
+  printLabel?: (req: GLSPrintLabelRequest, ctx: AdapterContext) => Promise<CreateLabelResponse>;
+  printLabels?: (req: GLSPrintLabelsRequest, ctx: AdapterContext) => Promise<CreateLabelsResponse>;
+};
 
 /**
  * GLS Adapter
@@ -84,8 +99,8 @@ import {
  * - CREATE_PARCELS: Creates multiple parcels in batch via GLS MyGLS API (HU-specific)
  * - CREATE_LABEL: Creates single label/PDF via GLS GetPrintData (HU-specific, two-step)
  * - CREATE_LABELS: Creates multiple labels/PDFs in batch via GLS GetPrintData (HU-specific, two-step)
- * - PRINT_LABEL: Creates single label/PDF via GLS PrintLabels (HU-specific, one-step)
- * - PRINT_LABELS: Creates multiple labels/PDFs in batch via GLS PrintLabels (HU-specific, one-step)
+ * - PRINT_LABEL: Creates single label/PDF via GLS PrintLabels from full parcel payload (HU-specific, one-step)
+ * - PRINT_LABELS: Creates multiple labels/PDFs via GLS PrintLabels from full parcel payloads (HU-specific, one-step)
  * - TRACK: Tracks parcels via GLS GetParcelStatuses API (HU-focused, experimental for other countries)
  */
 export class GLSAdapter implements CarrierAdapter {
@@ -98,7 +113,12 @@ export class GLSAdapter implements CarrierAdapter {
     Capabilities.CREATE_PARCELS,
     Capabilities.CREATE_LABEL,
     Capabilities.TRACK,
+    Capabilities.TEST_MODE_SUPPORTED,
   ];
+
+  readonly requires = {
+    createLabel: [Capabilities.CREATE_PARCEL],
+  };
 
   /**
    * Create a new GLS adapter instance
@@ -116,7 +136,7 @@ export class GLSAdapter implements CarrierAdapter {
    * @returns Response with list of pickup points
    */
   async fetchPickupPoints(req: FetchPickupPointsRequest, ctx: AdapterContext): Promise<FetchPickupPointsResponse> {
-    return fetchPickupPointsImpl(req, ctx);
+    return fetchPickupPointsImpl(req as GLSFetchPickupPointsRequest, ctx);
   }
 
   /**
@@ -132,7 +152,7 @@ export class GLSAdapter implements CarrierAdapter {
    * @returns Response with created parcel ID
    */
   async createParcel(req: CreateParcelRequest, ctx: AdapterContext): Promise<CarrierResource> {
-    return createParcelImpl(req, ctx, (batchReq) => this.createParcels(batchReq, ctx));
+    return createParcelImpl(req as GLSCreateParcelRequest, ctx, (batchReq, batchCtx) => this.createParcels(batchReq, batchCtx));
   }
 
   /**
@@ -150,7 +170,7 @@ export class GLSAdapter implements CarrierAdapter {
    * @returns Response with per-parcel results and summary statistics
    */
   async createParcels(req: CreateParcelsRequest, ctx: AdapterContext): Promise<CreateParcelsResponse> {
-    return createParcelsImpl(req, ctx);
+    return createParcelsImpl(req as GLSCreateParcelsRequest, ctx);
   }
 
    /**
@@ -166,20 +186,12 @@ export class GLSAdapter implements CarrierAdapter {
     * @returns Label result with file metadata and status
     */
   async createLabel(req: CreateLabelRequest, ctx: AdapterContext): Promise<CreateLabelResponse> {
-     const batchReq: CreateLabelsRequest = {
-       parcelCarrierIds: [req.parcelCarrierId],
-       credentials: req.credentials,
-       options: req.options,
-     };
-    const batchResponse = await createLabelsImpl(batchReq as any, ctx);
-     
-     // Return the first result from the batch response
-     if (!batchResponse.results || batchResponse.results.length === 0) {
-       throw new Error('No results returned from createLabels');
-     }
-     
-     return batchResponse.results[0];
-   }
+    return createLabelImpl(
+      req as GLSCreateLabelRequest,
+      ctx,
+      (batchReq, batchCtx) => this.createLabels(batchReq, batchCtx),
+    ) as Promise<CreateLabelResponse>;
+  }
 
       /**
        * Create multiple labels (PDFs) in batch
@@ -196,58 +208,50 @@ export class GLSAdapter implements CarrierAdapter {
        * @param ctx Adapter context with HTTP client
        * @returns Response with file metadata, per-label results, and PDF bytes
        */
-      async createLabels(req: CreateLabelsRequest, ctx: AdapterContext): Promise<CreateLabelsResponse> {
-        return createLabelsImpl(req as any, ctx);
-      }
+  async createLabels(req: CreateLabelsRequest, ctx: AdapterContext): Promise<CreateLabelsResponse> {
+    return createLabelsImpl(req as GLSCreateLabelsRequest, ctx);
+  }
 
       /**
        * Create a single label (PDF) via PrintLabels (one-step)
        * 
-       * The parcelCarrierId should be a GLS parcel ID from a prior CreateParcels call.
-       * This method delegates to printLabels for batch processing and returns a single LabelResult.
+       * This method accepts a full parcel payload and delegates to printLabels for batch processing.
+       * It mirrors the GLS PrintLabels endpoint behavior (prepare + print in one call).
        * 
        * Uses the GLS PrintLabels endpoint which combines PrepareLabels + GetPrintedLabels in one call.
        * 
        * IMPORTANT: This is HU-specific implementation.
        * 
-       * @param req Request with parcel carrier ID and credentials
+       * @param req Request with one full canonical parcel payload and credentials
        * @param ctx Adapter context with HTTP client
        * @returns Label result with file metadata and status
        */
-      async printLabel(req: CreateLabelRequest, ctx: AdapterContext): Promise<CreateLabelResponse> {
-        const batchReq: CreateLabelsRequest = {
-          parcelCarrierIds: [req.parcelCarrierId],
-          credentials: req.credentials,
-          options: req.options,
-        };
-        const batchResponse = await printLabelsImpl(batchReq, ctx);
-        
-        // Return the first result from the batch response
-        if (!batchResponse.results || batchResponse.results.length === 0) {
-          throw new Error('No results returned from printLabels');
-        }
-        
-        return batchResponse.results[0];
-      }
+  async printLabel(req: GLSPrintLabelRequest, ctx: AdapterContext): Promise<CreateLabelResponse> {
+    return printLabelImpl(
+      req,
+      ctx,
+      (batchReq, batchCtx) => this.printLabels(batchReq, batchCtx),
+    ) as Promise<CreateLabelResponse>;
+  }
 
       /**
        * Create multiple labels (PDFs) in one-step call
        * 
-       * Takes GLS parcel IDs from prior CreateParcels calls and creates/retrieves PDF labels
-       * via the GLS PrintLabels endpoint (one-step combined PrepareLabels + GetPrintedLabels).
+       * Takes full canonical parcel payloads and creates/retrieves PDF labels via
+       * the GLS PrintLabels endpoint (one-step combined PrepareLabels + GetPrintedLabels).
        * 
        * Returns per-label metadata in files array and combined PDF bytes in rawCarrierResponse.
        * The integrator should extract rawCarrierResponse and store/upload it to cloud storage.
        * 
        * IMPORTANT: This is HU-specific implementation.
        * 
-       * @param req Request with parcel carrier IDs and credentials
+       * @param req Request with full canonical parcel payloads and credentials
        * @param ctx Adapter context with HTTP client
        * @returns Response with file metadata, per-label results, and PDF bytes
        */
-      async printLabels(req: CreateLabelsRequest, ctx: AdapterContext): Promise<CreateLabelsResponse> {
-        return printLabelsImpl(req, ctx);
-      }
+  async printLabels(req: GLSPrintLabelsRequest, ctx: AdapterContext): Promise<CreateLabelsResponse> {
+    return printLabelsImpl(req, ctx);
+  }
 
     /**
      * Track a parcel by tracking number
@@ -260,11 +264,22 @@ export class GLSAdapter implements CarrierAdapter {
      * @param ctx Adapter context with HTTP client
      * @returns TrackingUpdate with events timeline and current status
      */
-    async track(req: TrackingRequest, ctx: AdapterContext): Promise<TrackingUpdate> {
-      return trackImpl(req, ctx);
-    }
+  async track(req: TrackingRequest, ctx: AdapterContext): Promise<TrackingUpdate> {
+    return trackImpl(req as GLSTrackingRequest, ctx);
+  }
+
+  async requestPickup(_req: any, _ctx: AdapterContext): Promise<CarrierResource> {
+    throw new NotImplementedError('PICKUP', this.id);
+  }
+
+  async getRates(_req: any, _ctx: AdapterContext): Promise<any> {
+    throw new NotImplementedError('RATES', this.id);
+  }
 }
+
+export type { GLSAdapterWithPrintContracts };
 
 // Export types for external use
 export type { GLSDeliveryPoint, GLSDeliveryPointsFeed } from './types/index.js';
 export * from './mappers/index.js';
+export * from './validation.js';

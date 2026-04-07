@@ -12,6 +12,7 @@ import type {
   CreateLabelsRequest,
   CreateLabelsResponse,
   LabelFileResource,
+  Parcel,
 } from '@shopickup/core';
 import { serializeForLog } from '@shopickup/core';
 import type {
@@ -25,6 +26,15 @@ import type {
   GLSErrorInfo,
   GLSParcel,
 } from '../types/index.js';
+import { mapCanonicalParcelToGLS } from './parcels.js';
+
+function mapGLSErrorCategory(errorCode: number | string | undefined): 'Validation' | 'Auth' | 'Permanent' | 'Transient' | 'NotFound' {
+  const code = typeof errorCode === 'string' ? Number(errorCode) : errorCode;
+  if (code === -1 || code === 14 || code === 15 || code === 27) return 'Auth';
+  if (code === 4 || code === 9 || code === 26) return 'NotFound';
+  if (typeof code === 'number' && code >= 1000) return 'Permanent';
+  return 'Validation';
+}
 
 /**
  * Generate a UUID v4 for unique file identification.
@@ -67,33 +77,18 @@ function generateFileUuid(): string {
  * @returns GLS PrintLabelsRequest
  */
 export function mapCanonicalCreateLabelsToGLSPrintLabels(
-  req: CreateLabelsRequest,
+  req: { parcels: Parcel[] },
   clientNumber: number,
   username: string,
   hashedPassword: number[],
-  webshopEngine?: string
+  webshopEngine?: string,
+  typeOfPrinter?: GLSPrintLabelsRequest['typeOfPrinter'],
+  printPosition?: GLSPrintLabelsRequest['printPosition'],
+  showPrintDialog?: boolean
 ): GLSPrintLabelsRequest {
-  // Map parcel carrier IDs to GLS parcel list
-  // Each ID is used as the clientReference to identify the parcel
-  // NOTE: Per GLS API spec, auth fields (username, password, clientNumberList) are NOT part of individual parcels
-  const glsParcels: GLSParcel[] = req.parcelCarrierIds.map((parcelCarrierId) => ({
-    clientReference: parcelCarrierId, // Use carrier ID as reference
-    // Minimal address info - GLS will use existing parcel data
-    pickupAddress: {
-      name: 'Existing',
-      street: 'Existing',
-      city: 'Existing',
-      zipCode: '00000',
-      countryIsoCode: 'HU',
-    },
-    deliveryAddress: {
-      name: 'Existing',
-      street: 'Existing',
-      city: 'Existing',
-      zipCode: '00000',
-      countryIsoCode: 'HU',
-    },
-  }));
+  const glsParcels = req.parcels.map((parcel) =>
+    mapCanonicalParcelToGLS(parcel, clientNumber, parcel.cod?.amount.amount, parcel.cod?.amount.currency)
+  );
 
    return {
      parcelList: glsParcels,
@@ -101,9 +96,10 @@ export function mapCanonicalCreateLabelsToGLSPrintLabels(
      password: hashedPassword,
      clientNumberList: [clientNumber],
      webshopEngine: webshopEngine || 'shopickup-adapter/1.0',
-     // Use default printer settings (can be customized in options)
-     typeOfPrinter: 'Thermo', // Default thermal printer
-   };
+      typeOfPrinter: typeOfPrinter || 'Thermo',
+      printPosition,
+      showPrintDialog,
+    };
 }
 
 /**
@@ -124,63 +120,67 @@ export function mapCanonicalCreateLabelsToGLSPrintLabels(
 export function mapGLSPrintLabelsToCanonicalCreateLabels(
    glsResponse: GLSPrintLabelsResponse,
    requestParcelCount: number
- ): CreateLabelsResponse {
-   const successfulLabels = glsResponse.printLabelsInfoList || [];
-   const errors = glsResponse.printLabelsErrorList || [];
+  ): CreateLabelsResponse {
+   const successfulLabels = glsResponse.printLabelsInfoList || (glsResponse as any).PrintLabelsInfoList || [];
+   const errors = glsResponse.printLabelsErrorList || (glsResponse as any).PrintLabelsErrorList || [];
  
    // Convert PDF bytes to Buffer or Uint8Array
    let pdfBuffer: Buffer | Uint8Array | undefined;
-   if (glsResponse.labels) {
-     if (typeof glsResponse.labels === 'string') {
-       // Base64 string - convert to buffer
-       try {
-         pdfBuffer = Buffer.from(glsResponse.labels, 'base64');
-       } catch (e) {
-         // If not valid base64, try as-is
-         pdfBuffer = Buffer.from(glsResponse.labels, 'utf8');
-       }
-     } else if (Array.isArray(glsResponse.labels)) {
-       // Array of numbers (byte array from JSON) - convert to Buffer
-       pdfBuffer = Buffer.from(glsResponse.labels);
-     } else if (glsResponse.labels instanceof Uint8Array) {
-       pdfBuffer = glsResponse.labels;
-     } else if (Buffer.isBuffer(glsResponse.labels)) {
-       pdfBuffer = glsResponse.labels;
-     }
+   const labels = glsResponse.labels || (glsResponse as any).Labels;
+   if (labels) {
+     if (typeof labels === 'string') {
+        // Base64 string - convert to buffer
+        try {
+          pdfBuffer = Buffer.from(labels, 'base64');
+        } catch (e) {
+          // If not valid base64, try as-is
+          pdfBuffer = Buffer.from(labels, 'utf8');
+        }
+      } else if (Array.isArray(labels)) {
+        // Array of numbers (byte array from JSON) - convert to Buffer
+        pdfBuffer = Buffer.from(labels);
+      } else if (labels instanceof Uint8Array) {
+        pdfBuffer = labels;
+      } else if (Buffer.isBuffer(labels)) {
+        pdfBuffer = labels;
+      }
    }
  
    // Generate a unique file ID for this combined PDF
    const fileId = generateFileUuid();
  
    // Map errors to failed results
-   const failedResults = errors.map((error, idx) => ({
-     inputId: `error-${idx}`,
-     status: 'failed' as const,
-     errors: [
-       {
-         code: String(error.errorCode),
-         message: error.errorDescription,
-       },
-     ],
-     raw: error,
-   }));
+    const failedResults = errors.map((error: any, idx: number) => ({
+      inputId: (error.clientReferenceList?.[0] || error.ClientReferenceList?.[0] || error.parcelIdList?.[0] || error.ParcelIdList?.[0] || `error-${idx}`) as string,
+      status: 'failed' as const,
+       errors: [
+         {
+           code: String(error.errorCode ?? error.ErrorCode),
+           message: error.errorDescription || error.ErrorDescription,
+         },
+       ],
+      raw: {
+        ...error,
+        category: mapGLSErrorCategory(error.errorCode ?? error.ErrorCode),
+      },
+    }));
  
    const allResults = [
      // Map successful labels to results - all on same PDF, use pageRange to indicate page
-     ...successfulLabels.map((label, idx) => ({
-       inputId: label.clientReference || String(label.parcelId),
+       ...successfulLabels.map((label: any, idx: number) => ({
+       inputId: label.clientReference || label.ClientReference || String(label.parcelId || label.ParcelId),
        status: 'created' as const,
        fileId, // Reference the generated file ID
        pageRange: {
          start: idx + 1, // 1-indexed page number
          end: idx + 1,
        },
-       carrierId: String(label.parcelId),
+       carrierId: String(label.parcelId || label.ParcelId),
        raw: {
-         parcelId: label.parcelId,
-         clientReference: label.clientReference,
-         parcelNumber: label.parcelNumber,
-         pin: label.pin,
+         parcelId: label.parcelId || label.ParcelId,
+         clientReference: label.clientReference || label.ClientReference,
+         parcelNumber: label.parcelNumber || label.ParcelNumber,
+         pin: label.pin || label.Pin,
        },
      })),
      ...failedResults,
@@ -357,7 +357,10 @@ export function mapGLSGetPrintDataToCanonicalCreateLabels(
          message: error.errorDescription || error.ErrorDescription,
        },
      ],
-     raw: error,
+      raw: {
+        ...error,
+        category: mapGLSErrorCategory(error.errorCode ?? error.ErrorCode),
+      },
    }));
  
    const allResults = [
@@ -540,7 +543,10 @@ export function mapGLSGetPrintedLabelsToCanonicalCreateLabels(
          message: error.errorDescription || error.ErrorDescription,
        },
      ],
-     raw: error,
+      raw: {
+        ...error,
+        category: mapGLSErrorCategory(error.errorCode ?? error.ErrorCode),
+      },
    }));
  
    const allResults = [

@@ -284,7 +284,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
         expect(error).toBeInstanceOf(CarrierError);
         const ce = error as CarrierError;
         expect(ce.message).toContain('No tracking information found');
-        expect(ce.category).toBe('Validation');
+        expect(ce.category).toBe('NotFound');
       }
     });
 

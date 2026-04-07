@@ -37,14 +37,14 @@ const GLSFetchPickupPointsOptionsSchema = z.object({
   gls: GLSFetchPickupPointsCarrierOptionsSchema,
 }).catchall(z.unknown());
 
-const GLSFetchPickupPointsRequestSchema = z.object({
+export const GLSFetchPickupPointsRequestSchema = z.object({
   credentials: z.record(z.string(), z.unknown()).optional(),
   options: GLSFetchPickupPointsOptionsSchema,
 });
 
-type GLSFetchPickupPointsRequest = z.infer<typeof GLSFetchPickupPointsRequestSchema>;
+export type GLSFetchPickupPointsRequest = z.infer<typeof GLSFetchPickupPointsRequestSchema>;
 
-function safeValidateFetchPickupPointsRequest(input: unknown) {
+export function safeValidateFetchPickupPointsRequest(input: unknown) {
   return GLSFetchPickupPointsRequestSchema.safeParse(input);
 }
 
@@ -102,14 +102,16 @@ function validateCountryCode(country?: string): { valid: boolean; normalized?: s
  * Translates HTTP errors to CarrierError with appropriate category
  */
 function translateHttpError(status: number, statusText: string): CarrierError {
-  let category: 'Validation' | 'Transient' | 'Permanent' = 'Transient';
+  let category: 'Validation' | 'NotFound' | 'Auth' | 'Transient' | 'Permanent' = 'Transient';
   let message = `GLS API error: ${statusText}`;
 
   if (status === 400 || status === 404) {
-    category = 'Validation';
-    message = `Country not found in GLS pickup points feed (${status})`;
+    category = status === 404 ? 'NotFound' : 'Validation';
+    message = status === 404
+      ? `Country not found in GLS pickup points feed (${status})`
+      : `Invalid country code format (${status})`;
   } else if (status === 401 || status === 403) {
-    category = 'Permanent';
+    category = 'Auth';
     message = `Access denied to GLS pickup points feed (${status})`;
   } else if (status >= 500) {
     category = 'Transient';

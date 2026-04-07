@@ -7,9 +7,124 @@
 
 import type {
   CreateLabelsRequest,
+  Parcel,
   ParcelValidationError,
 } from '@shopickup/core';
 import { z } from 'zod';
+
+const AddressSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  street: z.string().min(1, 'Street is required'),
+  city: z.string().min(1, 'City is required'),
+  postalCode: z.string().min(1, 'Postal code is required'),
+  country: z.string().min(2).max(2, 'Country code must be 2 characters'),
+  phone: z.string().optional(),
+  email: z.string().email().optional(),
+  company: z.string().optional(),
+  province: z.string().optional(),
+  isPoBox: z.boolean().optional(),
+});
+
+const ContactSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  phone: z.string().optional(),
+  email: z.string().email().optional(),
+  company: z.string().optional(),
+});
+
+const HomeDeliverySchema = z.object({
+  method: z.literal('HOME'),
+  address: AddressSchema,
+  instructions: z.string().optional(),
+});
+
+const PickupPointDeliverySchema = z.object({
+  method: z.literal('PICKUP_POINT'),
+  pickupPoint: z.object({
+    id: z.string(),
+    provider: z.string().optional(),
+    name: z.string().optional(),
+    address: AddressSchema.optional(),
+    type: z.enum(['LOCKER', 'SHOP', 'POST_OFFICE', 'OTHER']).optional(),
+  }),
+  instructions: z.string().optional(),
+});
+
+const CanonicalParcelSchema = z.object({
+  id: z.string().min(1, 'Parcel ID is required'),
+  package: z.object({
+    weightGrams: z.number().positive('Weight must be positive'),
+    dimensionsCm: z.object({
+      length: z.number().positive(),
+      width: z.number().positive(),
+      height: z.number().positive(),
+    }).optional(),
+  }),
+  service: z.enum(['standard', 'express', 'economy', 'overnight']),
+  shipper: z.object({
+    contact: ContactSchema,
+    address: AddressSchema,
+  }),
+  recipient: z.object({
+    contact: ContactSchema,
+    delivery: z.union([HomeDeliverySchema, PickupPointDeliverySchema]),
+  }),
+  carrierServiceCode: z.string().optional(),
+  handling: z.object({
+    fragile: z.boolean().optional(),
+    perishables: z.boolean().optional(),
+    batteries: z.enum(['NONE', 'LITHIUM_ION', 'LITHIUM_METAL']).optional(),
+  }).optional(),
+  cod: z.object({
+    amount: z.object({
+      amount: z.number().nonnegative(),
+      currency: z.string().length(3),
+    }),
+    reference: z.string().optional(),
+  }).optional(),
+  declaredValue: z.object({
+    amount: z.number().nonnegative(),
+    currency: z.string().length(3),
+  }).optional(),
+  insurance: z.object({
+    amount: z.object({
+      amount: z.number().nonnegative(),
+      currency: z.string().length(3),
+    }),
+  }).optional(),
+  references: z.object({
+    orderId: z.string().optional(),
+    customerReference: z.string().optional(),
+  }).optional(),
+  items: z.array(z.object({
+    sku: z.string().optional(),
+    quantity: z.number().positive('Quantity must be positive'),
+    description: z.string().optional(),
+    weight: z.number().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+const GLSSpecificOptionsSchema = z.object({
+  useTestApi: z.boolean().optional(),
+  gls: z.object({
+    printerType: z
+      .enum([
+        'A4_2x2',
+        'A4_4x1',
+        'Connect',
+        'Thermo',
+        'ThermoZPL',
+        'ShipItThermoPdf',
+        'ThermoZPL_300DPI',
+      ])
+      .optional(),
+    country: z.string().optional(),
+    printPosition: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
+    showPrintDialog: z.boolean().optional(),
+  }).optional(),
+}).optional();
 
 /**
  * Zod schema for GLS create labels request. Mirrors canonical `CreateLabelsRequest`
@@ -83,8 +198,54 @@ export const GLSCreateLabelRequestSchema = z.object({
 });
 
 export type GLSCreateLabelRequest = z.infer<typeof GLSCreateLabelRequestSchema>;
+
+/**
+ * One-step PrintLabels request (single parcel payload)
+ */
+export const GLSPrintLabelRequestSchema = z.object({
+  parcel: CanonicalParcelSchema,
+  credentials: z.object({
+    username: z.string(),
+    password: z.string(),
+    clientNumberList: z.array(z.number()).min(1),
+    webshopEngine: z.string().optional(),
+  }),
+  options: GLSSpecificOptionsSchema,
+});
+
+/**
+ * One-step PrintLabels batch request (full parcel payloads)
+ */
+export const GLSPrintLabelsRequestSchema = z.object({
+  parcels: z.array(CanonicalParcelSchema).min(1),
+  credentials: z.object({
+    username: z.string(),
+    password: z.string(),
+    clientNumberList: z.array(z.number()).min(1),
+    webshopEngine: z.string().optional(),
+  }),
+  options: GLSSpecificOptionsSchema,
+});
+
+export type GLSPrintLabelRequest = {
+  parcel: Parcel;
+  credentials: {
+    username: string;
+    password: string;
+    clientNumberList: number[];
+    webshopEngine?: string;
+  };
+  options?: z.infer<typeof GLSSpecificOptionsSchema>;
+};
+
+export type GLSPrintLabelsRequest = {
+  parcels: Parcel[];
+  credentials: GLSPrintLabelRequest['credentials'];
+  options?: GLSPrintLabelRequest['options'];
+};
+
 import type {
-  GLSPrintLabelsRequest,
+  GLSPrintLabelsRequest as GLSPrintLabelsApiRequest,
   GLSPrintLabelsResponse,
   GLSGetPrintDataRequest,
   GLSGetPrintDataResponse,
@@ -104,7 +265,7 @@ export interface ValidationResult<T = any> {
  */
 export function safeValidateGLSPrintLabelsRequest(
   req: any
-): ValidationResult<GLSPrintLabelsRequest> {
+): ValidationResult<GLSPrintLabelsApiRequest> {
   try {
     if (!req) {
       return {
@@ -158,7 +319,7 @@ export function safeValidateGLSPrintLabelsRequest(
 
     return {
       success: true,
-      data: req as GLSPrintLabelsRequest,
+      data: req as GLSPrintLabelsApiRequest,
     };
   } catch (e) {
     return {
@@ -189,12 +350,22 @@ export function safeValidateGLSPrintLabelsResponse(
       };
     }
 
-    // Response should have either labels or error list
-    if (!resp.labels && (!resp.printLabelsErrorList || resp.printLabelsErrorList.length === 0)) {
+    const hasLabels = !!(resp.labels || resp.Labels);
+    const hasErrors = !!(
+      (resp.printLabelsErrorList && resp.printLabelsErrorList.length > 0) ||
+      (resp.PrintLabelsErrorList && resp.PrintLabelsErrorList.length > 0)
+    );
+    const hasInfoList = !!(
+      (resp.printLabelsInfoList && resp.printLabelsInfoList.length > 0) ||
+      (resp.PrintLabelsInfoList && resp.PrintLabelsInfoList.length > 0)
+    );
+
+    // Response should have labels, info list, or error list
+    if (!hasLabels && !hasInfoList && !hasErrors) {
       return {
         success: false,
         error: {
-          message: 'Response should contain labels or errors',
+          message: 'Response should contain labels, print labels info, or errors',
           field: 'response',
         },
       };

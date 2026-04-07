@@ -18,10 +18,11 @@
     "test": "vitest --run",
     "test:coverage": "vitest --run --coverage"
   },
-  "workspaces": [
+    "workspaces": [
     "packages/core",
     "packages/adapters/foxpost",
-    "examples/dev-server"
+    "examples/dev-server",
+    "examples/functions"
   ],
   "devDependencies": {
     "@types/nock": "^11.1.0",

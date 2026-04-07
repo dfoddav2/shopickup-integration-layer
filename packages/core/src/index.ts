@@ -7,6 +7,7 @@ export * from './interfaces/index.js';
 // Errors
 export {
   CarrierError,
+  CarrierErrorCategory,
   NotImplementedError,
   ValidationError,
 } from './errors/index.js';

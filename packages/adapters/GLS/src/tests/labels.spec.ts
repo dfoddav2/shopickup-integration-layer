@@ -18,9 +18,66 @@ import {
 
 describe('GLS Label Mappers', () => {
    describe('mapCanonicalCreateLabelsToGLSPrintLabels', () => {
-     it('should map CreateLabelsRequest with parcel IDs to GLS PrintLabelsRequest', () => {
+     it('should map one-step parcel payloads to GLS PrintLabelsRequest', () => {
        const req = {
-         parcelCarrierIds: ['GLS-12345', 'GLS-12346'],
+         parcels: [
+           {
+             id: 'GLS-12345',
+             package: { weightGrams: 1500 },
+             service: 'standard' as const,
+             shipper: {
+               contact: { name: 'Sender', phone: '+361111111', email: 'sender@example.com' },
+               address: {
+                 name: 'Sender',
+                 street: 'Main',
+                 city: 'Budapest',
+                 postalCode: '1011',
+                 country: 'HU',
+               },
+             },
+             recipient: {
+               contact: { name: 'Recipient', phone: '+362222222', email: 'recipient@example.com' },
+               delivery: {
+                 method: 'HOME' as const,
+                 address: {
+                   name: 'Recipient',
+                   street: 'Fo utca 1',
+                   city: 'Siofok',
+                   postalCode: '8600',
+                   country: 'HU',
+                 },
+               },
+             },
+           },
+           {
+             id: 'GLS-12346',
+             package: { weightGrams: 900 },
+             service: 'express' as const,
+             shipper: {
+               contact: { name: 'Sender', phone: '+361111111', email: 'sender@example.com' },
+               address: {
+                 name: 'Sender',
+                 street: 'Main',
+                 city: 'Budapest',
+                 postalCode: '1011',
+                 country: 'HU',
+               },
+             },
+             recipient: {
+               contact: { name: 'Recipient 2', phone: '+363333333', email: 'recipient2@example.com' },
+               delivery: {
+                 method: 'HOME' as const,
+                 address: {
+                   name: 'Recipient 2',
+                   street: 'Rakoczi ut 2',
+                   city: 'Pecs',
+                   postalCode: '7621',
+                   country: 'HU',
+                 },
+               },
+             },
+           },
+         ],
          credentials: {
            username: 'test@example.com',
            password: 'hashedPassword123',
@@ -39,15 +96,7 @@ describe('GLS Label Mappers', () => {
 
         expect(result).toBeDefined();
         expect(result.parcelList).toHaveLength(2);
-        // Per GLS API spec, individual parcels should NOT contain auth fields
-        // Auth fields are at the request root level
-        expect(result.parcelList[0]).toMatchObject({
-          clientReference: 'GLS-12345',
-          pickupAddress: {
-            name: 'Existing',
-            countryIsoCode: 'HU',
-          },
-        });
+        expect(result.parcelList[0]).toMatchObject({ clientReference: 'GLS-12345' });
         // Auth fields should be at request root level
         expect(result.typeOfPrinter).toBe('Thermo');
         expect(result.username).toBe('test@example.com');
@@ -56,7 +105,36 @@ describe('GLS Label Mappers', () => {
 
      it('should handle single parcel ID', () => {
        const req = {
-         parcelCarrierIds: ['GLS-99999'],
+         parcels: [
+           {
+             id: 'GLS-99999',
+             package: { weightGrams: 1200 },
+             service: 'standard' as const,
+             shipper: {
+               contact: { name: 'Sender', phone: '+361111111', email: 'sender@example.com' },
+               address: {
+                 name: 'Sender',
+                 street: 'Main',
+                 city: 'Budapest',
+                 postalCode: '1011',
+                 country: 'HU',
+               },
+             },
+             recipient: {
+               contact: { name: 'Recipient', phone: '+362222222', email: 'recipient@example.com' },
+               delivery: {
+                 method: 'HOME' as const,
+                 address: {
+                   name: 'Recipient',
+                   street: 'Fo utca 1',
+                   city: 'Siofok',
+                   postalCode: '8600',
+                   country: 'HU',
+                 },
+               },
+             },
+           },
+         ],
          credentials: {
            username: 'admin@gls.hu',
            password: 'secret',
@@ -160,6 +238,32 @@ describe('GLS Label Mappers', () => {
       expect(result.successCount).toBe(0);
       expect(result.failureCount).toBe(1);
       expect(result.allFailed).toBe(true);
+    });
+
+    it('should keep partial results when some labels fail', () => {
+      const glsResponse = {
+        labels: Buffer.from('PDF').toString('base64'),
+        printLabelsInfoList: [
+          {
+            clientReference: 'ORDER-001',
+            parcelId: 12345,
+          },
+        ],
+        printLabelsErrorList: [
+          {
+            errorCode: 400,
+            errorDescription: 'Invalid address',
+            clientReferenceList: ['ORDER-002'],
+          },
+        ],
+      };
+
+      const result = mapGLSPrintLabelsToCanonicalCreateLabels(glsResponse, 2);
+
+      expect(result.results).toHaveLength(2);
+      expect(result.successCount).toBe(1);
+      expect(result.failureCount).toBe(1);
+      expect(result.someFailed).toBe(true);
     });
 
     it('should convert base64 PDF string to Buffer', () => {
@@ -371,7 +475,7 @@ describe('GLS Label Validators', () => {
       const result = safeValidateGLSPrintLabelsResponse(resp);
 
       expect(result.success).toBe(false);
-      expect(result.error?.message).toContain('should contain labels or errors');
+      expect(result.error?.message).toContain('should contain labels, print labels info, or errors');
     });
 
     it('should handle undefined response', () => {

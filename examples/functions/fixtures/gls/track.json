@@ -1,0 +1,9 @@
+{
+  "trackingNumber": "11273216",
+  "credentials": {
+    "username": "GLS_USERNAME",
+    "password": "GLS_PASSWORD",
+    "clientNumberList": [12345]
+  },
+  "options": { "useTestApi": true }
+}

@@ -69,6 +69,16 @@ export async function track(
     // Extract body from normalized HttpResponse
     const response = httpResponse.body;
 
+    // Foxpost returns an empty body for missing tracking numbers on some environments.
+    // Treat that as a not-found / validation-style miss instead of trying to validate it.
+    if (response == null || (typeof response === 'string' && (response as string).trim() === '')) {
+      throw new CarrierError(
+        `No tracking information found for ${trackingNumber}`,
+        'NotFound',
+        { raw: serializeForLog({ status: httpResponse.status, body: response }) as any }
+      );
+    }
+
     // Validate response against Zod schema
     const responseValidation = safeValidateFoxpostTracking(response);
     if (!responseValidation.success) {
@@ -85,7 +95,7 @@ export async function track(
     if (!validatedResponse.clFox) {
       throw new CarrierError(
         `No tracking information found for ${trackingNumber}`,
-        "Validation"
+        "NotFound"
       );
     }
 

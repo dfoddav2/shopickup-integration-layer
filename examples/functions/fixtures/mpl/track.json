@@ -1,0 +1,10 @@
+{
+  "credentials": {
+    "authType": "oauth2",
+    "oAuth2Token": "MPL_OAUTH_TOKEN"
+  },
+  "trackingNumbers": ["PN69G50029668"],
+  "options": {
+    "useTestApi": true
+  }
+}
