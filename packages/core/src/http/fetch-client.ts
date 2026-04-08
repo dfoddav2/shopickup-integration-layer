@@ -47,6 +47,68 @@ function sanitizeHeaders(headers?: Record<string, any>) {
   return out;
 }
 
+function isBinaryResponseType(responseType?: HttpClientConfig['responseType']) {
+  return responseType === 'arraybuffer' || responseType === 'binary';
+}
+
+function previewBody(body: unknown): string | undefined {
+  if (typeof body === 'string') {
+    return body.slice(0, 200);
+  }
+
+  if (body instanceof Uint8Array) {
+    return undefined;
+  }
+
+  if (body && typeof body === 'object') {
+    try {
+      return JSON.stringify(body).slice(0, 200);
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
+async function readResponseBody<T>(res: Response, config?: HttpClientConfig): Promise<T> {
+  const responseType = config?.responseType;
+  const contentType = res.headers.get('content-type') || '';
+
+  if (isBinaryResponseType(responseType)) {
+    return (new Uint8Array(await res.arrayBuffer()) as unknown) as T;
+  }
+
+  const text = await res.text();
+
+  if (responseType === 'text') {
+    return text as unknown as T;
+  }
+
+  if (responseType === 'json' || contentType.includes('application/json')) {
+    return parseResponseText(text) as T;
+  }
+
+  return text as unknown as T;
+}
+
+function debugResponse(log: Logger, method: string, url: string, status: number, headers: Record<string, string>, body: unknown, resolvedFull: boolean) {
+  const payload: Record<string, unknown> = {
+    method,
+    url,
+    status,
+    headers: sanitizeHeaders(headers),
+  };
+
+  if (body instanceof Uint8Array) {
+    payload.bodyLength = body.byteLength;
+  } else if (resolvedFull) {
+    payload.bodyPreview = previewBody(body);
+  }
+
+  log.debug('response', payload);
+}
+
 export function createFetchHttpClient(opts: FetchHttpClientOptions = {}): HttpClient {
   const fetchFn = opts.fetchFn ?? (globalThis as any).fetch;
   if (!fetchFn) throw new Error('fetch is not available in this environment; provide fetchFn');
@@ -59,6 +121,31 @@ export function createFetchHttpClient(opts: FetchHttpClientOptions = {}): HttpCl
     return h ? Object.fromEntries(Object.entries(h)) : undefined;
   }
 
+  async function handleResponse<T>(method: string, url: string, res: Response, config?: HttpClientConfig): Promise<HttpResponse<T>> {
+    const responseHeaders = Object.fromEntries(res.headers) as Record<string, string>;
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      if (resolvedDebug) {
+        debugResponse(log, method, url, res.status, responseHeaders, errorText, resolvedFull);
+      }
+      throw makeError(res.status, res.statusText, parseResponseText(errorText), responseHeaders);
+    }
+
+    const body = await readResponseBody<T>(res, config);
+
+    if (resolvedDebug) {
+      debugResponse(log, method, url, res.status, responseHeaders, body, resolvedFull);
+    }
+
+    return {
+      status: res.status,
+      headers: responseHeaders as Record<string, string | string[]>,
+      body,
+      ...(config?.captureRequest && { request: { method, url } }),
+    };
+  }
+
   return {
      async get<T = unknown>(url: string, config?: HttpClientConfig): Promise<HttpResponse<T>> {
        const headers = toHeaders(config?.headers);
@@ -66,25 +153,7 @@ export function createFetchHttpClient(opts: FetchHttpClientOptions = {}): HttpCl
        const query = params ? '?' + new URLSearchParams(Object.entries(params as Record<string,string>)).toString() : '';
        if (resolvedDebug) log.debug('request', { method: 'GET', url, headers: sanitizeHeaders(headers) });
        const res = await fetchFn(url + query, { method: 'GET', headers });
-       const text = await res.text();
-       const responseHeaders = Object.fromEntries(res.headers);
-       if (resolvedDebug) log.debug('response', { status: res.status, headers: sanitizeHeaders(responseHeaders), bodyPreview: resolvedFull ? text.slice(0,200) : undefined });
-       if (!res.ok) throw makeError(res.status, res.statusText, parseResponseText(text), responseHeaders);
-       const contentType = res.headers.get('content-type') || '';
-       let body: T;
-       if (config && (config as any).responseType === 'arraybuffer') {
-         body = (await res.arrayBuffer()) as unknown as T;
-       } else if (contentType.includes('application/json')) {
-         body = parseResponseText(text) as T;
-       } else {
-         body = text as unknown as T;
-       }
-       return {
-         status: res.status,
-         headers: responseHeaders as Record<string, string | string[]>,
-         body,
-         ...(config?.captureRequest && { request: { method: 'GET', url } })
-       };
+       return handleResponse<T>('GET', url, res, config);
      },
 
      async post<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
@@ -92,25 +161,7 @@ export function createFetchHttpClient(opts: FetchHttpClientOptions = {}): HttpCl
        const body = data === undefined ? undefined : JSON.stringify(data);
        if (resolvedDebug) log.debug('request', { method: 'POST', url, headers: sanitizeHeaders(headers), bodyLength: body ? body.length : 0, bodyPreview: resolvedFull ? (body ? String(body).slice(0,200) : undefined) : undefined });
        const res = await fetchFn(url, { method: 'POST', headers, body });
-       const text = await res.text();
-       const responseHeaders = Object.fromEntries(res.headers);
-       if (resolvedDebug) log.debug('response', { status: res.status, headers: sanitizeHeaders(responseHeaders), bodyPreview: resolvedFull ? text.slice(0,200) : undefined });
-       if (!res.ok) throw makeError(res.status, res.statusText, parseResponseText(text), responseHeaders);
-       const contentType = res.headers.get('content-type') || '';
-       let responseBody: T;
-       if (config && (config as any).responseType === 'arraybuffer') {
-         responseBody = (await res.arrayBuffer()) as unknown as T;
-       } else if (contentType.includes('application/json')) {
-         responseBody = parseResponseText(text) as T;
-       } else {
-         responseBody = text as unknown as T;
-       }
-       return {
-         status: res.status,
-         headers: responseHeaders as Record<string, string | string[]>,
-         body: responseBody,
-         ...(config?.captureRequest && { request: { method: 'POST', url } })
-       };
+       return handleResponse<T>('POST', url, res, config);
      },
 
      async put<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
@@ -118,25 +169,7 @@ export function createFetchHttpClient(opts: FetchHttpClientOptions = {}): HttpCl
        const body = data === undefined ? undefined : JSON.stringify(data);
        if (resolvedDebug) log.debug('request', { method: 'PUT', url, headers: sanitizeHeaders(headers), bodyLength: body ? body.length : 0 });
        const res = await fetchFn(url, { method: 'PUT', headers, body });
-       const text = await res.text();
-       const responseHeaders = Object.fromEntries(res.headers);
-       if (resolvedDebug) log.debug('response', { status: res.status, headers: sanitizeHeaders(responseHeaders) });
-       if (!res.ok) throw makeError(res.status, res.statusText, parseResponseText(text), responseHeaders);
-       const contentType = res.headers.get('content-type') || '';
-       let responseBody: T;
-       if (config && (config as any).responseType === 'arraybuffer') {
-         responseBody = (await res.arrayBuffer()) as unknown as T;
-       } else if (contentType.includes('application/json')) {
-         responseBody = parseResponseText(text) as T;
-       } else {
-         responseBody = text as unknown as T;
-       }
-       return {
-         status: res.status,
-         headers: responseHeaders as Record<string, string | string[]>,
-         body: responseBody,
-         ...(config?.captureRequest && { request: { method: 'PUT', url } })
-       };
+       return handleResponse<T>('PUT', url, res, config);
      },
 
      async patch<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
@@ -144,50 +177,14 @@ export function createFetchHttpClient(opts: FetchHttpClientOptions = {}): HttpCl
        const body = data === undefined ? undefined : JSON.stringify(data);
        if (resolvedDebug) log.debug('request', { method: 'PATCH', url, headers: sanitizeHeaders(headers), bodyLength: body ? body.length : 0 });
        const res = await fetchFn(url, { method: 'PATCH', headers, body });
-       const text = await res.text();
-       const responseHeaders = Object.fromEntries(res.headers);
-       if (resolvedDebug) log.debug('response', { status: res.status, headers: sanitizeHeaders(responseHeaders) });
-       if (!res.ok) throw makeError(res.status, res.statusText, parseResponseText(text), responseHeaders);
-       const contentType = res.headers.get('content-type') || '';
-       let responseBody: T;
-       if (config && (config as any).responseType === 'arraybuffer') {
-         responseBody = (await res.arrayBuffer()) as unknown as T;
-       } else if (contentType.includes('application/json')) {
-         responseBody = parseResponseText(text) as T;
-       } else {
-         responseBody = text as unknown as T;
-       }
-       return {
-         status: res.status,
-         headers: responseHeaders as Record<string, string | string[]>,
-         body: responseBody,
-         ...(config?.captureRequest && { request: { method: 'PATCH', url } })
-       };
+       return handleResponse<T>('PATCH', url, res, config);
      },
 
      async delete<T = unknown>(url: string, config?: HttpClientConfig): Promise<HttpResponse<T>> {
        const headers = toHeaders(config?.headers);
        if (resolvedDebug) log.debug('request', { method: 'DELETE', url, headers: sanitizeHeaders(headers) });
        const res = await fetchFn(url, { method: 'DELETE', headers });
-       const text = await res.text();
-       const responseHeaders = Object.fromEntries(res.headers);
-       if (resolvedDebug) log.debug('response', { status: res.status, headers: sanitizeHeaders(responseHeaders) });
-       if (!res.ok) throw makeError(res.status, res.statusText, parseResponseText(text), responseHeaders);
-       const contentType = res.headers.get('content-type') || '';
-       let responseBody: T;
-       if (config && (config as any).responseType === 'arraybuffer') {
-         responseBody = (await res.arrayBuffer()) as unknown as T;
-       } else if (contentType.includes('application/json')) {
-         responseBody = parseResponseText(text) as T;
-       } else {
-         responseBody = text as unknown as T;
-       }
-       return {
-         status: res.status,
-         headers: responseHeaders as Record<string, string | string[]>,
-         body: responseBody,
-         ...(config?.captureRequest && { request: { method: 'DELETE', url } })
-       };
+       return handleResponse<T>('DELETE', url, res, config);
      },
   };
 }

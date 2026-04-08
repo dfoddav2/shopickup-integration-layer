@@ -52,6 +52,14 @@ function summarizeBufferLike(value: Buffer | Uint8Array | { type: 'Buffer'; data
   };
 }
 
+function summarizeArrayBufferLike(value: ArrayBuffer) {
+  return {
+    omittedBinary: true,
+    byteLength: value.byteLength,
+    note: 'binary payload omitted from rawCarrierResponse',
+  };
+}
+
 function sanitizeRawValue(value: unknown, keyHint?: string): unknown {
   if (typeof value === 'string') {
     if (keyHint && BLOB_FIELDS.has(keyHint)) {
@@ -62,6 +70,10 @@ function sanitizeRawValue(value: unknown, keyHint?: string): unknown {
 
   if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
     return summarizeBufferLike(value);
+  }
+
+  if (value instanceof ArrayBuffer) {
+    return summarizeArrayBufferLike(value);
   }
 
   if (isSerializedBuffer(value)) {
