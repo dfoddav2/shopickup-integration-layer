@@ -6,12 +6,10 @@
 
 import { FastifyInstance } from 'fastify';
 import { MPLAdapter } from '@shopickup/adapters-mpl';
-import { safeValidateCreateLabelsRequest } from '@shopickup/adapters-mpl/validation';
+import { safeValidateCreateLabelsRequest, type CreateLabelMPLRequest, type CreateLabelsMPLRequest } from '@shopickup/adapters-mpl/validation';
 import {
   CarrierError,
   type AdapterContext,
-  type CreateLabelsRequest,
-  type CreateLabelRequest,
   getHttpStatusForLabelBatchResponse,
 } from '@shopickup/core';
 import { wrapPinoLogger } from '../http-client.js';
@@ -200,14 +198,14 @@ export async function registerCreateLabelRoute(
       try {
         const { parcelCarrierId, credentials, options } = request.body as any;
 
-        const createReq: CreateLabelRequest = {
+        const createReq: CreateLabelMPLRequest = {
           parcelCarrierId,
           credentials,
           options,
         };
 
         // Validate the request (use CreateLabels validation on single item)
-        const validateReq: CreateLabelsRequest = {
+        const validateReq: CreateLabelsMPLRequest = {
           parcelCarrierIds: [parcelCarrierId],
           credentials,
           options,
@@ -355,7 +353,7 @@ export async function registerCreateLabelsRoute(
       try {
         const { parcelCarrierIds, credentials, options } = request.body as any;
 
-        const createReq: CreateLabelsRequest = {
+        const createReq: CreateLabelsMPLRequest = {
           parcelCarrierIds,
           credentials,
           options,

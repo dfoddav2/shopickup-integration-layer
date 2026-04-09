@@ -119,10 +119,11 @@ export async function createParcels(
       };
     }
 
-     // For simplicity require uniform test-mode and credentials across the batch
-     const baseUrl = resolveBaseUrl(validated.data.options);
-     const useTestApi = validated.data.options?.useTestApi ?? false;
-     const isWeb = !useTestApi;
+    // For simplicity require uniform test-mode and credentials across the batch
+    const baseUrl = resolveBaseUrl(validated.data.options);
+    const useTestApi = validated.data.options?.useTestApi ?? false;
+    const isWeb = validated.data.options?.foxpost?.isWeb ?? true;
+    const isRedirect = validated.data.options?.foxpost?.isRedirect ?? false;
 
      // Validate and map each canonical parcel to Foxpost request format
      // mapParcelToFoxpostRequest returns strongly-typed FoxCreateParcelRequestItem
@@ -167,7 +168,7 @@ export async function createParcels(
      });
 
      const httpResponse = await ctx.http.post<FoxCreateResponse>(
-       `${baseUrl}/api/parcel?isWeb=${isWeb}&isRedirect=false`,
+      `${baseUrl}/api/parcel?isWeb=${isWeb}&isRedirect=${isRedirect}`,
        foxpostRequestsWithValidation,
        {
          headers: buildFoxpostHeaders(validated.data.credentials),

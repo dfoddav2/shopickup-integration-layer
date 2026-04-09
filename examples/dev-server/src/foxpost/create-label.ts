@@ -5,8 +5,8 @@
 
 import { FastifyInstance } from 'fastify';
 import { FoxpostAdapter } from '@shopickup/adapters-foxpost';
-import { safeValidateCreateLabelRequest } from '@shopickup/adapters-foxpost/validation';
-import { CarrierError, type AdapterContext, type CreateLabelRequest, type CreateLabelsRequest } from '@shopickup/core';
+import { safeValidateCreateLabelRequest, type CreateLabelRequestFoxpost } from '@shopickup/adapters-foxpost/validation';
+import { CarrierError, type AdapterContext } from '@shopickup/core';
 import { wrapPinoLogger } from '../http-client.js';
 import { formatLabelResponseForHttp } from '../label-response-http.js';
 import {
@@ -87,7 +87,7 @@ export async function registerCreateLabelRoute(
       try {
         const { parcelCarrierId, credentials, options } = request.body as any;
 
-        const createReq: CreateLabelRequest = {
+        const createReq: CreateLabelRequestFoxpost = {
           parcelCarrierId,
           credentials,
           options,

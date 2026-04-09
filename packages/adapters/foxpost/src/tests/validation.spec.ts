@@ -9,6 +9,8 @@ import {
    safeValidateFoxpostTracking,
    validateFoxpostCredentials,
    safeValidateFoxpostCredentials,
+  safeValidateCreateParcelRequest,
+  safeValidateCreateParcelsRequest,
    safeValidateTrackingRequest,
    safeValidateFoxpostApiError,
    safeValidateFoxpostLabelPdfRaw,
@@ -306,6 +308,89 @@ describe('Foxpost Validation Schemas', () => {
 
       const result = safeValidateTrackingRequest(req);
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe('Foxpost parcel request options', () => {
+    it('accepts nested foxpost parcel flags on single parcel requests', () => {
+      const req = {
+        parcel: {
+          id: 'p1',
+          shipper: {
+            contact: { name: 'Sender' },
+            address: { name: 'Sender', street: 'Main', city: 'Budapest', postalCode: '1011', country: 'HU' },
+          },
+          recipient: {
+            contact: { name: 'Recipient' },
+            delivery: {
+              method: 'HOME',
+              address: { name: 'Recipient', street: 'Other', city: 'Budapest', postalCode: '1012', country: 'HU' },
+            },
+          },
+          package: { weightGrams: 1000 },
+          service: 'standard',
+        },
+        credentials: {
+          apiKey: 'key',
+          basicUsername: 'user',
+          basicPassword: 'pass',
+        },
+        options: {
+          useTestApi: true,
+          foxpost: {
+            isWeb: false,
+            isRedirect: true,
+          },
+        },
+      };
+
+      const result = safeValidateCreateParcelRequest(req);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.options?.foxpost?.isWeb).toBe(false);
+        expect(result.data.options?.foxpost?.isRedirect).toBe(true);
+      }
+    });
+
+    it('accepts nested foxpost parcel flags on batch parcel requests', () => {
+      const req = {
+        parcels: [
+          {
+            id: 'p1',
+            shipper: {
+              contact: { name: 'Sender' },
+              address: { name: 'Sender', street: 'Main', city: 'Budapest', postalCode: '1011', country: 'HU' },
+            },
+            recipient: {
+              contact: { name: 'Recipient' },
+              delivery: {
+                method: 'HOME',
+                address: { name: 'Recipient', street: 'Other', city: 'Budapest', postalCode: '1012', country: 'HU' },
+              },
+            },
+            package: { weightGrams: 1000 },
+            service: 'standard',
+          },
+        ],
+        credentials: {
+          apiKey: 'key',
+          basicUsername: 'user',
+          basicPassword: 'pass',
+        },
+        options: {
+          foxpost: {
+            isWeb: true,
+            isRedirect: false,
+          },
+        },
+      };
+
+      const result = safeValidateCreateParcelsRequest(req);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.options?.foxpost?.isWeb).toBe(true);
+        expect(result.data.options?.foxpost?.isRedirect).toBe(false);
+      }
     });
   });
 

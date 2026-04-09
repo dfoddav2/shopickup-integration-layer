@@ -5,7 +5,7 @@
 
 import { FastifyInstance } from 'fastify';
 import { FoxpostAdapter } from '@shopickup/adapters-foxpost';
-import { safeValidateCreateParcelRequest } from '@shopickup/adapters-foxpost/validation';
+import { safeValidateCreateParcelRequest, type CreateParcelRequestFoxpost } from '@shopickup/adapters-foxpost/validation';
 import { CarrierError, type AdapterContext, type CreateParcelRequest } from '@shopickup/core';
 import { wrapPinoLogger } from '../http-client.js';
 import {
@@ -57,7 +57,7 @@ export async function registerCreateParcelRoute(
       try {
         const { parcel, credentials, options } = request.body as any;
 
-        const createReq: CreateParcelRequest = {
+        const createReq: CreateParcelRequestFoxpost = {
           parcel,
           credentials,
           options,

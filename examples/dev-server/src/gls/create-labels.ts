@@ -8,7 +8,8 @@
 
 import { FastifyInstance } from 'fastify';
 import { GLSAdapter } from '@shopickup/adapters-gls';
-import { CarrierError, type AdapterContext, type CreateLabelsRequest } from '@shopickup/core';
+import { CarrierError, type AdapterContext } from '@shopickup/core';
+import type { GLSCreateLabelsRequest } from '@shopickup/adapters-gls/validation';
 import { wrapPinoLogger } from '../http-client.js';
 
 const GLS_CREDENTIALS_SCHEMA = {
@@ -239,7 +240,7 @@ export async function registerCreateLabelsRoute(
       try {
         const { parcelCarrierIds, credentials, options } = request.body as any;
 
-        const createReq: CreateLabelsRequest = {
+        const createReq: GLSCreateLabelsRequest = {
           parcelCarrierIds,
           credentials,
           options,

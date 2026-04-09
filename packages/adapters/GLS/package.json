@@ -1,6 +1,6 @@
 {
   "name": "@shopickup/adapters-gls",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "publishConfig": {
     "access": "public"
   },
@@ -59,7 +59,7 @@
     "codegen": "openapi-typescript ../../carrier-docs/hu-gls/hu-gls.openapi.yaml --output ./src/types/generated.ts"
   },
   "peerDependencies": {
-    "@shopickup/core": "^0.0.2"
+    "@shopickup/core": ">=0.0.2 <0.1.0"
   },
   "devDependencies": {
     "@shopickup/core": "workspace:*",

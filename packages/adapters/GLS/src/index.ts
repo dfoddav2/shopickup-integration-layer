@@ -135,6 +135,7 @@ export class GLSAdapter implements CarrierAdapter {
    * @param ctx Adapter context with HTTP client
    * @returns Response with list of pickup points
    */
+  async fetchPickupPoints(req: GLSFetchPickupPointsRequest, ctx: AdapterContext): Promise<FetchPickupPointsResponse>;
   async fetchPickupPoints(req: FetchPickupPointsRequest, ctx: AdapterContext): Promise<FetchPickupPointsResponse> {
     return fetchPickupPointsImpl(req as GLSFetchPickupPointsRequest, ctx);
   }
@@ -151,8 +152,9 @@ export class GLSAdapter implements CarrierAdapter {
    * @param ctx Adapter context with HTTP client
    * @returns Response with created parcel ID
    */
+  async createParcel(req: GLSCreateParcelRequest, ctx: AdapterContext): Promise<CarrierResource>;
   async createParcel(req: CreateParcelRequest, ctx: AdapterContext): Promise<CarrierResource> {
-    return createParcelImpl(req as GLSCreateParcelRequest, ctx, (batchReq, batchCtx) => this.createParcels(batchReq, batchCtx));
+    return createParcelImpl(req as GLSCreateParcelRequest, ctx, (batchReq, batchCtx) => this.createParcels(batchReq as GLSCreateParcelsRequest, batchCtx));
   }
 
   /**
@@ -169,6 +171,7 @@ export class GLSAdapter implements CarrierAdapter {
    * @param ctx Adapter context with HTTP client
    * @returns Response with per-parcel results and summary statistics
    */
+  async createParcels(req: GLSCreateParcelsRequest, ctx: AdapterContext): Promise<CreateParcelsResponse>;
   async createParcels(req: CreateParcelsRequest, ctx: AdapterContext): Promise<CreateParcelsResponse> {
     return createParcelsImpl(req as GLSCreateParcelsRequest, ctx);
   }
@@ -185,6 +188,7 @@ export class GLSAdapter implements CarrierAdapter {
     * @param ctx Adapter context with HTTP client
     * @returns Label result with file metadata and status
     */
+  async createLabel(req: GLSCreateLabelRequest, ctx: AdapterContext): Promise<CreateLabelResponse>;
   async createLabel(req: CreateLabelRequest, ctx: AdapterContext): Promise<CreateLabelResponse> {
     return createLabelImpl(
       req as GLSCreateLabelRequest,
@@ -208,6 +212,7 @@ export class GLSAdapter implements CarrierAdapter {
        * @param ctx Adapter context with HTTP client
        * @returns Response with file metadata, per-label results, and PDF bytes
        */
+  async createLabels(req: GLSCreateLabelsRequest, ctx: AdapterContext): Promise<CreateLabelsResponse>;
   async createLabels(req: CreateLabelsRequest, ctx: AdapterContext): Promise<CreateLabelsResponse> {
     return createLabelsImpl(req as GLSCreateLabelsRequest, ctx);
   }
@@ -226,6 +231,7 @@ export class GLSAdapter implements CarrierAdapter {
        * @param ctx Adapter context with HTTP client
        * @returns Label result with file metadata and status
        */
+  async printLabel(req: GLSPrintLabelRequest, ctx: AdapterContext): Promise<CreateLabelResponse>;
   async printLabel(req: GLSPrintLabelRequest, ctx: AdapterContext): Promise<CreateLabelResponse> {
     return printLabelImpl(
       req,
@@ -249,6 +255,7 @@ export class GLSAdapter implements CarrierAdapter {
        * @param ctx Adapter context with HTTP client
        * @returns Response with file metadata, per-label results, and PDF bytes
        */
+  async printLabels(req: GLSPrintLabelsRequest, ctx: AdapterContext): Promise<CreateLabelsResponse>;
   async printLabels(req: GLSPrintLabelsRequest, ctx: AdapterContext): Promise<CreateLabelsResponse> {
     return printLabelsImpl(req, ctx);
   }
@@ -264,6 +271,7 @@ export class GLSAdapter implements CarrierAdapter {
      * @param ctx Adapter context with HTTP client
      * @returns TrackingUpdate with events timeline and current status
      */
+  async track(req: GLSTrackingRequest, ctx: AdapterContext): Promise<TrackingUpdate>;
   async track(req: TrackingRequest, ctx: AdapterContext): Promise<TrackingUpdate> {
     return trackImpl(req as GLSTrackingRequest, ctx);
   }

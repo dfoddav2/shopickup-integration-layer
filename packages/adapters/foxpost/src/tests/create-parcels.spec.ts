@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { FoxpostAdapter } from '../index.js';
-import type { AdapterContext, CreateParcelsRequest, CreateParcelRequest, Parcel } from '@shopickup/core';
+import type { AdapterContext, Parcel } from '@shopickup/core';
+import type { CreateParcelsRequestFoxpost, CreateParcelRequestFoxpost } from '../validation.js';
 import { CarrierError } from '@shopickup/core';
 
 class MockHttpClient {
@@ -96,7 +97,7 @@ describe('FoxpostAdapter createParcels', () => {
   });
 
   it('creates multiple parcels and returns per-item results', async () => {
-    const req: CreateParcelsRequest = {
+    const req: CreateParcelsRequestFoxpost = {
       parcels: [
         createTestParcel('p1'),
         createTestParcel('p2'),
@@ -112,7 +113,7 @@ describe('FoxpostAdapter createParcels', () => {
    });
 
   it('rejects empty parcel array', async () => {
-    const req: CreateParcelsRequest = {
+    const req: CreateParcelsRequestFoxpost = {
       parcels: [],
       credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
     };
@@ -123,7 +124,7 @@ describe('FoxpostAdapter createParcels', () => {
   });
 
    it('extracts and uses shared credentials for batch', async () => {
-     const req: CreateParcelsRequest = {
+     const req: CreateParcelsRequestFoxpost = {
        parcels: [
          createTestParcel('p1'),
        ],
@@ -164,7 +165,7 @@ describe('FoxpostAdapter createParcels', () => {
      };
 
     const contextWithMock: AdapterContext = { http: mockHttp, logger: console };
-    const req: CreateParcelsRequest = {
+    const req: CreateParcelsRequestFoxpost = {
       parcels: [createTestParcel('p1'), createTestParcel('p2')],
       credentials: { apiKey: 'test', basicUsername: 'user', basicPassword: 'pass' },
     };
@@ -192,6 +193,33 @@ describe('FoxpostAdapter createParcels', () => {
       expect(errors[1].field).toBe('recipientZip');
       expect(errors[1].code).toBe('INVALID_FORMAT');
     });
+
+    it('defaults Foxpost parcel flags when options.foxpost is omitted', async () => {
+      const req: CreateParcelsRequestFoxpost = {
+        parcels: [createTestParcel('p1')],
+        credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+        options: { useTestApi: true },
+      };
+
+      await adapter.createParcels(req, ctx);
+      expect(mockHttp.lastUrl).toContain('isWeb=true');
+      expect(mockHttp.lastUrl).toContain('isRedirect=false');
+    });
+
+    it('honors explicit Foxpost parcel flags', async () => {
+      const req: CreateParcelsRequestFoxpost = {
+        parcels: [createTestParcel('p1')],
+        credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+        options: {
+          useTestApi: true,
+          foxpost: { isWeb: false, isRedirect: true },
+        },
+      };
+
+      await adapter.createParcels(req, ctx);
+      expect(mockHttp.lastUrl).toContain('isWeb=false');
+      expect(mockHttp.lastUrl).toContain('isRedirect=true');
+    });
 });
 
 describe('FoxpostAdapter createParcel', () => {
@@ -207,7 +235,7 @@ describe('FoxpostAdapter createParcel', () => {
 
    it('returns rawCarrierResponse in result', async () => {
      const parcel = createTestParcel('p1');
-     const req = {
+     const req: CreateParcelRequestFoxpost = {
        parcel,
        credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
      };

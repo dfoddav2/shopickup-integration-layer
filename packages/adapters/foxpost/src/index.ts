@@ -34,6 +34,8 @@ import { createResolveBaseUrl, type ResolveBaseUrl } from './utils/resolveBaseUr
 import type {
   CreateLabelRequestFoxpost,
   CreateLabelsRequestFoxpost,
+  CreateParcelRequestFoxpost,
+  CreateParcelsRequestFoxpost,
 } from './validation.js';
 
 /**
@@ -99,11 +101,15 @@ export class FoxpostAdapter implements CarrierAdapter {
    * Returns the parcel barcode as carrierId
    */
   async createParcel(
+    req: CreateParcelRequestFoxpost,
+    ctx: AdapterContext
+  ): Promise<CarrierResource>;
+  async createParcel(
     req: CreateParcelRequest,
     ctx: AdapterContext
   ): Promise<CarrierResource> {
     return createParcelImpl(req, ctx, (batchReq, batchCtx) =>
-      this.createParcels(batchReq, batchCtx)
+      this.createParcels(batchReq as CreateParcelsRequestFoxpost, batchCtx)
     );
   }
 
@@ -118,6 +124,10 @@ export class FoxpostAdapter implements CarrierAdapter {
    * @returns CreateParcelsResponse with summary and per-item results
    */
   async createParcels(
+    req: CreateParcelsRequestFoxpost,
+    ctx: AdapterContext
+  ): Promise<CreateParcelsResponse>;
+  async createParcels(
     req: CreateParcelsRequest,
     ctx: AdapterContext
   ): Promise<CreateParcelsResponse> {
@@ -131,6 +141,10 @@ export class FoxpostAdapter implements CarrierAdapter {
    * @param ctx AdapterContext with HTTP client and logger
    * @returns LabelResult with file mapping and page range
    */
+  async createLabel(
+    req: CreateLabelRequestFoxpost,
+    ctx: AdapterContext
+  ): Promise<CreateLabelResponse>;
   async createLabel(
     req: CreateLabelRequest,
     ctx: AdapterContext
@@ -148,6 +162,10 @@ export class FoxpostAdapter implements CarrierAdapter {
    * @param ctx AdapterContext with HTTP client and logger
    * @returns CreateLabelsResponse with per-item results and summary
    */
+  async createLabels(
+    req: CreateLabelsRequestFoxpost,
+    ctx: AdapterContext
+  ): Promise<CreateLabelsResponse>;
   async createLabels(
     req: CreateLabelsRequest,
     ctx: AdapterContext

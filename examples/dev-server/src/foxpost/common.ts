@@ -61,6 +61,22 @@ export const FOXPOST_OPTIONS_SCHEMA = {
       description: 'Use test/sandbox API endpoint',
       default: true,
     },
+    foxpost: {
+      type: 'object',
+      description: 'Foxpost-specific parcel query flags',
+      properties: {
+        isWeb: {
+          type: 'boolean',
+          description: 'Whether the parcel should appear on the Foxpost web interface',
+          default: true,
+        },
+        isRedirect: {
+          type: 'boolean',
+          description: 'Whether the parcel should be redirected',
+          default: false,
+        },
+      },
+    },
   },
 };
 

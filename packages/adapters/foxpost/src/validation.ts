@@ -5,7 +5,7 @@ import type {
   CreateLabelRequest as CoreCreateLabelRequest,
   CreateLabelsRequest as CoreCreateLabelsRequest,
 } from '@shopickup/core';
-import type { Parcel } from '@shopickup/core';
+import type { Parcel, RequestOptions } from '@shopickup/core';
 
 /**
  * Foxpost-specific credentials
@@ -224,6 +224,7 @@ export type FoxpostParcelAPM = z.infer<typeof FoxpostParcelAPMSchema>;
  */
 export interface CreateParcelRequestFoxpost extends CoreCreateParcelRequest {
   credentials: FoxpostCredentials;
+  options?: FoxpostParcelOptions;
 }
 
 /**
@@ -231,6 +232,20 @@ export interface CreateParcelRequestFoxpost extends CoreCreateParcelRequest {
  */
 export interface CreateParcelsRequestFoxpost extends CoreCreateParcelsRequest {
   credentials: FoxpostCredentials;
+  options?: FoxpostParcelOptions;
+}
+
+/**
+ * Foxpost-specific parcel options.
+ *
+ * `useTestApi` controls the base URL selection.
+ * `foxpost.isWeb` and `foxpost.isRedirect` map to Foxpost parcel query flags.
+ */
+export interface FoxpostParcelOptions extends RequestOptions {
+  foxpost?: {
+    isWeb?: boolean;
+    isRedirect?: boolean;
+  };
 }
 
 /**
@@ -263,23 +278,29 @@ export interface CreateLabelsRequestFoxpost extends CoreCreateLabelsRequest {
   };
 }
 
+const FoxpostParcelFlagsSchema = z.object({
+  isWeb: z.boolean().optional(),
+  isRedirect: z.boolean().optional(),
+}).catchall(z.unknown());
+
+const FoxpostParcelOptionsSchema = z.object({
+  useTestApi: z.boolean().optional(),
+  foxpost: FoxpostParcelFlagsSchema.optional(),
+}).catchall(z.unknown());
+
 /**
  * CreateParcelRequest Zod schema
  */
 export const CreateParcelRequestFoxpostSchema = z.object({
   parcel: ParcelSchema,
   credentials: FoxpostCredentialsSchema,
-  options: z.object({
-    useTestApi: z.boolean().optional()
-  }).optional()
+  options: FoxpostParcelOptionsSchema.optional(),
 });
 
 export const CreateParcelsRequestFoxpostSchema = z.object({
   parcels: z.array(ParcelSchema).min(1),
   credentials: FoxpostCredentialsSchema,
-  options: z.object({
-    useTestApi: z.boolean().optional()
-  }).optional()
+  options: FoxpostParcelOptionsSchema.optional(),
 });
 
 export const CreateLabelRequestFoxpostSchema = z.object({

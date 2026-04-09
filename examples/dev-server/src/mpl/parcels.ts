@@ -26,7 +26,8 @@
 
 import { FastifyInstance } from 'fastify';
 import type { MPLAdapter } from '@shopickup/adapters-mpl';
-import { CarrierError, type AdapterContext, type CreateParcelsRequest } from '@shopickup/core';
+import { CarrierError, type AdapterContext } from '@shopickup/core';
+import type { CreateParcelsMPLRequest } from '@shopickup/adapters-mpl/validation';
 import { wrapPinoLogger } from '../http-client.js';
 import {
   MPL_CREDENTIALS_SCHEMA,
@@ -573,7 +574,7 @@ export async function registerCreateParcelsRoute(
         };
 
         // Build request object
-        const createParcelsReq: CreateParcelsRequest = {
+        const createParcelsReq: CreateParcelsMPLRequest = {
           parcels: request.body.parcels,
           credentials: request.body.credentials,
           options: request.body.options || {},

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { FoxpostAdapter } from '../index.js';
-import type { AdapterContext, CreateParcelsRequest, TrackingRequest, Parcel } from '@shopickup/core';
+import type { AdapterContext, TrackingRequest, Parcel } from '@shopickup/core';
+import type { CreateParcelsRequestFoxpost } from '../validation.js';
 import { CarrierError } from '@shopickup/core';
 
 class MockHttpClient {
@@ -75,7 +76,7 @@ describe('FoxpostAdapter - Credential Validation', () => {
 
   describe('createParcels - credential validation', () => {
     it('rejects missing apiKey', async () => {
-      const req: CreateParcelsRequest = {
+      const req: CreateParcelsRequestFoxpost = {
         parcels: [createTestParcel('p1')],
         credentials: { apiKey: '', basicUsername: 'user', basicPassword: 'pass' } as any,
         options: { useTestApi: true },
@@ -87,7 +88,7 @@ describe('FoxpostAdapter - Credential Validation', () => {
     });
 
     it('rejects missing basicUsername', async () => {
-      const req: CreateParcelsRequest = {
+      const req: CreateParcelsRequestFoxpost = {
         parcels: [createTestParcel('p1')],
         credentials: { apiKey: 'key', basicUsername: '', basicPassword: 'pass' } as any,
         options: { useTestApi: true },
@@ -99,7 +100,7 @@ describe('FoxpostAdapter - Credential Validation', () => {
     });
 
     it('rejects missing basicPassword', async () => {
-      const req: CreateParcelsRequest = {
+      const req: CreateParcelsRequestFoxpost = {
         parcels: [createTestParcel('p1')],
         credentials: { apiKey: 'key', basicUsername: 'user', basicPassword: '' } as any,
         options: { useTestApi: true },
@@ -111,7 +112,7 @@ describe('FoxpostAdapter - Credential Validation', () => {
     });
 
     it('rejects null credentials', async () => {
-      const req: CreateParcelsRequest = {
+      const req: CreateParcelsRequestFoxpost = {
         parcels: [createTestParcel('p1')],
         credentials: null as any,
         options: { useTestApi: true },
@@ -123,7 +124,7 @@ describe('FoxpostAdapter - Credential Validation', () => {
     });
 
     it('rejects undefined credentials', async () => {
-      const req: CreateParcelsRequest = {
+      const req: CreateParcelsRequestFoxpost = {
         parcels: [createTestParcel('p1')],
         credentials: undefined as any,
         options: { useTestApi: true },
@@ -135,7 +136,7 @@ describe('FoxpostAdapter - Credential Validation', () => {
     });
 
     it('rejects object missing required credential fields', async () => {
-      const req: CreateParcelsRequest = {
+      const req: CreateParcelsRequestFoxpost = {
         parcels: [createTestParcel('p1')],
         credentials: { apiKey: 'key' } as any,
         options: { useTestApi: true },
@@ -147,7 +148,7 @@ describe('FoxpostAdapter - Credential Validation', () => {
     });
 
     it('accepts valid credentials', async () => {
-      const req: CreateParcelsRequest = {
+      const req: CreateParcelsRequestFoxpost = {
         parcels: [createTestParcel('p1')],
         credentials: { apiKey: 'valid-key', basicUsername: 'user', basicPassword: 'pass' },
         options: { useTestApi: true },
