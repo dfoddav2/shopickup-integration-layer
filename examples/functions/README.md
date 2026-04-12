@@ -71,6 +71,7 @@ CLI non-interactive flags
 - `--args <json-or-path>` or `-a <json-or-path>` — pass arguments as raw JSON or a path to a JSON file (resolved robustly).
 - `--mock` / `--use-mock` — use the built-in mock HTTP client (no external network calls).
 - `--full-logs` / `--log-full` — show full responses and avoid truncation/summaries (useful for dev debugging).
+- `--log-file <path>` — write detailed CLI, adapter, and HTTP logs to the given file while keeping console output concise.
 - `--exchange-first` / `--refresh-token` — perform an API key → OAuth token exchange before running the requested function (requires `MPL_API_KEY` + `MPL_API_SECRET` in env or passed in `--args`).
 
 Examples
@@ -86,6 +87,10 @@ Examples
 - Run and request full logs (no truncation):
 
   pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.create-parcels --args examples/functions/fixtures/mpl/create-parcels.json --full-logs
+
+- Run and write detailed logs to a file:
+
+  pnpm dlx ts-node ./examples/functions/cli.ts -- --run gls.create-label --args examples/functions/fixtures/gls/create-label.json --log-file ./tmp/gls-create-label.log
 
 - Run and perform token exchange first (useful when you have API key/secret and want a fresh token):
 

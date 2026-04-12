@@ -8,6 +8,7 @@ export interface FetchHttpClientOptions {
   fetchFn?: typeof fetch;
   debug?: boolean;
   debugFullBody?: boolean;
+  debugMaxBodyLength?: number;
   logger?: Logger;
 }
 
@@ -51,9 +52,9 @@ function isBinaryResponseType(responseType?: HttpClientConfig['responseType']) {
   return responseType === 'arraybuffer' || responseType === 'binary';
 }
 
-function previewBody(body: unknown): string | undefined {
+function previewBody(body: unknown, maxLen = 200): string | undefined {
   if (typeof body === 'string') {
-    return body.slice(0, 200);
+    return Number.isFinite(maxLen) ? body.slice(0, maxLen) : body;
   }
 
   if (body instanceof Uint8Array) {
@@ -62,7 +63,8 @@ function previewBody(body: unknown): string | undefined {
 
   if (body && typeof body === 'object') {
     try {
-      return JSON.stringify(body).slice(0, 200);
+      const serialized = JSON.stringify(body);
+      return Number.isFinite(maxLen) ? serialized.slice(0, maxLen) : serialized;
     } catch {
       return undefined;
     }
@@ -92,7 +94,7 @@ async function readResponseBody<T>(res: Response, config?: HttpClientConfig): Pr
   return text as unknown as T;
 }
 
-function debugResponse(log: Logger, method: string, url: string, status: number, headers: Record<string, string>, body: unknown, resolvedFull: boolean) {
+function debugResponse(log: Logger, method: string, url: string, status: number, headers: Record<string, string>, body: unknown, resolvedFull: boolean, maxLen: number) {
   const payload: Record<string, unknown> = {
     method,
     url,
@@ -103,7 +105,7 @@ function debugResponse(log: Logger, method: string, url: string, status: number,
   if (body instanceof Uint8Array) {
     payload.bodyLength = body.byteLength;
   } else if (resolvedFull) {
-    payload.bodyPreview = previewBody(body);
+    payload.bodyPreview = previewBody(body, maxLen);
   }
 
   log.debug('response', payload);
@@ -115,6 +117,7 @@ export function createFetchHttpClient(opts: FetchHttpClientOptions = {}): HttpCl
 
   const resolvedDebug = opts.debug ?? (process.env.HTTP_DEBUG === '1');
   const resolvedFull = opts.debugFullBody ?? false;
+  const resolvedMaxBodyLength = opts.debugMaxBodyLength ?? 200;
   const log = opts.logger ?? defaultLogger();
 
   function toHeaders(h?: Record<string, string>) {
@@ -127,7 +130,7 @@ export function createFetchHttpClient(opts: FetchHttpClientOptions = {}): HttpCl
     if (!res.ok) {
       const errorText = await res.text();
       if (resolvedDebug) {
-        debugResponse(log, method, url, res.status, responseHeaders, errorText, resolvedFull);
+        debugResponse(log, method, url, res.status, responseHeaders, errorText, resolvedFull, resolvedMaxBodyLength);
       }
       throw makeError(res.status, res.statusText, parseResponseText(errorText), responseHeaders);
     }
@@ -135,7 +138,7 @@ export function createFetchHttpClient(opts: FetchHttpClientOptions = {}): HttpCl
     const body = await readResponseBody<T>(res, config);
 
     if (resolvedDebug) {
-      debugResponse(log, method, url, res.status, responseHeaders, body, resolvedFull);
+      debugResponse(log, method, url, res.status, responseHeaders, body, resolvedFull, resolvedMaxBodyLength);
     }
 
     return {
@@ -159,7 +162,7 @@ export function createFetchHttpClient(opts: FetchHttpClientOptions = {}): HttpCl
      async post<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
        const headers = toHeaders(config?.headers) ?? { 'Content-Type': 'application/json' };
        const body = data === undefined ? undefined : JSON.stringify(data);
-       if (resolvedDebug) log.debug('request', { method: 'POST', url, headers: sanitizeHeaders(headers), bodyLength: body ? body.length : 0, bodyPreview: resolvedFull ? (body ? String(body).slice(0,200) : undefined) : undefined });
+       if (resolvedDebug) log.debug('request', { method: 'POST', url, headers: sanitizeHeaders(headers), bodyLength: body ? body.length : 0, bodyPreview: resolvedFull ? previewBody(body, resolvedMaxBodyLength) : undefined });
        const res = await fetchFn(url, { method: 'POST', headers, body });
        return handleResponse<T>('POST', url, res, config);
      },
@@ -167,7 +170,7 @@ export function createFetchHttpClient(opts: FetchHttpClientOptions = {}): HttpCl
      async put<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
        const headers = toHeaders(config?.headers) ?? { 'Content-Type': 'application/json' };
        const body = data === undefined ? undefined : JSON.stringify(data);
-       if (resolvedDebug) log.debug('request', { method: 'PUT', url, headers: sanitizeHeaders(headers), bodyLength: body ? body.length : 0 });
+       if (resolvedDebug) log.debug('request', { method: 'PUT', url, headers: sanitizeHeaders(headers), bodyLength: body ? body.length : 0, bodyPreview: resolvedFull ? previewBody(body, resolvedMaxBodyLength) : undefined });
        const res = await fetchFn(url, { method: 'PUT', headers, body });
        return handleResponse<T>('PUT', url, res, config);
      },
@@ -175,7 +178,7 @@ export function createFetchHttpClient(opts: FetchHttpClientOptions = {}): HttpCl
      async patch<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
        const headers = toHeaders(config?.headers) ?? { 'Content-Type': 'application/json' };
        const body = data === undefined ? undefined : JSON.stringify(data);
-       if (resolvedDebug) log.debug('request', { method: 'PATCH', url, headers: sanitizeHeaders(headers), bodyLength: body ? body.length : 0 });
+       if (resolvedDebug) log.debug('request', { method: 'PATCH', url, headers: sanitizeHeaders(headers), bodyLength: body ? body.length : 0, bodyPreview: resolvedFull ? previewBody(body, resolvedMaxBodyLength) : undefined });
        const res = await fetchFn(url, { method: 'PATCH', headers, body });
        return handleResponse<T>('PATCH', url, res, config);
      },

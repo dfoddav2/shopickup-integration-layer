@@ -29,6 +29,13 @@ Set env alias to always show full logs (or pass `--full-logs`):
 
   FULL_LOGS=1 pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.create-parcels --args examples/functions/fixtures/mpl/create-parcels.json
 
+Write detailed logs to a file
+-----------------------------
+
+Use `--log-file <path>` to keep the console concise while capturing detailed CLI, adapter, and HTTP logs in a file:
+
+  pnpm dlx ts-node ./examples/functions/cli.ts -- --run gls.create-label --args examples/functions/fixtures/gls/create-label.json --log-file ./tmp/gls-create-label.log
+
 Use the mock HTTP client (no network)
 ------------------------------------
 

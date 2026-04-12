@@ -194,7 +194,7 @@ describe('FoxpostAdapter createParcels', () => {
       expect(errors[1].code).toBe('INVALID_FORMAT');
     });
 
-    it('defaults Foxpost parcel flags when options.foxpost is omitted', async () => {
+    it('defaults Foxpost parcel flags from useTestApi when options.foxpost is omitted', async () => {
       const req: CreateParcelsRequestFoxpost = {
         parcels: [createTestParcel('p1')],
         credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
@@ -202,7 +202,7 @@ describe('FoxpostAdapter createParcels', () => {
       };
 
       await adapter.createParcels(req, ctx);
-      expect(mockHttp.lastUrl).toContain('isWeb=true');
+      expect(mockHttp.lastUrl).toContain('isWeb=false');
       expect(mockHttp.lastUrl).toContain('isRedirect=false');
     });
 
@@ -211,7 +211,7 @@ describe('FoxpostAdapter createParcels', () => {
         parcels: [createTestParcel('p1')],
         credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
         options: {
-          useTestApi: true,
+          useTestApi: false,
           foxpost: { isWeb: false, isRedirect: true },
         },
       };

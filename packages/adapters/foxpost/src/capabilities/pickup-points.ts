@@ -32,7 +32,7 @@ function mapFoxpostApmToPickupPoint(apm: FoxpostApmEntry): PickupPoint {
   const placeId = apm.place_id?.toString().trim();
 
   const id = operatorId || placeId || `fallback-${Math.random().toString(36).slice(2, 9)}`;
-  const providerId = operatorId ? placeId : operatorId;
+  const providerId = operatorId || placeId || undefined; // providerId is optional and can be same as id if operator_id is missing
 
   // Parse coordinates (Zod already coerced them to numbers in validation)
   let latitude: number | undefined = apm.geolat;

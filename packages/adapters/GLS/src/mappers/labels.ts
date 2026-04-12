@@ -217,6 +217,8 @@ export function mapGLSPrintLabelsToCanonicalCreateLabels(
              parcelCount: successCount,
              printerType: 'Thermo',
            },
+            // Keep a unified binary access path across adapters.
+            rawBytes: pdfBuffer,
          },
        ]
      : [];
@@ -412,6 +414,8 @@ export function mapGLSGetPrintDataToCanonicalCreateLabels(
              parcelCount: successCount,
              flowType: 'GetPrintData',
            },
+            // Keep a unified binary access path across adapters.
+            rawBytes: pdfBuffer,
          },
        ]
      : [];
@@ -600,6 +604,8 @@ export function mapGLSGetPrintedLabelsToCanonicalCreateLabels(
              parcelCount: successCount,
              printerType: 'Thermo', // Default from request
            },
+            // Keep a unified binary access path across adapters.
+            rawBytes: pdfBuffer,
          },
        ]
      : [];

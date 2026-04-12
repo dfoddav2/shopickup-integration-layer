@@ -286,7 +286,22 @@ const FoxpostParcelFlagsSchema = z.object({
 const FoxpostParcelOptionsSchema = z.object({
   useTestApi: z.boolean().optional(),
   foxpost: FoxpostParcelFlagsSchema.optional(),
-}).catchall(z.unknown());
+}).catchall(z.unknown()).superRefine((options, ctx) => {
+  if (options.useTestApi && options.foxpost?.isWeb === true) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['foxpost', 'isWeb'],
+      message: 'foxpost.isWeb must be false when useTestApi is true',
+    });
+  }
+  if (options.useTestApi && options.foxpost?.isRedirect === true) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['foxpost', 'isRedirect'],
+      message: 'foxpost.isRedirect must be false when useTestApi is true',
+    });
+  }
+});
 
 /**
  * CreateParcelRequest Zod schema
@@ -304,16 +319,16 @@ export const CreateParcelsRequestFoxpostSchema = z.object({
 });
 
 export const CreateLabelRequestFoxpostSchema = z.object({
-   parcelCarrierId: z.string().min(1, 'Parcel carrier ID is required'),
-   credentials: FoxpostCredentialsSchema,
-   options: z.object({
-     useTestApi: z.boolean().optional(),
-     size: z.enum(['A6', 'A7', '_85X85']).default('A7'),
-     foxpost: z.object({
-       startPos: z.number().int().min(0).max(7).optional(),
-       isPortrait: z.boolean().optional().default(false),
-     }).optional(),
-   }).optional()
+  parcelCarrierId: z.string().min(1, 'Parcel carrier ID is required'),
+  credentials: FoxpostCredentialsSchema,
+  options: z.object({
+    useTestApi: z.boolean().optional(),
+    size: z.enum(['A6', 'A7', '_85X85']).default('A7'),
+    foxpost: z.object({
+      startPos: z.number().int().min(0).max(7).optional(),
+      isPortrait: z.boolean().optional().default(false),
+    }).optional(),
+  }).optional()
 });
 
 /**
@@ -321,16 +336,16 @@ export const CreateLabelRequestFoxpostSchema = z.object({
  * Similar to CreateParcelsRequest but for labels
  */
 export const CreateLabelsRequestFoxpostSchema = z.object({
-   parcelCarrierIds: z.array(z.string().min(1)).min(1, 'At least one parcel ID is required'),
-   credentials: FoxpostCredentialsSchema,
-   options: z.object({
-     useTestApi: z.boolean().optional(),
-     size: z.enum(['A6', 'A7', '_85X85']).default('A7'),
-     foxpost: z.object({
-       startPos: z.number().int().min(0).max(7).optional(),
-       isPortrait: z.boolean().optional().default(false),
-     }).optional(),
-   }).optional()
+  parcelCarrierIds: z.array(z.string().min(1)).min(1, 'At least one parcel ID is required'),
+  credentials: FoxpostCredentialsSchema,
+  options: z.object({
+    useTestApi: z.boolean().optional(),
+    size: z.enum(['A6', 'A7', '_85X85']).default('A7'),
+    foxpost: z.object({
+      startPos: z.number().int().min(0).max(7).optional(),
+      isPortrait: z.boolean().optional().default(false),
+    }).optional(),
+  }).optional()
 });
 
 /**
@@ -499,22 +514,22 @@ export type FoxpostTraceStatus = z.infer<typeof TraceStatusEnum>;
  * - Other fields: optional, pass through extra fields
  */
 const TraceSchema = z.object({
-   statusDate: z.string()
-     .refine((s) => {
-       // Accept any string that looks like a date
-       // Covers: ISO with timezone, ISO without timezone, other formats
-       const date = new Date(s);
-       return !isNaN(date.getTime());
-     }, "Invalid date format")
-     .transform(s => new Date(s)),
-   statusStationId: z.union([
-     z.string(),
-     z.number().transform(n => String(n)),
-   ]).optional(),
-   shortName: z.string().optional(),
-   longName: z.string().optional(),
-   status: TraceStatusEnum.optional(),
- }).loose(); // Allow extra fields from API
+  statusDate: z.string()
+    .refine((s) => {
+      // Accept any string that looks like a date
+      // Covers: ISO with timezone, ISO without timezone, other formats
+      const date = new Date(s);
+      return !isNaN(date.getTime());
+    }, "Invalid date format")
+    .transform(s => new Date(s)),
+  statusStationId: z.union([
+    z.string(),
+    z.number().transform(n => String(n)),
+  ]).optional(),
+  shortName: z.string().optional(),
+  longName: z.string().optional(),
+  status: TraceStatusEnum.optional(),
+}).loose(); // Allow extra fields from API
 
 export type FoxpostTrace = z.infer<typeof TraceSchema>;
 
@@ -552,13 +567,13 @@ export type FoxpostSendType = z.infer<typeof FoxpostSendTypeEnum>;
  * - Passes through extra fields from API
  */
 const FoxpostTrackingSchema = z.object({
-   clFox: z.string().optional(),
-   parcelType: FoxpostParcelTypeEnum.optional(),
-   sendType: FoxpostSendTypeEnum.optional(),
-   traces: z.array(TraceSchema).optional(),
-   relatedParcel: z.string().nullable().optional(),
-   estimatedDelivery: z.string().nullable().optional(),
- }).loose(); // Allow extra fields from API
+  clFox: z.string().optional(),
+  parcelType: FoxpostParcelTypeEnum.optional(),
+  sendType: FoxpostSendTypeEnum.optional(),
+  traces: z.array(TraceSchema).optional(),
+  relatedParcel: z.string().nullable().optional(),
+  estimatedDelivery: z.string().nullable().optional(),
+}).loose(); // Allow extra fields from API
 
 export type FoxpostTracking = z.infer<typeof FoxpostTrackingSchema>;
 
@@ -593,9 +608,9 @@ export function safeValidateFoxpostTracking(res: unknown) {
  * Uses lenient validation to accept any field name or error code
  */
 const FieldErrorSchema = z.object({
-   field: z.string().optional(),
-   message: z.string().optional(),
- }).loose(); // Allow extra fields (e.g., error codes)
+  field: z.string().optional(),
+  message: z.string().optional(),
+}).loose(); // Allow extra fields (e.g., error codes)
 
 export type FoxFieldError = z.infer<typeof FieldErrorSchema>;
 
@@ -609,16 +624,16 @@ export type FoxFieldError = z.infer<typeof FieldErrorSchema>;
  * - Lenient with field types (clFoxId may be string or number fallback)
  */
 const PackageSchema = z.object({
-   clFoxId: z.union([
-     z.string(),
-     z.number().transform(n => String(n)),
-   ]).optional(),
-   barcode: z.string().nullable().optional(), // Fallback name for barcode
-   newBarcode: z.string().nullable().optional(), // Alternative barcode field
-   refCode: z.string().nullable().optional(),
-   uniqueBarcode: z.string().nullable().optional(),
-   errors: z.array(FieldErrorSchema).nullable().optional(),
-  }).loose(); // Allow extra fields from API
+  clFoxId: z.union([
+    z.string(),
+    z.number().transform(n => String(n)),
+  ]).optional(),
+  barcode: z.string().nullable().optional(), // Fallback name for barcode
+  newBarcode: z.string().nullable().optional(), // Alternative barcode field
+  refCode: z.string().nullable().optional(),
+  uniqueBarcode: z.string().nullable().optional(),
+  errors: z.array(FieldErrorSchema).nullable().optional(),
+}).loose(); // Allow extra fields from API
 
 export type FoxPackage = z.infer<typeof PackageSchema>;
 
@@ -633,10 +648,10 @@ export type FoxPackage = z.infer<typeof PackageSchema>;
  * - Passes through extra fields for extensibility
  */
 const CreateResponseSchema = z.object({
-   valid: z.boolean().optional(),
-   parcels: z.array(PackageSchema).optional(),
-   errors: z.array(FieldErrorSchema).optional(),
- }).loose(); // Allow extra fields from API
+  valid: z.boolean().optional(),
+  parcels: z.array(PackageSchema).optional(),
+  errors: z.array(FieldErrorSchema).optional(),
+}).loose(); // Allow extra fields from API
 
 export type FoxCreateResponse = z.infer<typeof CreateResponseSchema>;
 
@@ -658,41 +673,41 @@ const CreateParcelRequestItemSchema = z.object({
   recipientName: z.string().max(150).optional(),
   recipientEmail: z.string().optional(),
   recipientPhone: z.string().optional(),
-  
+
   // Optional contact fields
   recipientCountry: z.string().max(3).optional(),
-  
+
   // HD (Home Delivery) address fields - optional at schema level
   // (validation logic in parcels.ts checks that either all or none are present)
   recipientCity: z.string().max(50).optional(),
   recipientZip: z.string().optional(),
   recipientAddress: z.string().max(150).optional(),
-  
+
   // APM delivery field
   destination: z.string().optional(),
-  
+
   // Parcel details
   size: z.union([
     z.enum(['XS', 'S', 'M', 'L', 'XL']),
     z.enum(['xs', 's', 'm', 'l', 'xl']).transform(s => s.toUpperCase()),
     z.string(), // Lenient: accept any string size
   ]).optional().default('S'),
-  
+
   cod: z.union([
     z.number().int().min(0).max(1000000),
     z.string().transform(s => parseInt(s, 10)).refine(n => !Number.isNaN(n) && n >= 0 && n <= 1000000),
   ]).optional().default(0),
-  
+
   // Optional fields - lenient, any string accepted
   comment: z.string().max(50).optional(),
   deliveryNote: z.string().optional(),
   label: z.boolean().optional(),
   fragile: z.boolean().optional(),
-   refCode: z.string().max(30).optional(),
-   uniqueBarcode: z.string().max(20).optional(),
-   
-   // Extra fields for future extensibility
- }).loose();
+  refCode: z.string().max(30).optional(),
+  uniqueBarcode: z.string().max(20).optional(),
+
+  // Extra fields for future extensibility
+}).loose();
 
 export type FoxCreateParcelRequestItem = z.infer<typeof CreateParcelRequestItemSchema>;
 
@@ -741,7 +756,7 @@ export function validateFoxpostCreateParcelRequestItem(item: unknown): FoxCreate
  * Returns { success: true, data } or { success: false, error }
  */
 export function safeValidateFoxpostCreateParcelRequestItem(item: unknown) {
-   return CreateParcelRequestItemSchema.safeParse(item);
+  return CreateParcelRequestItemSchema.safeParse(item);
 }
 
 /**
@@ -759,10 +774,10 @@ export function safeValidateFoxpostCreateParcelRequestItem(item: unknown) {
  * Uses lenient validation to accept any structure
  */
 const ApiErrorSchema = z.object({
-   timestamp: z.string().optional(),
-   error: z.string().optional(),
-   status: z.number().int().optional(),
- }).loose(); // Allow extra fields from API
+  timestamp: z.string().optional(),
+  error: z.string().optional(),
+  status: z.number().int().optional(),
+}).loose(); // Allow extra fields from API
 
 export type FoxpostApiError = z.infer<typeof ApiErrorSchema>;
 
@@ -771,7 +786,7 @@ export type FoxpostApiError = z.infer<typeof ApiErrorSchema>;
  * Returns { success: true, data } or { success: false, error }
  */
 export function safeValidateFoxpostApiError(res: unknown) {
-   return ApiErrorSchema.safeParse(res);
+  return ApiErrorSchema.safeParse(res);
 }
 
 /**
@@ -780,10 +795,10 @@ export function safeValidateFoxpostApiError(res: unknown) {
  * Accepts Node Buffer or any object with numeric byteLength > 0
  */
 const FoxpostLabelPdfRawSchema = z.any().refine(
-   (v) => {
-     return v != null && typeof (v as any).byteLength === 'number' && (v as any).byteLength > 0;
-   },
-   { message: 'Expected non-empty PDF buffer' }
+  (v) => {
+    return v != null && typeof (v as any).byteLength === 'number' && (v as any).byteLength > 0;
+  },
+  { message: 'Expected non-empty PDF buffer' }
 );
 
 export type FoxpostLabelPdfRaw = unknown; // Runtime-validated via refine
@@ -793,7 +808,7 @@ export type FoxpostLabelPdfRaw = unknown; // Runtime-validated via refine
  * Returns { success: true, data } or { success: false, error }
  */
 export function safeValidateFoxpostLabelPdfRaw(raw: unknown) {
-   return FoxpostLabelPdfRawSchema.safeParse(raw);
+  return FoxpostLabelPdfRawSchema.safeParse(raw);
 }
 
 /**
@@ -801,11 +816,11 @@ export function safeValidateFoxpostLabelPdfRaw(raw: unknown) {
  * Describes the PDF file properties and generation options
  */
 const FoxpostLabelPdfMetadataSchema = z.object({
-   size: z.enum(['A6', 'A7', '_85X85']).optional(),
-   barcodesCount: z.number().int().min(1).optional(),
-   startPos: z.number().int().min(0).max(7).optional(),
-   isPortrait: z.boolean().optional(),
- }).loose();
+  size: z.enum(['A6', 'A7', '_85X85']).optional(),
+  barcodesCount: z.number().int().min(1).optional(),
+  startPos: z.number().int().min(0).max(7).optional(),
+  isPortrait: z.boolean().optional(),
+}).loose();
 
 export type FoxpostLabelPdfMetadata = z.infer<typeof FoxpostLabelPdfMetadataSchema>;
 
@@ -814,7 +829,7 @@ export type FoxpostLabelPdfMetadata = z.infer<typeof FoxpostLabelPdfMetadataSche
  * Throws ZodError if validation fails
  */
 export function validateFoxpostLabelPdfMetadata(metadata: unknown): FoxpostLabelPdfMetadata {
-   return FoxpostLabelPdfMetadataSchema.parse(metadata);
+  return FoxpostLabelPdfMetadataSchema.parse(metadata);
 }
 
 /**
@@ -822,7 +837,7 @@ export function validateFoxpostLabelPdfMetadata(metadata: unknown): FoxpostLabel
  * Returns { success: true, data } or { success: false, error }
  */
 export function safeValidateFoxpostLabelPdfMetadata(metadata: unknown) {
-   return FoxpostLabelPdfMetadataSchema.safeParse(metadata);
+  return FoxpostLabelPdfMetadataSchema.safeParse(metadata);
 }
 
 /**
@@ -831,25 +846,25 @@ export function safeValidateFoxpostLabelPdfMetadata(metadata: unknown) {
  * Contains pre-label metadata about the parcel
  */
 const LabelInfoSchema = z.object({
-   senderName: z.string().optional(),
-   senderZip: z.string().optional(),
-   senderCity: z.string().optional(),
-   senderAddress: z.string().optional(),
-   recipientName: z.string().optional(),
-   recipientEmail: z.string().optional(),
-   recipientPhone: z.string().optional(),
-   recipientZip: z.string().optional(),
-   recipientCity: z.string().optional(),
-   recipientAddress: z.string().optional(),
-   apm: z.string().optional(),
-   cod: z.number().int().optional(),
-   isFragile: z.boolean().optional(),
-   barcode: z.string().optional(),
-   refCode: z.string().optional(),
-   depoCode: z.string().optional(),
-   courierCode: z.string().optional(),
-   sendType: z.enum(['APM', 'HD', 'COLLECT']).optional(),
- }).loose(); // Allow extra fields from API
+  senderName: z.string().optional(),
+  senderZip: z.string().optional(),
+  senderCity: z.string().optional(),
+  senderAddress: z.string().optional(),
+  recipientName: z.string().optional(),
+  recipientEmail: z.string().optional(),
+  recipientPhone: z.string().optional(),
+  recipientZip: z.string().optional(),
+  recipientCity: z.string().optional(),
+  recipientAddress: z.string().optional(),
+  apm: z.string().optional(),
+  cod: z.number().int().optional(),
+  isFragile: z.boolean().optional(),
+  barcode: z.string().optional(),
+  refCode: z.string().optional(),
+  depoCode: z.string().optional(),
+  courierCode: z.string().optional(),
+  sendType: z.enum(['APM', 'HD', 'COLLECT']).optional(),
+}).loose(); // Allow extra fields from API
 
 export type FoxpostLabelInfo = z.infer<typeof LabelInfoSchema>;
 
@@ -858,7 +873,7 @@ export type FoxpostLabelInfo = z.infer<typeof LabelInfoSchema>;
  * Throws ZodError if validation fails
  */
 export function validateFoxpostLabelInfo(res: unknown): FoxpostLabelInfo {
-   return LabelInfoSchema.parse(res);
+  return LabelInfoSchema.parse(res);
 }
 
 /**
@@ -866,7 +881,7 @@ export function validateFoxpostLabelInfo(res: unknown): FoxpostLabelInfo {
  * Returns { success: true, data } or { success: false, error }
  */
 export function safeValidateFoxpostLabelInfo(res: unknown) {
-   return LabelInfoSchema.safeParse(res);
+  return LabelInfoSchema.safeParse(res);
 }
 
 /**
@@ -880,14 +895,14 @@ export function safeValidateFoxpostLabelInfo(res: unknown) {
  * Uses passthrough to allow extra fields and lenient validation
  */
 const OpeningHoursSchema = z.object({
-   hetfo: z.string().optional().nullable(),
-   kedd: z.string().optional().nullable(),
-   szerda: z.string().optional().nullable(),
-   csutortok: z.string().optional().nullable(),
-   pentek: z.string().optional().nullable(),
-   szombat: z.string().optional().nullable(),
-   vasarnap: z.string().optional().nullable(),
- }).loose(); // Allow extra fields
+  hetfo: z.string().optional().nullable(),
+  kedd: z.string().optional().nullable(),
+  szerda: z.string().optional().nullable(),
+  csutortok: z.string().optional().nullable(),
+  pentek: z.string().optional().nullable(),
+  szombat: z.string().optional().nullable(),
+  vasarnap: z.string().optional().nullable(),
+}).loose(); // Allow extra fields
 
 export type FoxpostOpeningHours = z.infer<typeof OpeningHoursSchema>;
 
@@ -895,9 +910,9 @@ export type FoxpostOpeningHours = z.infer<typeof OpeningHoursSchema>;
  * Fill/empty schedule entry
  */
 const FillEmptyEntrySchema = z.object({
-   emptying: z.string().optional(),
-   filling: z.string().optional(),
- }).loose();
+  emptying: z.string().optional(),
+  filling: z.string().optional(),
+}).loose();
 
 export type FoxpostFillEmptyEntry = z.infer<typeof FillEmptyEntrySchema>;
 
@@ -907,12 +922,12 @@ export type FoxpostFillEmptyEntry = z.infer<typeof FillEmptyEntrySchema>;
  * where the customer can pick up/drop off their parcel.
  */
 const FoxpostSubstituteSchema = z.object({
-   place_id: z.union([
-     z.string(),
-     z.number().transform(n => String(n)),
-   ]),
-   operator_id: z.string().optional().nullable(),
- }).loose(); // Allow extra fields for future extensibility
+  place_id: z.union([
+    z.string(),
+    z.number().transform(n => String(n)),
+  ]),
+  operator_id: z.string().optional().nullable(),
+}).loose(); // Allow extra fields for future extensibility
 
 export type FoxpostSubstitute = z.infer<typeof FoxpostSubstituteSchema>;
 
@@ -921,15 +936,15 @@ export type FoxpostSubstitute = z.infer<typeof FoxpostSubstituteSchema>;
  * Uses lenient validation with passthrough for future extensibility
  */
 const FoxpostApmMetadataSchema = z.object({
-   depot: z.string().optional(),
-   load: z.string().optional(), // Lenient: accept any string, not just predefined enum values
-   apmType: z.string().optional(), // Lenient: accept any string (Cleveron, Keba, Rollkon, Rotte, Z-BOX, Z-Pont, etc.)
-   substitutes: z.array(FoxpostSubstituteSchema).optional(), // Array of substitute APM objects
-   variant: z.string().optional(), // Lenient: accept any string
-   fillEmptyList: z.array(FillEmptyEntrySchema).optional(),
-   ssapt: z.string().optional(),
-   sdapt: z.string().optional(),
- }).loose();
+  depot: z.string().optional(),
+  load: z.string().optional(), // Lenient: accept any string, not just predefined enum values
+  apmType: z.string().optional(), // Lenient: accept any string (Cleveron, Keba, Rollkon, Rotte, Z-BOX, Z-Pont, etc.)
+  substitutes: z.array(FoxpostSubstituteSchema).optional(), // Array of substitute APM objects
+  variant: z.string().optional(), // Lenient: accept any string
+  fillEmptyList: z.array(FillEmptyEntrySchema).optional(),
+  ssapt: z.string().optional(),
+  sdapt: z.string().optional(),
+}).loose();
 
 export type FoxpostApmMetadata = z.infer<typeof FoxpostApmMetadataSchema>;
 
@@ -962,23 +977,23 @@ const FoxpostApmEntrySchema = z.object({
     n => n === undefined || !Number.isNaN(n),
     'Longitude must be a valid number'
   ),
-   allowed2: z.enum(['ALL', 'C2C', 'B2C']).optional(),
-   depot: z.string().optional(),
-   load: z.string().optional(), // Lenient: accept any string (e.g., "normal loaded", "custom value")
-   isOutdoor: z.boolean().optional(),
-   apmType: z.string().optional(), // Lenient: accept any string (Foxpost types: Cleveron/Keba/Rollkon/Rotte, Packeta types: Z-BOX/Z-Pont, etc.)
-   substitutes: z.array(FoxpostSubstituteSchema).optional(), // Array of substitute APM objects
-   open: OpeningHoursSchema.optional(),
-   fillEmptyList: z.array(FillEmptyEntrySchema).optional(),
-   cardPayment: z.boolean().optional(),
-   cashPayment: z.boolean().optional(),
-   iconUrl: z.string().optional(),
-   variant: z.string().optional(), // Lenient: accept any string (e.g., FOXPOST A-BOX, Packeta Z-BOX, custom types)
-   paymentOptions: z.array(z.string()).optional(), // Lenient: accept any payment method string
-   paymentOptionsString: z.string().optional(),
-    service: z.array(z.string()).optional(), // Lenient: accept any service string (pickup, dispatch, or others)
-    serviceString: z.string().optional(),
- }).loose(); // Allow extra fields from API
+  allowed2: z.enum(['ALL', 'C2C', 'B2C']).optional(),
+  depot: z.string().optional(),
+  load: z.string().optional(), // Lenient: accept any string (e.g., "normal loaded", "custom value")
+  isOutdoor: z.boolean().optional(),
+  apmType: z.string().optional(), // Lenient: accept any string (Foxpost types: Cleveron/Keba/Rollkon/Rotte, Packeta types: Z-BOX/Z-Pont, etc.)
+  substitutes: z.array(FoxpostSubstituteSchema).optional(), // Array of substitute APM objects
+  open: OpeningHoursSchema.optional(),
+  fillEmptyList: z.array(FillEmptyEntrySchema).optional(),
+  cardPayment: z.boolean().optional(),
+  cashPayment: z.boolean().optional(),
+  iconUrl: z.string().optional(),
+  variant: z.string().optional(), // Lenient: accept any string (e.g., FOXPOST A-BOX, Packeta Z-BOX, custom types)
+  paymentOptions: z.array(z.string()).optional(), // Lenient: accept any payment method string
+  paymentOptionsString: z.string().optional(),
+  service: z.array(z.string()).optional(), // Lenient: accept any service string (pickup, dispatch, or others)
+  serviceString: z.string().optional(),
+}).loose(); // Allow extra fields from API
 
 export type FoxpostApmEntry = z.infer<typeof FoxpostApmEntrySchema>;
 

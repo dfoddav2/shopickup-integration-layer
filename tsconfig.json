@@ -4,10 +4,7 @@
     "module": "NodeNext",
     "moduleResolution": "nodenext",
     "lib": ["ES2022"],
-    "baseUrl": ".",
-    "paths": {
-      "@shopickup/core": ["packages/core/dist/index.d.ts"]
-    },
+    "types": ["node"],
     "resolveJsonModule": true,
     "strict": true,
     "esModuleInterop": true,

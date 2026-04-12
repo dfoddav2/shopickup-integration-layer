@@ -150,7 +150,7 @@ describe("Foxpost Pickup Points", () => {
       const firstPoint = result.points[0];
 
       expect(firstPoint.id).toBe("hu5844");
-      expect(firstPoint.providerId).toBe("1444335");
+      expect(firstPoint.providerId).toBe("hu5844");
     });
 
     it("should fall back to place_id when operator_id is empty", async () => {

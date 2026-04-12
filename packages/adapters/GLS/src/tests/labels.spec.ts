@@ -185,6 +185,8 @@ describe('GLS Label Mappers', () => {
         contentType: 'application/pdf',
         pages: 2, // One page per label
       });
+      expect(result.files?.[0].rawBytes).toBeDefined();
+      expect(Buffer.isBuffer(result.files?.[0].rawBytes)).toBe(true);
       expect(result.results).toHaveLength(2);
       // rawCarrierResponse should be an object with pdfBuffer and parcelCount
       expect(result.rawCarrierResponse).toBeDefined();
@@ -286,6 +288,8 @@ describe('GLS Label Mappers', () => {
       const response = result.rawCarrierResponse as any;
       expect(Buffer.isBuffer(response.pdfBuffer)).toBe(true);
       expect(response.parcelCount).toBe(1);
+      expect(result.files?.[0].rawBytes).toBeDefined();
+      expect(Buffer.isBuffer(result.files?.[0].rawBytes)).toBe(true);
     });
 
     it('should handle binary PDF data directly', () => {
@@ -306,6 +310,7 @@ describe('GLS Label Mappers', () => {
       const response = result.rawCarrierResponse as any;
       expect(response.pdfBuffer).toBe(pdfBuffer);
       expect(response.parcelCount).toBe(1);
+      expect(result.files?.[0].rawBytes).toBe(pdfBuffer);
     });
   });
 });

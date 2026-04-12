@@ -336,7 +336,7 @@ describe('Foxpost Validation Schemas', () => {
           basicPassword: 'pass',
         },
         options: {
-          useTestApi: true,
+          useTestApi: false,
           foxpost: {
             isWeb: false,
             isRedirect: true,
@@ -349,6 +349,48 @@ describe('Foxpost Validation Schemas', () => {
       if (result.success) {
         expect(result.data.options?.foxpost?.isWeb).toBe(false);
         expect(result.data.options?.foxpost?.isRedirect).toBe(true);
+      }
+    });
+
+    it('rejects test API requests that explicitly set isWeb to true', () => {
+      const req = {
+        parcel: {
+          id: 'p1',
+          shipper: {
+            contact: { name: 'Sender' },
+            address: { name: 'Sender', street: 'Main', city: 'Budapest', postalCode: '1011', country: 'HU' },
+          },
+          recipient: {
+            contact: { name: 'Recipient' },
+            delivery: {
+              method: 'HOME',
+              address: { name: 'Recipient', street: 'Other', city: 'Budapest', postalCode: '1012', country: 'HU' },
+            },
+          },
+          package: { weightGrams: 1000 },
+          service: 'standard',
+        },
+        credentials: {
+          apiKey: 'key',
+          basicUsername: 'user',
+          basicPassword: 'pass',
+        },
+        options: {
+          useTestApi: true,
+          foxpost: {
+            isWeb: true,
+          },
+        },
+      };
+
+      const result = safeValidateCreateParcelRequest(req);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(
+          result.error.issues.some(
+            (issue) => issue.path.join('.') === 'options.foxpost.isWeb' && issue.message.includes('must be false')
+          )
+        ).toBe(true);
       }
     });
 
@@ -390,6 +432,50 @@ describe('Foxpost Validation Schemas', () => {
       if (result.success) {
         expect(result.data.options?.foxpost?.isWeb).toBe(true);
         expect(result.data.options?.foxpost?.isRedirect).toBe(false);
+      }
+    });
+
+    it('rejects test API batch requests that explicitly set isWeb to true', () => {
+      const req = {
+        parcels: [
+          {
+            id: 'p1',
+            shipper: {
+              contact: { name: 'Sender' },
+              address: { name: 'Sender', street: 'Main', city: 'Budapest', postalCode: '1011', country: 'HU' },
+            },
+            recipient: {
+              contact: { name: 'Recipient' },
+              delivery: {
+                method: 'HOME',
+                address: { name: 'Recipient', street: 'Other', city: 'Budapest', postalCode: '1012', country: 'HU' },
+              },
+            },
+            package: { weightGrams: 1000 },
+            service: 'standard',
+          },
+        ],
+        credentials: {
+          apiKey: 'key',
+          basicUsername: 'user',
+          basicPassword: 'pass',
+        },
+        options: {
+          useTestApi: true,
+          foxpost: {
+            isWeb: true,
+          },
+        },
+      };
+
+      const result = safeValidateCreateParcelsRequest(req);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(
+          result.error.issues.some(
+            (issue) => issue.path.join('.') === 'options.foxpost.isWeb' && issue.message.includes('must be false')
+          )
+        ).toBe(true);
       }
     });
   });

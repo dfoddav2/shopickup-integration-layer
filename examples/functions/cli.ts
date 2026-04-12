@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import inquirer from 'inquirer';
+import { inspect } from 'util';
 
 import { loadEnv } from './_lib/env.ts';
 import { createHttpClient, buildAdapterContext } from './_lib/context.ts';
@@ -12,6 +13,107 @@ import { serializeForLog } from './_lib/serialize.ts';
 const __filename = fileURLToPath(import.meta.url);
 const FUNCTIONS_DIR = path.join(path.dirname(__filename));
 const THIS_DIR = path.dirname(__filename);
+
+type CliOutput = ReturnType<typeof createCliOutput>;
+
+function getFlagValue(argv: string[], flagNames: string[]): string | undefined {
+  for (let i = 0; i < argv.length; i++) {
+    const current = argv[i];
+    for (const flag of flagNames) {
+      if (current === flag) {
+        return argv[i + 1];
+      }
+      if (current.startsWith(`${flag}=`)) {
+        return current.slice(flag.length + 1);
+      }
+    }
+  }
+  return undefined;
+}
+
+function createCliOutput(logFilePath?: string) {
+  const resolvedLogFilePath = logFilePath ? path.resolve(logFilePath) : undefined;
+
+  function appendToFile(entry: string) {
+    if (!resolvedLogFilePath) return;
+    fs.mkdirSync(path.dirname(resolvedLogFilePath), { recursive: true });
+    fs.appendFileSync(resolvedLogFilePath, entry.endsWith('\n') ? entry : `${entry}\n`);
+  }
+
+  function renderMeta(meta: unknown) {
+    if (meta === undefined || meta === null || meta === '') return '';
+    if (typeof meta === 'string') return meta;
+    try {
+      return inspect(meta, { depth: null, colors: false, compact: false, sorted: true });
+    } catch (_) {
+      return String(meta);
+    }
+  }
+
+  function emit(level: 'debug' | 'info' | 'warn' | 'error' | 'log', message: string, meta?: unknown) {
+    const renderedMeta = renderMeta(meta);
+    const line = renderedMeta ? `${message} ${renderedMeta}` : message;
+
+    if (resolvedLogFilePath) {
+      appendToFile(`[${new Date().toISOString()}] [${level}] ${line}`);
+    }
+
+    const shouldPrintToConsole = !resolvedLogFilePath || level === 'warn' || level === 'error' || level === 'log';
+    if (!shouldPrintToConsole) return;
+
+    if (level === 'warn') {
+      if (meta === undefined) console.warn(message);
+      else console.warn(message, meta);
+      return;
+    }
+
+    if (level === 'error') {
+      if (meta === undefined) console.error(message);
+      else console.error(message, meta);
+      return;
+    }
+
+    if (meta === undefined) console.log(message);
+    else console.log(message, meta);
+  }
+
+  function formatForFile(value: unknown) {
+    if (typeof value === 'string') return value;
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch (_) {
+      try {
+        return JSON.stringify(serializeForLog(value), null, 2);
+      } catch (err) {
+        return String(err instanceof Error ? err.message : value);
+      }
+    }
+  }
+
+  return {
+    logFilePath: resolvedLogFilePath,
+    log(message: string, meta?: unknown) {
+      emit('log', message, meta);
+    },
+    info(message: string, meta?: unknown) {
+      emit('info', message, meta);
+    },
+    debug(message: string, meta?: unknown) {
+      emit('debug', message, meta);
+    },
+    warn(message: string, meta?: unknown) {
+      emit('warn', message, meta);
+    },
+    error(message: string, meta?: unknown) {
+      emit('error', message, meta);
+    },
+    writeSection(title: string, value: unknown) {
+      if (!resolvedLogFilePath) return;
+      const body = formatForFile(value);
+      appendToFile(`\n=== ${title} ===\n${body}`);
+    },
+  };
+}
 
 function findArgsFile(pathStr: string): string | undefined {
   const candidates = [
@@ -74,14 +176,14 @@ function discoverFunctions() {
   return modules;
 }
 
-async function runModuleById(modules: Array<{ id: string; file: string }>, id: string, argsInput?: string, useMockHttp = false, fullLogs = false, exchangeFirst = false) {
+async function runModuleById(modules: Array<{ id: string; file: string }>, id: string, argsInput?: string, useMockHttp = false, fullLogs = false, exchangeFirst = false, output?: CliOutput) {
   const found = modules.find((m) => m.id === id);
   if (!found) throw new Error(`Function not found: ${id}`);
   const carrier = id.split('.')[0];
 
   const mod = await import(found.file);
   const meta = mod.meta || {};
-  console.log(`Running: ${meta.id || found.file} - ${meta.description || ''}`);
+  output?.log(`Running: ${meta.id || found.file} - ${meta.description || ''}`);
 
   let args: any = {};
   if (argsInput) {
@@ -128,7 +230,7 @@ async function runModuleById(modules: Array<{ id: string; file: string }>, id: s
         }
 
         if (!foundPath) {
-          console.error('Args parsing: candidates checked:', candidates);
+          output?.error('Args parsing: candidates checked', candidates);
           throw new Error(`Args file not found: ${possiblePath}`);
         }
 
@@ -141,15 +243,15 @@ async function runModuleById(modules: Array<{ id: string; file: string }>, id: s
   }
 
   // Apply environment overrides (e.g. MPL_API_KEY / MPL_OAUTH_TOKEN)
-  args = applyEnvOverridesToArgs(args, carrier);
+  args = applyEnvOverridesToArgs(args, carrier, output);
 
   // If fullLogs requested, print the effective args (with sensitive fields redacted)
   if (fullLogs) {
     const redacted = redactArgsForLog(args);
     try {
-      console.log('Effective args:', JSON.stringify(redacted, null, 2));
+      output?.info('Effective args', JSON.stringify(redacted, null, 2));
     } catch (e) {
-      console.log('Effective args:', redactArgsForLog(args));
+      output?.info('Effective args', redactArgsForLog(args));
     }
   }
 
@@ -164,13 +266,13 @@ async function runModuleById(modules: Array<{ id: string; file: string }>, id: s
     }
   }
 
-  const httpClient = createHttpClient({ useMock: useMockHttp, debug: fullLogs });
+  const httpClient = createHttpClient({ useMock: useMockHttp, debug: fullLogs || !!output?.logFilePath, logger: output ? wrapPinoLogger(output) : wrapPinoLogger(console as any) });
   // If requested, perform an auth token exchange first (useful when ENV contains stale oauth token)
   try {
     if (exchangeFirst && carrier === 'mpl') {
       // Build a minimal context for the exchange
-      const exchHttp = createHttpClient({ useMock: useMockHttp });
-      const exchCtx = { adapterContext: buildAdapterContext(exchHttp, wrapPinoLogger(console as any), 'exchangeAuthToken') } as any;
+      const exchHttp = createHttpClient({ useMock: useMockHttp, debug: fullLogs || !!output?.logFilePath, logger: output ? wrapPinoLogger(output) : wrapPinoLogger(console as any) });
+      const exchCtx = { adapterContext: buildAdapterContext(exchHttp, output || wrapPinoLogger(console as any), 'exchangeAuthToken') } as any;
 
       // Prepare exchange request credentials: prefer explicit API key/secret from env or args
       const exchangeReq: any = { credentials: {}, options: { useTestApi: args?.options?.useTestApi } };
@@ -182,25 +284,25 @@ async function runModuleById(modules: Array<{ id: string; file: string }>, id: s
       if (!exchangeReq.credentials.apiSecret && args.credentials?.apiSecret) exchangeReq.credentials.apiSecret = args.credentials.apiSecret;
 
       if (exchangeReq.credentials.apiKey && exchangeReq.credentials.apiSecret) {
-        console.log('Performing token exchange before call (exchangeFirst enabled)');
+        output?.log('Performing token exchange before call (exchangeFirst enabled)');
         const { MPLAdapter } = await import('@shopickup/adapters-mpl');
         const adapter = new MPLAdapter();
         try {
-          // Use debug mode for the exchange HTTP client when fullLogs requested
-          exchCtx.adapterContext.http = createHttpClient({ useMock: useMockHttp, debug: fullLogs });
+          // Use debug mode for the exchange HTTP client when detailed logging is requested
+          exchCtx.adapterContext.http = createHttpClient({ useMock: useMockHttp, debug: fullLogs || !!output?.logFilePath, logger: output ? wrapPinoLogger(output) : wrapPinoLogger(console as any) });
           const exchanged = await (adapter as any).exchangeAuthToken(exchangeReq, exchCtx.adapterContext);
           // Inject the newly acquired token into args for the forthcoming call
           args.credentials = args.credentials || {};
           args.credentials.authType = 'oauth2';
           args.credentials.access_token = exchanged.access_token;
           args.credentials.oAuth2Token = exchanged.access_token;
-          if (fullLogs) console.log('Exchanged token (masked):', mask(exchanged.access_token));
+          if (fullLogs || output?.logFilePath) output?.info('Exchanged token (masked)', mask(exchanged.access_token));
         } catch (e) {
-          console.error('Token exchange failed:', (e as any)?.message || e);
+          output?.error('Token exchange failed', (e as any)?.message || e);
           throw e;
         }
       } else {
-        console.warn('exchangeFirst requested but no API key/secret available to perform token exchange');
+        output?.warn('exchangeFirst requested but no API key/secret available to perform token exchange');
       }
     }
   } catch (e) {
@@ -208,11 +310,11 @@ async function runModuleById(modules: Array<{ id: string; file: string }>, id: s
     throw e;
   }
   // If fullLogs is requested, set loggingOptions to show full responses
-  const loggingOptions = fullLogs
+  const loggingOptions = (fullLogs || !!output?.logFilePath)
     ? { logRawResponse: true, maxArrayItems: 1000, maxDepth: 20 }
     : { logRawResponse: 'summary', maxArrayItems: 5, maxDepth: 2 };
 
-  const ctx = { adapterContext: buildAdapterContext(httpClient, wrapPinoLogger(console as any), 'examples-cli') };
+  const ctx = { adapterContext: buildAdapterContext(httpClient, output || wrapPinoLogger(console as any), 'examples-cli') };
   // patch in loggingOptions if needed
   ctx.adapterContext.loggingOptions = loggingOptions as any;
 
@@ -229,12 +331,20 @@ function redactArgsForLog(args: any) {
       if (c.apiSecret) c.apiSecret = mask(c.apiSecret);
       if (c.apiKey) c.apiKey = mask(c.apiKey);
       if (c.access_token) c.access_token = mask(c.access_token);
+      if (c.username) c.username = mask(c.username);
+      if (c.password) c.password = mask(c.password);
+      if (c.basicUsername) c.basicUsername = mask(c.basicUsername);
+      if (c.basicPassword) c.basicPassword = mask(c.basicPassword);
       out.credentials = c;
     }
     if (out.options && out.options.mpl) {
       const m = { ...out.options.mpl };
       if (m.bankAccountNumber) m.bankAccountNumber = mask(m.bankAccountNumber);
       out.options = { ...out.options, mpl: m };
+    }
+    if (out.options && out.options.gls) {
+      const g = { ...out.options.gls };
+      out.options = { ...out.options, gls: g };
     }
   } catch (_) {
     // ignore
@@ -286,7 +396,7 @@ function redactLargeLabels(obj: any) {
   }
 }
 
-function applyEnvOverridesToArgs(args: any, carrier?: string) {
+function applyEnvOverridesToArgs(args: any, carrier?: string, output?: CliOutput) {
   const env = process.env;
   if (!env) return args;
 
@@ -374,18 +484,22 @@ function applyEnvOverridesToArgs(args: any, carrier?: string) {
     if (env.MPL_BANK_ACCOUNT_NUMBER) { applied.push('MPL_BANK_ACCOUNT_NUMBER'); masked.push(`MPL_BANK_ACCOUNT_NUMBER=${mask(env.MPL_BANK_ACCOUNT_NUMBER)}`); }
   }
   if (useTestEnv) applied.push('USE_TEST_API');
-  if (applied.length > 0) console.log('Applied env overrides:', applied.join(', '), masked.length ? `(${masked.join(', ')})` : '');
+  if (applied.length > 0) output?.info(`Applied env overrides: ${applied.join(', ')}${masked.length ? ` (${masked.join(', ')})` : ''}`);
 
   return args;
 }
 
 async function main() {
+  const argv = process.argv.slice(2);
+  const logFilePath = getFlagValue(argv, ['--log-file']);
+  const output = createCliOutput(logFilePath);
+
   // Prefer package-local .env (examples/functions/.env) so running from repo root
   // still loads the example credentials. Fall back to default dotenv behavior.
   const localEnvPath = path.join(FUNCTIONS_DIR, '.env');
   if (fs.existsSync(localEnvPath)) {
     loadEnv(localEnvPath);
-    console.log('Loaded env from', localEnvPath);
+    output.log(`Loaded env from ${localEnvPath}`);
     // Print detected relevant env vars (masked) for quick debugging
     try {
       const present: string[] = [];
@@ -400,7 +514,7 @@ async function main() {
       if (process.env.GLS_USERNAME) present.push(`GLS_USERNAME=${mask(process.env.GLS_USERNAME)}`);
       if (process.env.GLS_PASSWORD) present.push(`GLS_PASSWORD=${mask(process.env.GLS_PASSWORD)}`);
       if (process.env.GLS_CLIENT_ID) present.push(`GLS_CLIENT_ID=${mask(process.env.GLS_CLIENT_ID)}`);
-      if (present.length > 0) console.log('Detected env vars:', present.join(', '));
+      if (present.length > 0) output.info(`Detected env vars: ${present.join(', ')}`);
     } catch (e) {
       // ignore
     }
@@ -410,7 +524,6 @@ async function main() {
   const modules = discoverFunctions();
 
   // Simple argv parsing for --run and --args
-  const argv = process.argv.slice(2);
   let runId: string | undefined;
   let argsInput: string | undefined;
   let useMock = false;
@@ -437,7 +550,7 @@ async function main() {
     } else if (a.startsWith('--args=')) {
       argsInput = a.split('=')[1];
     } else if (a === '--help' || a === '-h') {
-      console.log('Usage: cli.ts [--run <functionId>] [--args <json-or-path>] [--mock] [--exchange-first]');
+      output.log('Usage: cli.ts [--run <functionId>] [--args <json-or-path>] [--mock] [--full-logs] [--log-file <path>] [--exchange-first]');
       process.exit(0);
     }
   }
@@ -475,25 +588,37 @@ async function main() {
       }
 
       // Apply env overrides only inside runModuleById to avoid duplicate logs
-      const result = await runModuleById(modules, runId, parsedArgs ? JSON.stringify(parsedArgs) : undefined, useMock, fullLogs, exchangeFirst);
+      const result = await runModuleById(modules, runId, parsedArgs ? JSON.stringify(parsedArgs) : undefined, useMock, fullLogs, exchangeFirst, output);
       try {
         const redacted = redactLargeLabels(result);
-        const pretty = serializeForLog(redacted);
-        console.log('Result:', JSON.stringify(pretty, null, 2));
+        if (output.logFilePath) {
+          output.writeSection('Result', result);
+          output.log(`Result written to ${output.logFilePath}`);
+          const summary = (redacted as any)?.summary || (redacted as any)?.message || (redacted as any)?.status;
+          if (summary) output.log(`Result summary: ${String(summary)}`);
+        } else {
+          const pretty = serializeForLog(redacted);
+          output.log(`Result: ${JSON.stringify(pretty, null, 2)}`);
+        }
       } catch (_) {
-        console.log('Result:', JSON.stringify(result, null, 2));
+        if (output.logFilePath) {
+          output.writeSection('Result', result);
+          output.log(`Result written to ${output.logFilePath}`);
+        } else {
+          output.log(`Result: ${JSON.stringify(result, null, 2)}`);
+        }
       }
       process.exit(0);
     } catch (err) {
       if (fullLogs) {
         try {
           const pretty = serializeForLog(err);
-          console.error('Error:', JSON.stringify(pretty, null, 2));
+          output.error('Error', JSON.stringify(pretty, null, 2));
         } catch (e) {
-          console.error('Error:', err);
+          output.error('Error', err);
         }
       } else {
-        console.error('Error:', err);
+        output.error('Error', err);
       }
       process.exit(1);
     }
@@ -505,21 +630,21 @@ async function main() {
 
   const mod = await import(ans.sel.file);
   const meta = mod.meta || {};
-  console.log(`Selected: ${meta.id || ans.sel.file} - ${meta.description || ''}`);
+  output.log(`Selected: ${meta.id || ans.sel.file} - ${meta.description || ''}`);
 
   const paramsAns = await inquirer.prompt([{ type: 'editor', name: 'args', message: 'Provide JSON args for run(args, ctx)' }]);
   const args = JSON.parse(paramsAns.args || '{}');
 
-  const httpClient = createHttpClient();
-  const ctx = { adapterContext: buildAdapterContext(httpClient, wrapPinoLogger(console as any)) };
+  const httpClient = createHttpClient({ logger: output ? wrapPinoLogger(output) : wrapPinoLogger(console as any) });
+  const ctx = { adapterContext: buildAdapterContext(httpClient, output || wrapPinoLogger(console as any)) };
 
   const result = await mod.run(args, ctx);
   try {
     const redacted = redactLargeLabels(result);
     const pretty = serializeForLog(redacted);
-    console.log('Result:', JSON.stringify(pretty, null, 2));
+    output.log(`Result: ${JSON.stringify(pretty, null, 2)}`);
   } catch (_) {
-    console.log('Result:', JSON.stringify(result, null, 2));
+    output.log(`Result: ${JSON.stringify(result, null, 2)}`);
   }
 }
 

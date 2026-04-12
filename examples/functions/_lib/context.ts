@@ -66,7 +66,7 @@ export function buildAdapterContext(httpClient: any, logger: FastifyLoggerInstan
   return ctx as AdapterContext;
 }
 
-export function createHttpClient(opts?: { useMock?: boolean; debug?: boolean }) {
+export function createHttpClient(opts?: { useMock?: boolean; debug?: boolean; logger?: any }) {
   const useMock = opts?.useMock ?? (process.env.USE_MOCK_HTTP_CLIENT === '1' || process.env.USE_MOCK_HTTP_CLIENT === 'true');
   if (useMock) {
     return createMockHttpClient();
@@ -75,5 +75,5 @@ export function createHttpClient(opts?: { useMock?: boolean; debug?: boolean }) 
   const debug = opts?.debug ?? (process.env.HTTP_DEBUG === '1' || process.env.FULL_LOGS === '1' || process.env.FULL_LOGS === 'true');
   // Provide a logger that routes through safeLog/serializeForLog so HTTP meta
   // objects are expanded/truncated consistently with adapter logging.
-  return createAxiosHttpClient({ debug, logger: wrapPinoLogger(console) });
+  return createAxiosHttpClient({ debug, logger: opts?.logger ?? wrapPinoLogger(console) });
 }
