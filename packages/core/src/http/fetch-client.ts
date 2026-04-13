@@ -52,6 +52,25 @@ function isBinaryResponseType(responseType?: HttpClientConfig['responseType']) {
   return responseType === 'arraybuffer' || responseType === 'binary';
 }
 
+function encodeRequestBody(data: unknown): unknown {
+  if (data === undefined || data === null) return undefined;
+  if (typeof data === 'string') return data;
+  if (data instanceof URLSearchParams) return data.toString();
+  if (data instanceof Uint8Array) return data;
+  const FormDataCtor = (globalThis as any).FormData;
+  const BlobCtor = (globalThis as any).Blob;
+  if (FormDataCtor && data instanceof FormDataCtor) return data;
+  if (BlobCtor && data instanceof BlobCtor) return data;
+  return JSON.stringify(data);
+}
+
+function bodyLength(body: unknown): number {
+  if (body === undefined) return 0;
+  if (typeof body === 'string') return body.length;
+  if (body instanceof Uint8Array) return body.byteLength;
+  return String(body).length;
+}
+
 function previewBody(body: unknown, maxLen = 200): string | undefined {
   if (typeof body === 'string') {
     return Number.isFinite(maxLen) ? body.slice(0, maxLen) : body;
@@ -159,29 +178,29 @@ export function createFetchHttpClient(opts: FetchHttpClientOptions = {}): HttpCl
        return handleResponse<T>('GET', url, res, config);
      },
 
-     async post<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
-       const headers = toHeaders(config?.headers) ?? { 'Content-Type': 'application/json' };
-       const body = data === undefined ? undefined : JSON.stringify(data);
-       if (resolvedDebug) log.debug('request', { method: 'POST', url, headers: sanitizeHeaders(headers), bodyLength: body ? body.length : 0, bodyPreview: resolvedFull ? previewBody(body, resolvedMaxBodyLength) : undefined });
-       const res = await fetchFn(url, { method: 'POST', headers, body });
-       return handleResponse<T>('POST', url, res, config);
-     },
+      async post<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
+        const headers = toHeaders(config?.headers) ?? { 'Content-Type': 'application/json' };
+        const body = encodeRequestBody(data);
+        if (resolvedDebug) log.debug('request', { method: 'POST', url, headers: sanitizeHeaders(headers), bodyLength: bodyLength(body), bodyPreview: resolvedFull ? previewBody(body, resolvedMaxBodyLength) : undefined });
+        const res = await fetchFn(url, { method: 'POST', headers, body });
+        return handleResponse<T>('POST', url, res, config);
+      },
 
-     async put<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
-       const headers = toHeaders(config?.headers) ?? { 'Content-Type': 'application/json' };
-       const body = data === undefined ? undefined : JSON.stringify(data);
-       if (resolvedDebug) log.debug('request', { method: 'PUT', url, headers: sanitizeHeaders(headers), bodyLength: body ? body.length : 0, bodyPreview: resolvedFull ? previewBody(body, resolvedMaxBodyLength) : undefined });
-       const res = await fetchFn(url, { method: 'PUT', headers, body });
-       return handleResponse<T>('PUT', url, res, config);
-     },
+      async put<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
+        const headers = toHeaders(config?.headers) ?? { 'Content-Type': 'application/json' };
+        const body = encodeRequestBody(data);
+        if (resolvedDebug) log.debug('request', { method: 'PUT', url, headers: sanitizeHeaders(headers), bodyLength: bodyLength(body), bodyPreview: resolvedFull ? previewBody(body, resolvedMaxBodyLength) : undefined });
+        const res = await fetchFn(url, { method: 'PUT', headers, body });
+        return handleResponse<T>('PUT', url, res, config);
+      },
 
-     async patch<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
-       const headers = toHeaders(config?.headers) ?? { 'Content-Type': 'application/json' };
-       const body = data === undefined ? undefined : JSON.stringify(data);
-       if (resolvedDebug) log.debug('request', { method: 'PATCH', url, headers: sanitizeHeaders(headers), bodyLength: body ? body.length : 0, bodyPreview: resolvedFull ? previewBody(body, resolvedMaxBodyLength) : undefined });
-       const res = await fetchFn(url, { method: 'PATCH', headers, body });
-       return handleResponse<T>('PATCH', url, res, config);
-     },
+      async patch<T = unknown>(url: string, data?: unknown, config?: HttpClientConfig): Promise<HttpResponse<T>> {
+        const headers = toHeaders(config?.headers) ?? { 'Content-Type': 'application/json' };
+        const body = encodeRequestBody(data);
+        if (resolvedDebug) log.debug('request', { method: 'PATCH', url, headers: sanitizeHeaders(headers), bodyLength: bodyLength(body), bodyPreview: resolvedFull ? previewBody(body, resolvedMaxBodyLength) : undefined });
+        const res = await fetchFn(url, { method: 'PATCH', headers, body });
+        return handleResponse<T>('PATCH', url, res, config);
+      },
 
      async delete<T = unknown>(url: string, config?: HttpClientConfig): Promise<HttpResponse<T>> {
        const headers = toHeaders(config?.headers);
