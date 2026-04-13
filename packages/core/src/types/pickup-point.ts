@@ -125,7 +125,10 @@ export interface PickupPoint {
  */
 export interface FetchPickupPointsRequest {
   /**
-   * Credentials for carrier API (if required)
+   * Credentials for carrier API, if the carrier requires authentication.
+   *
+   * Public pickup-point feeds (for example GLS and Foxpost) do not need this.
+   * Authenticated carriers (for example MPL) can require it in their own adapter schema.
    * Example: { apiKey: "...", username: "...", password: "..." }
    */
   credentials?: Record<string, unknown>;

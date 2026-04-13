@@ -12,6 +12,8 @@ Foxpost adapter for Shopickup.
 - `TRACK`
 - `LIST_PICKUP_POINTS`
 
+Pickup points use Foxpost's public feed and do not require credentials.
+
 ## Install
 
 ```bash

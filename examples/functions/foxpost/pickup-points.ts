@@ -19,7 +19,6 @@ export async function run(args: FoxpostFetchPickupPointsRequest, ctx: { adapterC
 
   const res = await adapter.fetchPickupPoints(
     {
-      credentials: args.credentials,
       options: args.options,
     },
     ctx.adapterContext,

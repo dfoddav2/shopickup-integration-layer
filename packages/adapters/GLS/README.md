@@ -12,6 +12,8 @@ GLS adapter for Shopickup.
 - `TRACK`
 - `LIST_PICKUP_POINTS`
 
+Pickup points use GLS's public country feed and do not require credentials.
+
 ## Install
 
 ```bash

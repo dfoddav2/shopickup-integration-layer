@@ -1046,4 +1046,3 @@ export function safeValidateFoxpostApmEntry(entry: unknown) {
 export function safeValidateFetchPickupPointsRequest(input: unknown) {
   return FoxpostFetchPickupPointsRequestSchema.safeParse(input);
 }
-

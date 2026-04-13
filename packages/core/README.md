@@ -10,6 +10,7 @@ Open source on GitHub: <https://github.com/shopickup/shopickup-integration-layer
 - Carrier adapter interfaces and capabilities
 - Orchestration helpers for label flows
 - Pluggable HTTP client wrappers
+- Generic pickup-point requests where carrier auth is optional
 
 ## What this is not
 
@@ -38,6 +39,10 @@ import { createFetchHttpClient } from '@shopickup/core/http/fetch-client';
 - `createAxiosHttpClient()` is included for Node-friendly integrations that want Axios.
 - `createFetchHttpClient()` is included for environments that prefer `fetch`.
 - Adapters do not own HTTP behavior; callers provide the client.
+
+## Pickup points
+
+`FetchPickupPointsRequest.credentials` is optional in core. Individual adapters decide whether pickup-point lookup is public or authenticated.
 
 ## Status
 

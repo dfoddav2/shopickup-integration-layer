@@ -1,10 +1,4 @@
 {
-  "credentials": {
-    "username": "GLS_USERNAME",
-    "password": "GLS_PASSWORD",
-    "clientNumberList": [12345],
-    "webshopEngine": "shopickup/1.0"
-  },
   "parcel": {
     "id": "GLS-EX-001",
     "package": {

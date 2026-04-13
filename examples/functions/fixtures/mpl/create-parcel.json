@@ -1,8 +1,4 @@
 {
-  "credentials": {
-    "authType": "oauth2",
-    "oAuth2Token": "MPL_OAUTH_TOKEN"
-  },
   "parcel": {
     "id": "WEBSHOP-EX-001",
     "shipper": {

@@ -1,0 +1,13 @@
+{
+  "credentials": {
+    "authType": "oauth2",
+    "oAuth2Token": "MPL_OAUTH_TOKEN"
+  },
+  "options": {
+    "useTestApi": true,
+    "mpl": {
+      "accountingCode": "MPL_ACCOUNTING_CODE",
+      "city": "Budapest"
+    }
+  }
+}

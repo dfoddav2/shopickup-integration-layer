@@ -14,6 +14,8 @@ MPL adapter for Shopickup.
 - `LIST_PICKUP_POINTS`
 - OAuth/basic auth exchange helpers
 
+Pickup points are authenticated and require MPL credentials in the adapter request.
+
 ## Install
 
 ```bash

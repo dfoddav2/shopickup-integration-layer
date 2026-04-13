@@ -94,6 +94,24 @@ function handleGlsPost(url, data) {
     });
   }
 
+  if (url.includes('/deliveryplace')) {
+    return makeResponse(200, [
+      {
+        deliveryplacesQueryResult: {
+          deliveryplace: 'Mock MPL PostaPont',
+          postCode: '1111',
+          city: 'Budapest',
+          address: 'Mock street 1',
+          geocodeLat: 47.4979,
+          geocodeLong: 19.0402,
+          id: 'mpl-mock-1',
+          errors: null,
+        },
+        servicePointType: ['PM', 'PP'],
+      },
+    ]);
+  }
+
   return null;
 }
 

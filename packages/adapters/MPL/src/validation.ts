@@ -94,7 +94,7 @@ export interface FetchPickupPointsRequestMPL extends Omit<CoreFetchPickupPointsR
  * - servicePointType: one of the defined ServicePointType values
  */
 export const FetchPickupPointsMPLSchema = z.object({
-    credentials: MPLCredentialsSchema,
+     credentials: MPLCredentialsSchema,
      options: FetchPickupPointsMPLOptionsSchema,
 });
 

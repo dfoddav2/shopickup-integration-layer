@@ -41,6 +41,15 @@ Use the mock HTTP client (no network)
 
   USE_MOCK_HTTP_CLIENT=1 pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.create-parcels --args examples/functions/fixtures/mpl/create-parcels.json
 
+Fetch MPL pickup points (auth required)
+---------------------------------------
+
+  pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.pickup-points --args examples/functions/fixtures/mpl/pickup-points.json --full-logs
+
+If you want the CLI to exchange API key/secret for OAuth first, add `--exchange-first` and provide `MPL_API_KEY` / `MPL_API_SECRET` in env:
+
+  pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.pickup-points --args examples/functions/fixtures/mpl/pickup-points.json --exchange-first
+
 - Run and perform token exchange first (useful when you have API key/secret and want a fresh token):
 
   pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.create-parcels --args examples/functions/fixtures/mpl/create-parcels.json --exchange-first

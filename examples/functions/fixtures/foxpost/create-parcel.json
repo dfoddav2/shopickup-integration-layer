@@ -1,9 +1,4 @@
 {
-  "credentials": {
-    "apiKey": "FOXPOST_API_KEY",
-    "basicUsername": "FOXPOST_BASIC_USERNAME",
-    "basicPassword": "FOXPOST_BASIC_PASSWORD"
-  },
   "parcel": {
     "id": "FOX-EX-001",
     "shipper": {
