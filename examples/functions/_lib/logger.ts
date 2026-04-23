@@ -4,28 +4,38 @@ import { serializeForLog } from './serialize.ts';
 import { safeLog } from '@shopickup/core';
 import { inspect } from 'util';
 
+function formatMetaForConsole(meta: unknown) {
+  if (meta === undefined || meta === null) return undefined;
+
+  const serialized = serializeForLog(meta);
+  return inspect(serialized, {
+    depth: 4,
+    colors: true,
+    compact: false,
+    sorted: true,
+    maxArrayLength: 20,
+    breakLength: 120,
+  });
+}
+
 export function wrapPinoLogger(pinoLogger: any) {
   const baseLogger = pinoLogger || console;
 
-  // Create a logger that stringifies meta before sending to console to avoid
-  // Node's util.inspect truncation (shows [Object]). We still use safeLog to
-  // apply truncation/summarization rules first.
+  // Keep the console readable in normal runs. safeLog already applies the
+  // loggingOptions truncation rules; the formatter here should not re-expand
+  // the object graph with unlimited depth.
   const stringifyLogger = {
     debug: (msg: string, meta?: Record<string, unknown>) => {
-      const serialized = meta ? serializeForLog(meta) : undefined;
-      baseLogger.debug(msg, serialized ? inspect(serialized, { depth: null, colors: true, compact: false }) : undefined);
+      baseLogger.debug(msg, formatMetaForConsole(meta));
     },
     info: (msg: string, meta?: Record<string, unknown>) => {
-      const serialized = meta ? serializeForLog(meta) : undefined;
-      baseLogger.info(msg, serialized ? inspect(serialized, { depth: null, colors: true, compact: false }) : undefined);
+      baseLogger.info(msg, formatMetaForConsole(meta));
     },
     warn: (msg: string, meta?: Record<string, unknown>) => {
-      const serialized = meta ? serializeForLog(meta) : undefined;
-      baseLogger.warn(msg, serialized ? inspect(serialized, { depth: null, colors: true, compact: false }) : undefined);
+      baseLogger.warn(msg, formatMetaForConsole(meta));
     },
     error: (msg: string, meta?: Record<string, unknown>) => {
-      const serialized = meta ? serializeForLog(meta) : undefined;
-      baseLogger.error(msg, serialized ? inspect(serialized, { depth: null, colors: true, compact: false }) : undefined);
+      baseLogger.error(msg, formatMetaForConsole(meta));
     },
   };
 

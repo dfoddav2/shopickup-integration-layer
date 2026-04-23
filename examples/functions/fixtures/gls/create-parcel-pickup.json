@@ -1,0 +1,69 @@
+{
+  "parcel": {
+    "id": "b74d0b38-1b3c-439d-87e9-3093b578293b",
+    "package": {
+      "weightGrams": 1200,
+      "dimensionsCm": {
+        "length": 30,
+        "width": 20,
+        "height": 10
+      }
+    },
+    "service": "standard",
+    "shipper": {
+      "contact": {
+        "name": "Example Shop",
+        "phone": "+36301234567",
+        "email": "logistics@example.com"
+      },
+      "address": {
+        "name": "Example Shop Warehouse",
+        "street": "Alkotas utca 10",
+        "city": "Budapest",
+        "postalCode": "1123",
+        "country": "HU",
+        "phone": "+36301234567",
+        "email": "logistics@example.com"
+      }
+    },
+    "recipient": {
+      "contact": {
+        "name": "Pickup GLS",
+        "phone": "+36301234568",
+        "email": "pickup@example.hu"
+      },
+      "delivery": {
+        "method": "PICKUP_POINT",
+        "pickupPoint": {
+          "id": "6756",
+          "provider": "gls",
+          "name": "GLS Automata Ehrle Automoso Szeged",
+          "type": "SHOP",
+          "address": {
+            "name": "GLS Automata Ehrle Automoso Szeged",
+            "street": "Szabadkai út 86",
+            "city": "SZEGED",
+            "postalCode": "6729",
+            "country": "HU"
+          }
+        }
+      }
+    },
+    "references": {
+      "orderId": "b74d0b38-1b3c-439d-87e9-3093b578293b"
+    }
+  },
+  "credentials": {
+    "username": "GLS_USERNAME",
+    "password": "GLS_PASSWORD",
+    "clientNumberList": [12345],
+    "webshopEngine": "shopickup/1.0"
+  },
+  "options": {
+    "useTestApi": true,
+    "country": "HU",
+    "gls": {
+      "country": "HU"
+    }
+  }
+}

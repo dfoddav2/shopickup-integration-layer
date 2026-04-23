@@ -66,6 +66,14 @@ export interface LabelFileResource {
   contentType: string;
 
   /**
+   * Canonical label format for downstream consumers.
+   *
+   * Use this when the carrier or adapter already knows whether the label is
+   * PDF or ZPL, regardless of the specific MIME type used on the wire.
+   */
+  labelFormat?: 'PDF' | 'ZPL';
+
+  /**
    * Size of the file in bytes (if known)
    * Helps integrators allocate storage and validate transfers
    */

@@ -2,7 +2,7 @@ import type { AdapterContext, CreateLabelResponse } from '@shopickup/core';
 import type { GLSCreateLabelRequest } from '@shopickup/adapters-gls/validation';
 
 // Quick test call:
-// pnpm dlx ts-node ./examples/functions/cli.ts -- --run gls.create-label --args examples/functions/fixtures/gls/create-label.json --full-logs
+// pnpm dlx ts-node ./examples/functions/cli.ts -- --run gls.create-label --args examples/functions/fixtures/gls/create-label.json --save-label --full-logs
 
 export const meta = {
   id: 'gls.create-label',

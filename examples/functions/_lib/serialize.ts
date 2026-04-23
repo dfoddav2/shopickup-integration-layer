@@ -41,6 +41,22 @@ export function serializeForLog(obj: unknown): unknown {
       return (value as Array<unknown>).map((v) => serialize(v, depth + 1));
     }
 
+    // Handle JSON-serialized Buffer objects, e.g. { type: 'Buffer', data: [...] }
+    if (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      (value as { type?: unknown; data?: unknown }).type === 'Buffer' &&
+      Array.isArray((value as { data?: unknown }).data)
+    ) {
+      const bytes = (value as { data: number[] }).data;
+      const len = bytes.length;
+      if (len <= 64) {
+        return `Buffer(${len}): ${bytes.map((b: number) => b.toString(16).padStart(2, '0')).join(' ')}`;
+      }
+      return `[Binary: ${len} bytes]`;
+    }
+
     // Handle binary types explicitly: Buffer, ArrayBuffer, TypedArray / ArrayBufferView
     try {
       if (typeof Buffer !== 'undefined' && Buffer.isBuffer(value as any)) {

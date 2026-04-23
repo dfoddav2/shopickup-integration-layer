@@ -248,7 +248,8 @@ export async function printLabels(
     // Map response to canonical format
     const response = mapGLSPrintLabelsToCanonicalCreateLabels(
       carrierRespBody,
-      validated.parcels.length
+      validated.parcels.length,
+      validated.options?.gls?.printerType
     );
 
     safeLog(

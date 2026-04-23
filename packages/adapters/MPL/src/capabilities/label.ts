@@ -290,6 +290,7 @@ export async function createLabels(
             const file: LabelFileResource = {
               id: randomUUID(),
               contentType: queryParams.labelFormat === 'ZPL' ? 'text/plain' : 'application/pdf',
+              labelFormat: queryParams.labelFormat === 'ZPL' ? 'ZPL' : 'PDF',
               byteLength: buffer.byteLength,
               pages: 0,
               orientation: 'portrait',

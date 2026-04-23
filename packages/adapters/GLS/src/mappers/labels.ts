@@ -59,6 +59,18 @@ function generateFileUuid(): string {
     .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
 }
 
+function isZplPrinterType(printerType?: string): boolean {
+  return !!printerType && /ZPL/i.test(printerType);
+}
+
+function resolveLabelFormat(printerType?: string): 'PDF' | 'ZPL' {
+  return isZplPrinterType(printerType) ? 'ZPL' : 'PDF';
+}
+
+function resolveLabelContentType(printerType?: string): 'application/pdf' | 'application/x-zpl' {
+  return resolveLabelFormat(printerType) === 'ZPL' ? 'application/x-zpl' : 'application/pdf';
+}
+
 /**
  * Map canonical Shopickup CreateLabelsRequest to GLS PrintLabelsRequest
  * 
@@ -119,7 +131,8 @@ export function mapCanonicalCreateLabelsToGLSPrintLabels(
  */
 export function mapGLSPrintLabelsToCanonicalCreateLabels(
    glsResponse: GLSPrintLabelsResponse,
-   requestParcelCount: number
+  requestParcelCount: number,
+  printerType?: string
   ): CreateLabelsResponse {
    const successfulLabels = glsResponse.printLabelsInfoList || (glsResponse as any).PrintLabelsInfoList || [];
    const errors = glsResponse.printLabelsErrorList || (glsResponse as any).PrintLabelsErrorList || [];
@@ -208,14 +221,16 @@ export function mapGLSPrintLabelsToCanonicalCreateLabels(
      ? [
          {
            id: fileId,
-           contentType: 'application/pdf',
+           contentType: resolveLabelContentType(printerType),
+           labelFormat: resolveLabelFormat(printerType),
            byteLength: pdfBuffer.length,
            pages: successCount, // One page per label
            orientation: 'portrait' as const,
            metadata: {
              combined: true,
              parcelCount: successCount,
-             printerType: 'Thermo',
+             printerType: printerType || 'Thermo',
+             labelFormat: resolveLabelFormat(printerType),
            },
             // Keep a unified binary access path across adapters.
             rawBytes: pdfBuffer,
@@ -318,7 +333,8 @@ export function mapCanonicalCreateLabelsToGLSGetPrintData(
  */
 export function mapGLSGetPrintDataToCanonicalCreateLabels(
    glsResponse: GLSGetPrintDataResponse,
-   requestParcelCount: number
+  requestParcelCount: number,
+  printerType?: string
  ): CreateLabelsResponse {
    // Handle case sensitivity: GLS API returns PascalCase, but spec shows camelCase
    const successfulLabels = glsResponse.printDataInfoList || (glsResponse as any).PrintDataInfoList || [];
@@ -405,7 +421,8 @@ export function mapGLSGetPrintDataToCanonicalCreateLabels(
      ? [
          {
            id: fileId,
-           contentType: 'application/pdf',
+           contentType: resolveLabelContentType(printerType),
+           labelFormat: resolveLabelFormat(printerType),
            byteLength: pdfBuffer.length,
            pages: successCount,
            orientation: 'portrait' as const,
@@ -413,6 +430,8 @@ export function mapGLSGetPrintDataToCanonicalCreateLabels(
              combined: true,
              parcelCount: successCount,
              flowType: 'GetPrintData',
+             printerType: printerType || 'Thermo',
+             labelFormat: resolveLabelFormat(printerType),
            },
             // Keep a unified binary access path across adapters.
             rawBytes: pdfBuffer,
@@ -506,7 +525,8 @@ export function mapCanonicalCreateLabelsToGLSGetPrintedLabels(
  */
 export function mapGLSGetPrintedLabelsToCanonicalCreateLabels(
    glsResponse: GLSGetPrintedLabelsResponse,
-   requestParcelCount: number
+  requestParcelCount: number,
+  printerType?: string
  ): CreateLabelsResponse {
    // Handle case sensitivity: GLS API returns PascalCase, but spec shows camelCase
    const successfulLabels = glsResponse.printDataInfoList || (glsResponse as any).PrintDataInfoList || [];
@@ -595,14 +615,16 @@ export function mapGLSGetPrintedLabelsToCanonicalCreateLabels(
      ? [
          {
            id: fileId,
-           contentType: 'application/pdf',
+           contentType: resolveLabelContentType(printerType),
+           labelFormat: resolveLabelFormat(printerType),
            byteLength: pdfBuffer.length,
            pages: successCount, // One page per label
            orientation: 'portrait' as const,
            metadata: {
              combined: true,
              parcelCount: successCount,
-             printerType: 'Thermo', // Default from request
+             printerType: printerType || 'Thermo', // Default from request
+             labelFormat: resolveLabelFormat(printerType),
            },
             // Keep a unified binary access path across adapters.
             rawBytes: pdfBuffer,

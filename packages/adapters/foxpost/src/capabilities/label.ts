@@ -274,6 +274,7 @@ export async function createLabels(
        const file: LabelFileResource = {
          id: fileId,
          contentType: "application/pdf",
+         labelFormat: 'PDF',
          byteLength,
          pages: req.parcelCarrierIds.length, // One page per label (Foxpost behavior)
          orientation: internalOptions.isPortrait === false ? 'landscape' : 'portrait',

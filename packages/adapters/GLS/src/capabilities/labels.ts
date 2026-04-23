@@ -247,7 +247,8 @@ export async function createLabels(
     // Map response to canonical format
     const response = mapGLSGetPrintedLabelsToCanonicalCreateLabels(
       carrierRespBody,
-      validated.parcelCarrierIds.length
+      validated.parcelCarrierIds.length,
+      validated.options?.gls?.printerType
     );
 
     safeLog(

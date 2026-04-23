@@ -292,6 +292,28 @@ describe('GLS Label Mappers', () => {
       expect(Buffer.isBuffer(result.files?.[0].rawBytes)).toBe(true);
     });
 
+    it('should mark ThermoZPL printer output as ZPL', () => {
+      const glsResponse = {
+        labels: Buffer.from('^XA^XZ').toString('base64'),
+        printLabelsInfoList: [
+          {
+            clientReference: 'ORDER-ZPL-001',
+            parcelId: 54321,
+          },
+        ],
+      };
+
+      const result = mapGLSPrintLabelsToCanonicalCreateLabels(glsResponse, 1, 'ThermoZPL');
+
+      expect(result.files?.[0]).toMatchObject({
+        contentType: 'application/x-zpl',
+      });
+      expect(result.files?.[0]?.metadata).toMatchObject({
+        printerType: 'ThermoZPL',
+        labelFormat: 'ZPL',
+      });
+    });
+
     it('should handle binary PDF data directly', () => {
       const pdfBuffer = Buffer.from('Binary PDF data');
 

@@ -31,6 +31,130 @@ function getFlagValue(argv: string[], flagNames: string[]): string | undefined {
   return undefined;
 }
 
+function isLabelExampleFunction(functionId: string): boolean {
+  const operation = functionId.split('.')[1] || '';
+  return ['create-label', 'create-labels', 'print-label', 'print-labels'].includes(operation);
+}
+
+function resolveLabelOutputExtension(result: unknown): string {
+  const record = result as Record<string, unknown> | undefined;
+  const fileCandidate = record?.file as Record<string, unknown> | undefined;
+  const filesCandidate = Array.isArray(record?.files) ? (record?.files as Array<Record<string, unknown>>) : [];
+  const resultLabelFormat = typeof record?.labelFormat === 'string' ? record.labelFormat : undefined;
+  const resultContentType = typeof record?.contentType === 'string' ? record.contentType : undefined;
+  const metadataContentType = typeof record?.metadata === 'object' && record?.metadata
+    ? (record.metadata as Record<string, unknown>).contentType
+    : undefined;
+  const fileLabelFormat = typeof fileCandidate?.labelFormat === 'string' ? fileCandidate.labelFormat : undefined;
+  const fileMetadataLabelFormat = typeof fileCandidate?.metadata === 'object' && fileCandidate?.metadata
+    ? (fileCandidate.metadata as Record<string, unknown>).labelFormat
+    : undefined;
+  const resultMetadataLabelFormat = typeof record?.metadata === 'object' && record?.metadata
+    ? (record.metadata as Record<string, unknown>).labelFormat
+    : undefined;
+  const filesLabelFormat = filesCandidate.find((file) => typeof file?.labelFormat === 'string')?.labelFormat;
+  const contentType =
+    (typeof fileLabelFormat === 'string' && fileLabelFormat) ||
+    (typeof fileMetadataLabelFormat === 'string' && fileMetadataLabelFormat) ||
+    (typeof filesLabelFormat === 'string' && filesLabelFormat) ||
+    (typeof resultLabelFormat === 'string' && resultLabelFormat) ||
+    (typeof resultMetadataLabelFormat === 'string' && resultMetadataLabelFormat) ||
+    (typeof fileCandidate?.contentType === 'string' && fileCandidate.contentType) ||
+    filesCandidate.find((file) => typeof file?.contentType === 'string')?.contentType ||
+    resultContentType ||
+    (typeof metadataContentType === 'string' ? metadataContentType : undefined);
+
+  if (typeof contentType === 'string' && contentType.toUpperCase().includes('ZPL')) {
+    return 'zpl';
+  }
+
+  return 'pdf';
+}
+
+function deriveLabelOutputPath(functionFile: string, result: unknown): string {
+  const directory = path.dirname(functionFile);
+  const baseName = path.basename(functionFile, path.extname(functionFile));
+  return path.join(directory, `${baseName}.${resolveLabelOutputExtension(result)}`);
+}
+
+function decodePotentialBase64(input: string): Buffer | undefined {
+  const compact = input.trim().replace(/\s+/g, '');
+  if (!compact || compact.length < 64 || compact.length % 4 !== 0) return undefined;
+  if (!/^[A-Za-z0-9+/=]+$/.test(compact)) return undefined;
+
+  try {
+    const decoded = Buffer.from(compact, 'base64');
+    if (decoded.length === 0) return undefined;
+    return decoded;
+  } catch (_) {
+    return undefined;
+  }
+}
+
+function extractLabelBytes(value: unknown, seen = new WeakSet<object>()): Buffer | undefined {
+  if (value === null || value === undefined) return undefined;
+
+  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(value as any)) {
+    return value as Buffer;
+  }
+
+  if (value instanceof Uint8Array) {
+    return Buffer.from(value);
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length > 0 && value.every((item) => typeof item === 'number' && Number.isInteger(item) && item >= 0 && item <= 255)) {
+      return Buffer.from(value as number[]);
+    }
+    for (const item of value) {
+      const extracted = extractLabelBytes(item, seen);
+      if (extracted) return extracted;
+    }
+    return undefined;
+  }
+
+  if (typeof value === 'string') {
+    return decodePotentialBase64(value);
+  }
+
+  if (typeof value !== 'object') return undefined;
+  if (seen.has(value as object)) return undefined;
+  seen.add(value as object);
+
+  const record = value as Record<string, unknown>;
+  const preferredKeys = ['pdfBuffer', 'rawBytes', 'labels', 'label', 'base64', 'data', 'body'];
+
+  for (const key of preferredKeys) {
+    if (key in record) {
+      const extracted = extractLabelBytes(record[key], seen);
+      if (extracted) return extracted;
+    }
+  }
+
+  if (Array.isArray(record.files)) {
+    for (const file of record.files) {
+      const extracted = extractLabelBytes(file, seen);
+      if (extracted) return extracted;
+    }
+  }
+
+  for (const [, nested] of Object.entries(record)) {
+    const extracted = extractLabelBytes(nested, seen);
+    if (extracted) return extracted;
+  }
+
+  return undefined;
+}
+
+function saveLabelOutput(result: unknown, outputPath: string): { saved: boolean; byteLength?: number } {
+  const bytes = extractLabelBytes(result);
+  if (!bytes) return { saved: false };
+
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(outputPath, bytes);
+  return { saved: true, byteLength: bytes.length };
+}
+
 function createCliOutput(logFilePath?: string) {
   const resolvedLogFilePath = logFilePath ? path.resolve(logFilePath) : undefined;
 
@@ -176,7 +300,7 @@ function discoverFunctions() {
   return modules;
 }
 
-async function runModuleById(modules: Array<{ id: string; file: string }>, id: string, argsInput?: string, useMockHttp = false, fullLogs = false, exchangeFirst = false, output?: CliOutput) {
+async function runModuleById(modules: Array<{ id: string; file: string }>, id: string, argsInput?: string, useMockHttp = false, fullLogs = false, exchangeFirst = false, saveLabelOutputFlag = false, output?: CliOutput) {
   const found = modules.find((m) => m.id === id);
   if (!found) throw new Error(`Function not found: ${id}`);
   const carrier = id.split('.')[0];
@@ -319,6 +443,17 @@ async function runModuleById(modules: Array<{ id: string; file: string }>, id: s
   ctx.adapterContext.loggingOptions = loggingOptions as any;
 
   const result = await mod.run(args, ctx);
+
+  if (saveLabelOutputFlag && isLabelExampleFunction(id)) {
+    const outputPath = deriveLabelOutputPath(path.resolve(FUNCTIONS_DIR, found.file), result);
+    const saved = saveLabelOutput(result, outputPath);
+    if (saved.saved) {
+      output?.log(`Saved label to ${outputPath}${saved.byteLength ? ` (${saved.byteLength} bytes)` : ''}`);
+    } else {
+      output?.warn('Label save requested but no binary PDF payload was found in the result');
+    }
+  }
+
   return result;
 }
 
@@ -527,6 +662,7 @@ async function main() {
   let runId: string | undefined;
   let argsInput: string | undefined;
   let useMock = false;
+  let saveLabelOutputFlag = false;
   // Honor env alias FULL_LOGS=1 or FULL_LOGS=true for convenience
   let fullLogs = (process.env.FULL_LOGS === '1' || process.env.FULL_LOGS === 'true');
   // Honor exchange-first env alias (EXCHANGE_AUTH_FIRST)
@@ -543,6 +679,8 @@ async function main() {
       i++;
     } else if (a === '--mock' || a === '--use-mock') {
       useMock = true;
+    } else if (a === '--save-label' || a === '--save-label-file') {
+      saveLabelOutputFlag = true;
     } else if (a === '--full-logs' || a === '--log-full') {
       fullLogs = true;
     } else if (a === '--exchange-first' || a === '--refresh-token') {
@@ -550,7 +688,7 @@ async function main() {
     } else if (a.startsWith('--args=')) {
       argsInput = a.split('=')[1];
     } else if (a === '--help' || a === '-h') {
-      output.log('Usage: cli.ts [--run <functionId>] [--args <json-or-path>] [--mock] [--full-logs] [--log-file <path>] [--exchange-first]');
+      output.log('Usage: cli.ts [--run <functionId>] [--args <json-or-path>] [--mock] [--save-label] [--full-logs] [--log-file <path>] [--exchange-first]');
       process.exit(0);
     }
   }
@@ -588,7 +726,7 @@ async function main() {
       }
 
       // Apply env overrides only inside runModuleById to avoid duplicate logs
-      const result = await runModuleById(modules, runId, parsedArgs ? JSON.stringify(parsedArgs) : undefined, useMock, fullLogs, exchangeFirst, output);
+      const result = await runModuleById(modules, runId, parsedArgs ? JSON.stringify(parsedArgs) : undefined, useMock, fullLogs, exchangeFirst, saveLabelOutputFlag, output);
       try {
         const redacted = redactLargeLabels(result);
         if (output.logFilePath) {
