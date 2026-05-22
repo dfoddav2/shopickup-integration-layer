@@ -5,6 +5,11 @@ GLS adapter for Shopickup.
 [GitHub repo](https://github.com/shopickup/shopickup-integration-layer)
 [Issues](https://github.com/shopickup/shopickup-integration-layer/issues)
 
+## Metadata
+
+- Last updated: 2026-05-22T10:48:46Z
+- Carrier API version: 25.12.11
+
 ## What it does
 
 - `CREATE_PARCEL` and `CREATE_PARCELS`

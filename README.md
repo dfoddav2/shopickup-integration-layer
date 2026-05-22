@@ -1,7 +1,5 @@
 # Shopickup: Universal Multi-Carrier Shipping Integration Layer
 
-> **Status:** Phase 1 & 2 Active. Shopickup is a TypeScript-first, ESM-native, npm-publishable **adapter library** for shipping carriers. Not a microservice — a set of importable packages that handle carrier API complexity.
->
 > **Latest Update:** Jan 2026. Dev-server logging defaults changed to `info` to reduce noisy output; pickup-points (APM) logs are silent by default. Core library finalized. Foxpost adapter fully implemented with extensive tests.
 
 ## 1. Project Overview & Philosophy
@@ -10,15 +8,15 @@ Shopickup solves the **carrier API heterogeneity problem** by providing:
 
 1. **A canonical data model** (via `@shopickup/core`) that normalizes shipping concepts (shipments, parcels, labels, tracking).
 2. **Pluggable carrier adapters** as independent npm packages, each implementing a strict `CarrierAdapter` contract.
-3. **Zero persistence** in the core — integrators own their own data store (Postgres, SQLite, DynamoDB, etc.) and pass an optional `Store` interface.
+3. **Zero persistence** in the core — integrators own their own data store (Postgres, SQLite, DynamoDB, etc.).
 4. **Lightweight orchestration helpers** for composing adapter methods into workflows (e.g., "create shipment → create parcel → close → create label").
-5. **A minimal dev/test server** (Express/Fastify) bundled as an example; not intended for production.
+5. **Two example surfaces**: `examples/dev-server/` for an interactive Fastify showcase, and `examples/functions/` for CLI-style adapter testing and development.
 
 ### Key Principles
 
 - **Library, not microservice:** Import adapters directly into your Node.js app.
-- **Extensibility without code changes:** Adding a new carrier requires zero modifications to core or existing adapters.
-- **Carrier API first:** OpenAPI specs in `carrier-docs/` drive adapter development (types generated, thin HTTP wrappers written by hand).
+- **Extensibility without code changes:** Adding a new carrier requires zero modifications to core or existing adapters. (Unless you want to add a new capability that requires core changes, but even then existing adapters won't break.)
+- **Carrier API first:** OpenAPI specs in `carrier-docs/` drive should adapter development and serve as reference documentation for integrators.
 - **Pluggable HTTP client:** Adapters accept an optional `HttpClient` interface so consumers can inject their own HTTP layer (fetch, axios, Node.js http, etc.).
 - **Stateless adapters:** Adapters map input → carrier API → output. All mappings between internal IDs and carrier IDs are managed by the integrator's `Store`.
 
@@ -28,9 +26,12 @@ Shopickup solves the **carrier API heterogeneity problem** by providing:
 /shopickup-integration-layer
 ├── package.json                   # Root workspaces config
 ├── README.md                      # This file
-├── ARCHITECTURE.md                # Detailed system design
+├── docs/
+│   ├── architecture.md            # System design and package boundaries
+│   ├── adapter-development.md     # Adapter implementation guide
+│   ├── contributing.md            # Contribution workflow
+│   └── logging-control.md         # Logging policy and utilities
 ├── AGENTS.md                      # Developer guidance for agents/contributors
-├── ADAPTER_DEVELOPMENT.md         # Step-by-step carrier adapter guide
 │
 ├── carrier-docs/
 │   ├── raw/
@@ -68,13 +69,16 @@ Shopickup solves the **carrier API heterogeneity problem** by providing:
 │       └── create-adapter-cli/    # Generator: pnpm create-adapter --name=dhl
 │
 ├── examples/
-│   └── dev-server/               # Lightweight example server (Fastify)
-│       ├── src/
-│       │   ├── index.ts          # Main server with OpenAPI registration
-│       │   ├── routes/           # Example endpoints: label, track, webhook
-│       │   └── ...
-│       ├── package.json
-│       └── README.md             # How to run and API usage examples
+│   ├── dev-server/               # Interactive Fastify showcase for adapter integration
+│   │   ├── src/
+│   │   ├── package.json
+│   │   └── README.md             # How to run and API usage examples
+│   └── functions/                # CLI-style harness for adapter development/testing
+│       ├── cli.ts
+│       ├── foxpost/
+│       ├── gls/
+│       ├── mpl/
+│       └── README.md             # CLI usage, fixtures, and scripted runs
 │
 └── scripts/
     ├── codegen.sh                # Runs openapi-typescript to gen types
@@ -104,49 +108,49 @@ The **Parcel** type was redesigned to be more comprehensive and carrier-agnostic
 ```typescript
 interface Parcel {
   id: string;
-  
+
   // Structured shipper (contact + full address)
   shipper: {
     contact: Contact;
     address: Address;
   };
-  
+
   // Structured recipient with delivery method discriminator
   recipient: {
     contact: Contact;
-    delivery: Delivery;  // HOME or PICKUP_POINT
+    delivery: Delivery; // HOME or PICKUP_POINT
   };
-  
+
   // Package details
   package: {
     weightGrams: number;
-    dimensionsCm?: { length, width, height };
+    dimensionsCm?: { length; width; height };
   };
-  
+
   // Carrier-agnostic shipping features
   handling?: {
     fragile?: boolean;
     perishables?: boolean;
-    batteries?: 'NONE' | 'LITHIUM_ION' | 'LITHIUM_METAL';
+    batteries?: "NONE" | "LITHIUM_ION" | "LITHIUM_METAL";
   };
-  
+
   // Structured COD, insurance, declared value
   cod?: { amount: Money; reference?: string };
   declaredValue?: Money;
   insurance?: { amount: Money };
-  
+
   // References for tracking
   references?: {
     orderId?: string;
     customerReference?: string;
   };
-  
+
   // Service level
-  service: 'standard' | 'express' | 'economy' | 'overnight';
-  
+  service: "standard" | "express" | "economy" | "overnight";
+
   // Optional: Line items with weight/quantity
   items?: ParcelItem[];
-  
+
   // Metadata for carrier-specific quirks
   metadata?: Record<string, unknown>;
 }
@@ -157,10 +161,10 @@ interface Parcel {
 1. **Delivery as Discriminated Union:** Enables compile-time type safety:
 
    ```typescript
-   if (parcel.recipient.delivery.method === 'HOME') {
+   if (parcel.recipient.delivery.method === "HOME") {
      // TypeScript knows delivery.address exists
      const street = parcel.recipient.delivery.address.street;
-   } else if (parcel.recipient.delivery.method === 'PICKUP_POINT') {
+   } else if (parcel.recipient.delivery.method === "PICKUP_POINT") {
      // TypeScript knows delivery.pickupPoint exists
      const code = parcel.recipient.delivery.pickupPoint.id;
    }
@@ -178,19 +182,19 @@ interface Parcel {
 type Delivery = HomeDelivery | PickupPointDelivery;
 
 interface HomeDelivery {
-  method: 'HOME';
-  address: Address;  // Full street address
+  method: "HOME";
+  address: Address; // Full street address
   instructions?: string;
 }
 
 interface PickupPointDelivery {
-  method: 'PICKUP_POINT';
+  method: "PICKUP_POINT";
   pickupPoint: {
-    id: string;              // e.g., Foxpost APM code
-    provider?: string;       // "foxpost", "dhl", etc.
+    id: string; // e.g., Foxpost APM code
+    provider?: string; // "foxpost", "dhl", etc.
     name?: string;
-    address?: Address;       // Optional pickup location details
-    type?: 'LOCKER' | 'SHOP' | 'POST_OFFICE' | 'OTHER';
+    address?: Address; // Optional pickup location details
+    type?: "LOCKER" | "SHOP" | "POST_OFFICE" | "OTHER";
   };
   instructions?: string;
 }
@@ -208,28 +212,47 @@ All adapters implement this strict contract (simplified):
 
 ```typescript
 export type Capability =
-  | "RATES" | "CREATE_SHIPMENT" | "CREATE_PARCEL"
-  | "CLOSE_SHIPMENT" | "CREATE_LABEL" | "VOID_LABEL"
-  | "TRACK" | "PICKUP" | "WEBHOOKS";
+  | "RATES"
+  | "CREATE_SHIPMENT"
+  | "CREATE_PARCEL"
+  | "CLOSE_SHIPMENT"
+  | "CREATE_LABEL"
+  | "VOID_LABEL"
+  | "TRACK"
+  | "PICKUP"
+  | "WEBHOOKS";
 
 export interface AdapterContext {
   logger?: Logger;
-  http?: HttpClient;           // Pluggable HTTP client (required)
+  http?: HttpClient; // Pluggable HTTP client (required)
   telemetry?: TelemetryClient; // Optional
 }
 
 export interface CarrierAdapter {
-  id: string;                  // e.g., "foxpost"
+  id: string; // e.g., "foxpost"
   displayName?: string;
   capabilities: Capability[];
-  requires?: { createLabel?: Capability[] };  // e.g., ["CLOSE_SHIPMENT"]
+  requires?: { createLabel?: Capability[] }; // e.g., ["CLOSE_SHIPMENT"]
 
   configure?(opts: { baseUrl?: string }): void;
   getRates?(req: RatesRequest, ctx: AdapterContext): Promise<RatesResponse>;
-  createShipment?(req: CreateShipmentRequest, ctx: AdapterContext): Promise<CarrierResource>;
-  createParcel?(shipmentCarrierId: string, req: ParcelRequest, ctx: AdapterContext): Promise<CarrierResource>;
-  closeShipment?(shipmentCarrierId: string, ctx: AdapterContext): Promise<CarrierResource>;
-  createLabel?(parcelCarrierId: string, ctx: AdapterContext): Promise<CarrierResource & { labelUrl?: string | null }>;
+  createShipment?(
+    req: CreateShipmentRequest,
+    ctx: AdapterContext,
+  ): Promise<CarrierResource>;
+  createParcel?(
+    shipmentCarrierId: string,
+    req: ParcelRequest,
+    ctx: AdapterContext,
+  ): Promise<CarrierResource>;
+  closeShipment?(
+    shipmentCarrierId: string,
+    ctx: AdapterContext,
+  ): Promise<CarrierResource>;
+  createLabel?(
+    parcelCarrierId: string,
+    ctx: AdapterContext,
+  ): Promise<CarrierResource & { labelUrl?: string | null }>;
   voidLabel?(labelId: string, ctx: AdapterContext): Promise<CarrierResource>;
   track?(trackingNumber: string, ctx: AdapterContext): Promise<TrackingUpdate>;
 }
@@ -245,11 +268,11 @@ Core exports lightweight flow helpers for common patterns:
 
 ```typescript
 const result = await executeCreateLabelFlow({
-  adapter,           // CarrierAdapter instance
-  shipment,          // Internal shipment object
-  parcels,           // List of parcels
-  credentials,       // { apiKey, ... }
-  context,           // { logger, http, ... }
+  adapter, // CarrierAdapter instance
+  shipment, // Internal shipment object
+  parcels, // List of parcels
+  credentials, // { apiKey, ... }
+  context, // { logger, http, ... }
 });
 // result: { label, trackingNumber, raw, ... }
 ```
@@ -271,7 +294,7 @@ Adapters throw structured `CarrierError` types:
 class CarrierError extends Error {
   category: "Validation" | "Auth" | "RateLimit" | "Transient" | "Permanent";
   carrierCode?: string;
-  raw?: unknown;  // raw carrier error for debugging
+  raw?: unknown; // raw carrier error for debugging
 }
 ```
 
@@ -285,7 +308,10 @@ Core defines a pluggable `Store` interface:
 export interface Store {
   saveShipment(shipment: Shipment): Promise<void>;
   getShipment(id: string): Promise<Shipment | null>;
-  saveCarrierResource(shipmentId: string, resource: CarrierResource): Promise<void>;
+  saveCarrierResource(
+    shipmentId: string,
+    resource: CarrierResource,
+  ): Promise<void>;
   appendEvent(shipmentId: string, event: DomainEvent): Promise<void>;
 }
 ```
@@ -319,7 +345,7 @@ info:
     - CREATE_LABEL
   x-requires:
     createLabel:
-      - CLOSE_SHIPMENT  # Must close before label
+      - CLOSE_SHIPMENT # Must close before label
 
 paths:
   /shipments:
@@ -347,7 +373,12 @@ import { mapToFoxpost, mapFromFoxpost } from "./mapper";
 
 export class FoxpostAdapter implements CarrierAdapter {
   id = "foxpost";
-  capabilities: Capability[] = ["CREATE_SHIPMENT", "CREATE_PARCEL", "CLOSE_SHIPMENT", "CREATE_LABEL"];
+  capabilities: Capability[] = [
+    "CREATE_SHIPMENT",
+    "CREATE_PARCEL",
+    "CLOSE_SHIPMENT",
+    "CREATE_LABEL",
+  ];
   requires = { createLabel: ["CLOSE_SHIPMENT"] };
 
   private client: FoxpostClient;
@@ -356,7 +387,10 @@ export class FoxpostAdapter implements CarrierAdapter {
     this.client = new FoxpostClient(baseUrl);
   }
 
-  async createLabel(parcelId: string, ctx: AdapterContext): Promise<CarrierResource & { labelUrl?: string }> {
+  async createLabel(
+    parcelId: string,
+    ctx: AdapterContext,
+  ): Promise<CarrierResource & { labelUrl?: string }> {
     const response = await ctx.http!.post(`/parcels/${parcelId}/label`, {});
     return {
       carrierId: response.labelId,
@@ -375,7 +409,7 @@ export class FoxpostAdapter implements CarrierAdapter {
 
 ```typescript
 it("should create a label", async () => {
-  const adapter = new FoxpostAdapter("http://localhost:3000");  // mock server
+  const adapter = new FoxpostAdapter("http://localhost:3000"); // mock server
   const result = await adapter.createLabel("parcel-123", { http: fetchClient });
   expect(result.carrierId).toBeDefined();
   expect(result.labelUrl).toMatch(/\.pdf$/);
@@ -402,14 +436,20 @@ npm install @shopickup/adapters-foxpost
 ```typescript
 import { FoxpostAdapter } from "@shopickup/adapters-foxpost";
 import { executeCreateLabelFlow } from "@shopickup/core";
-import { httpClient } from "your-http-lib";  // axios, fetch, etc.
+import { httpClient } from "your-http-lib"; // axios, fetch, etc.
 
 const adapter = new FoxpostAdapter("https://api.foxpost.hu");
 
 const result = await executeCreateLabelFlow({
   adapter,
-  shipment: { /* ... */ },
-  parcels: [{ /* ... */ }],
+  shipment: {
+    /* ... */
+  },
+  parcels: [
+    {
+      /* ... */
+    },
+  ],
   credentials: { apiKey: process.env.FOXPOST_KEY },
   context: { http: httpClient, logger: console },
 });
@@ -429,16 +469,20 @@ class YourStore implements Store {
     // Insert/upsert into your database
     await yourDb.shipments.upsert(shipment);
   }
-  
+
   async saveCarrierResource(
-    internalId: string, 
+    internalId: string,
     resourceType: string,
-    resource: CarrierResource
+    resource: CarrierResource,
   ): Promise<void> {
     // Save the mapping between your internal ID and carrier ID
-    await yourDb.carrierResources.upsert({ internalId, resourceType, ...resource });
+    await yourDb.carrierResources.upsert({
+      internalId,
+      resourceType,
+      ...resource,
+    });
   }
-  
+
   // ... implement other Store methods
 }
 
@@ -559,17 +603,17 @@ pnpm run dev  # Runs tsx for hot reload (development only)
 
 ## 6. Design Principles & Decisions
 
-| Principle | Decision | Rationale |
-|-----------|----------|-----------|
-| **Distribution** | Library (npm package) | Easy to import, versioned independently, no ops overhead |
-| **Persistence** | Leave to integrator | Different apps need different stores; core stays small |
-| **HTTP client** | Pluggable interface | Consumers control retries, caching, instrumentation |
-| **Module System** | ESM (NodeNext) | Modern, standards-compliant, better tree-shaking |
-| **Build System** | TypeScript → dist/ | Build-first workflow ensures tests run against compiled code |
-| **Test Runner** | Vitest (v8 coverage) | Fast, ESM-native, Jest-compatible, better DX |
-| **OpenAPI specs** | In `carrier-docs/` | Single source of truth for carrier APIs, drives codegen |
-| **Errors** | Structured types | Integrators can decide retry/fallback logic cleanly |
-| **Example server** | Lightweight Fastify | Testing & iteration; implement your own Store for production |
+| Principle          | Decision              | Rationale                                                    |
+| ------------------ | --------------------- | ------------------------------------------------------------ |
+| **Distribution**   | Library (npm package) | Easy to import, versioned independently, no ops overhead     |
+| **Persistence**    | Leave to integrator   | Different apps need different stores; core stays small       |
+| **HTTP client**    | Pluggable interface   | Consumers control retries, caching, instrumentation          |
+| **Module System**  | ESM (NodeNext)        | Modern, standards-compliant, better tree-shaking             |
+| **Build System**   | TypeScript → dist/    | Build-first workflow ensures tests run against compiled code |
+| **Test Runner**    | Vitest (v8 coverage)  | Fast, ESM-native, Jest-compatible, better DX                 |
+| **OpenAPI specs**  | In `carrier-docs/`    | Single source of truth for carrier APIs, drives codegen      |
+| **Errors**         | Structured types      | Integrators can decide retry/fallback logic cleanly          |
+| **Example server** | Lightweight Fastify   | Testing & iteration; implement your own Store for production |
 
 ## 7. Non-Functional Goals
 
@@ -585,7 +629,7 @@ pnpm run dev  # Runs tsx for hot reload (development only)
 - **Review process:** Adapters must pass contract tests and include JSDoc explaining carrier-specific mappings.
 - **Security:** Credentials never stored in adapters; always passed at runtime.
 
-For detailed contribution guidelines, see **ADAPTER_DEVELOPMENT.md**.
+For contribution workflow and adapter testing guidance, see `docs/contributing.md` and `docs/adapter-development.md`.
 
 ## 9. Roadmap
 
