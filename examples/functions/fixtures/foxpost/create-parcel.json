@@ -24,15 +24,11 @@
         "email": "peter@example.hu"
       },
       "delivery": {
-        "method": "HOME",
-        "address": {
-          "name": "Horvath Peter",
-          "street": "Kossuth Lajos utca 14",
-          "city": "Siofok",
-          "postalCode": "8600",
-          "country": "HU",
-          "phone": "+36201234567",
-          "email": "peter@example.hu"
+        "method": "PICKUP_POINT",
+        "pickupPoint": {
+          "id": "23676",
+          "provider": "foxpost",
+          "name": "FOXPOST A-BOX Example"
         }
       }
     },

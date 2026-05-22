@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { FoxpostAdapter } from '../index.js';
+import { FoxpostAdapter } from '../../index.js';
 import type { AdapterContext, TrackingRequest } from '@shopickup/core';
-import type { TrackingResponse } from '../types/generated.js';
+import type { TrackingResponse } from '../../types/generated.js';
 
 /**
  * Mock HTTP Client for tracking tests

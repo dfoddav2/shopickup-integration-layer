@@ -82,7 +82,7 @@
         "delivery": {
           "method": "PICKUP_POINT",
           "pickupPoint": {
-            "id": "HU1234",
+            "id": "23676",
             "provider": "foxpost",
             "name": "FOXPOST A-BOX Example"
           }

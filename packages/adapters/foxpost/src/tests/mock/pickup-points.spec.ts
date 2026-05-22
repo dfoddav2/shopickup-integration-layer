@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { AdapterContext, HttpClient } from '@shopickup/core';
 import { CarrierError } from '@shopickup/core';
-import { fetchPickupPoints } from '../capabilities/pickup-points.js';
+import { fetchPickupPoints } from '../../capabilities/pickup-points.js';
 
 // Sample fixture data (Foxpost JSON feed format)
 const SAMPLE_APM_DATA = [

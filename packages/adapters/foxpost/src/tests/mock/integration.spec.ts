@@ -5,8 +5,8 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import type { AdapterContext, Parcel, HttpClient, TrackingRequest } from "@shopickup/core";
-import { FoxpostAdapter } from '../index.js';
-import type { Statuses } from '../types/generated.js';
+import { FoxpostAdapter } from '../../index.js';
+import type { Statuses } from '../../types/generated.js';
 
 /**
  * Mock HttpClient for testing

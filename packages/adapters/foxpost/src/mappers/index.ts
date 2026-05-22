@@ -81,6 +81,14 @@ export function mapParcelToFoxpostRequest(
     isRedirect?: boolean;
   } = {}
 ): FoxCreateParcelRequestItem {
+  const buildRefCode = (parcel: Parcel): string | undefined => {
+    const reference = parcel.references?.customerReference?.trim();
+    if (!reference) return undefined;
+
+    const suffix = `-${parcel.id.substring(0, 10)}`;
+    return reference.substring(0, Math.max(0, 30 - suffix.length)).concat(suffix);
+  };
+
   const delivery = parcel.recipient.delivery;
   const isHomeDelivery = delivery.method === 'HOME';
   const recipientAddr = isHomeDelivery 
@@ -107,9 +115,7 @@ export function mapParcelToFoxpostRequest(
     size: determineFoxpostSize(parcel)?.toUpperCase() || 'S',
     cod: codAmount,
     // Optional fields
-    refCode: parcel.references?.customerReference
-      ?.substring(0, 30)
-      .concat(`-${parcel.id.substring(0, 10)}`),
+    refCode: buildRefCode(parcel),
     comment: parcel.handling?.fragile ? 'FRAGILE' : undefined,
     fragile: parcel.handling?.fragile || false,
   };
@@ -150,6 +156,14 @@ export function mapParcelToFoxpost(
     isRedirect?: boolean;
   } = {}
 ): FoxpostParcelRequest & { destination?: string } {
+  const buildRefCode = (parcel: Parcel): string | undefined => {
+    const reference = parcel.references?.customerReference?.trim();
+    if (!reference) return undefined;
+
+    const suffix = `-${parcel.id.substring(0, 10)}`;
+    return reference.substring(0, Math.max(0, 30 - suffix.length)).concat(suffix);
+  };
+
   const delivery = parcel.recipient.delivery;
   const isHomeDelivery = delivery.method === 'HOME';
   const recipientAddr = isHomeDelivery 
@@ -179,9 +193,7 @@ export function mapParcelToFoxpost(
     }),
     size: determineFoxpostSize(parcel),
     // Optional fields
-    refCode: parcel.references?.customerReference
-      ?.substring(0, 30)
-      .concat(`-${parcel.id.substring(0, 10)}`),
+    refCode: buildRefCode(parcel),
     comment: parcel.handling?.fragile ? 'FRAGILE' : undefined,
     fragile: parcel.handling?.fragile || false,
   };

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { FoxpostAdapter } from '../index.js';
+import { FoxpostAdapter } from '../../index.js';
 import type { AdapterContext, TrackingRequest, Parcel } from '@shopickup/core';
-import type { CreateParcelsRequestFoxpost } from '../validation.js';
+import type { CreateParcelsRequestFoxpost } from '../../validation.js';
 import { CarrierError } from '@shopickup/core';
 
 class MockHttpClient {

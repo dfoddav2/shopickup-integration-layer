@@ -40,7 +40,7 @@ function extractHttpStatus(error: unknown): number | undefined {
     anyErr?.response?.status ??    // axios, fetch-like wrappers
     anyErr?.status ??              // direct status property
     anyErr?.statusCode ??          // undici, some node wrappers
-    anyErr?.code === 'ECONNREFUSED' ? undefined : undefined  // network error, not HTTP status
+    undefined                      // network error, not HTTP status
   );
 }
 

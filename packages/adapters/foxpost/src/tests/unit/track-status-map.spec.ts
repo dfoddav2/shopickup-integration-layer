@@ -5,12 +5,13 @@
  * and ensures canonical status mapping is accurate.
  */
 
+import { describe, expect, it } from 'vitest';
 import {
   FOXPOST_STATUS_MAP,
   mapFoxpostStatusCode,
   getFoxpostStatusDescription,
   type FoxpostStatusMapping,
-} from '../mappers/trackStatus';
+} from '../../mappers/trackStatus.js';
 
 describe('Foxpost Status Mapping', () => {
   // === Canonical Status Mapping Tests ===

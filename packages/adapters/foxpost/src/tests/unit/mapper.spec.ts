@@ -11,8 +11,8 @@ import {
   mapParcelToFoxpost,
   mapFoxpostStatusToCanonical,
   mapFoxpostTrackToCanonical,
-} from '../mappers/index.js';
-import type { TrackDTO } from '../types/generated.js';
+} from '../../mappers/index.js';
+import type { TrackDTO } from '../../types/generated.js';
 
 // Helper: create a minimal valid parcel with new structure
 function createTestParcel(overrides: Partial<Parcel> = {}): Parcel {
@@ -165,6 +165,17 @@ describe('Foxpost Mappers', () => {
 
       expect(result.refCode).toContain('ORDER-999');
       expect(result.refCode).toContain('parcel-12');
+      expect(result.refCode).toHaveLength(20);
+    });
+
+    it('truncates refCode to Foxpost max length', () => {
+      const parcel = createTestParcel();
+      parcel.references = { customerReference: 'THIS-REFERENCE-IS-WAY-TOO-LONG-FOR-FOXPOST' };
+      parcel.id = 'parcel-1234567890';
+
+      const result = mapParcelToFoxpost(parcel);
+
+      expect(result.refCode).toHaveLength(30);
     });
 
     it('maps canonical Parcel with PICKUP_POINT delivery to APM format', () => {

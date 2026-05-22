@@ -7,7 +7,7 @@ import {
   safeValidateFoxpostApmEntry,
   safeValidateFoxpostApmFeed,
   type FoxpostApmEntry,
-} from '../validation.js';
+} from '../../validation.js';
 
 describe('Foxpost APM Zod Validation', () => {
   describe('safeValidateFoxpostApmEntry', () => {

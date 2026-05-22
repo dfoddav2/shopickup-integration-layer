@@ -19,8 +19,8 @@ import {
    FoxpostTraceStatus,
    FoxpostParcelType,
    FoxpostSendType,
-} from '../validation.js';
-import type { FoxpostTracking, FoxpostTrace } from '../validation.js';
+} from '../../validation.js';
+import type { FoxpostTracking, FoxpostTrace } from '../../validation.js';
 
 describe('Foxpost Validation Schemas', () => {
   describe('validateFoxpostTracking', () => {
