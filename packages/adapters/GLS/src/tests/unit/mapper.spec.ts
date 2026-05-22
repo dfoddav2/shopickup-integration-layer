@@ -6,50 +6,74 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { mapGLSDeliveryPointToPickupPoint, mapGLSDeliveryPointsToPickupPoints } from '../src/mappers/index.js';
-import type { GLSDeliveryPoint } from '../src/types/index.js';
+import { mapGLSDeliveryPointToPickupPoint, mapGLSDeliveryPointsToPickupPoints } from '../../mappers/index.js';
+import type { GLSDeliveryPoint } from '../../types/index.js';
 
 // Test fixtures
 const mockGLSDeliveryPoint: GLSDeliveryPoint = {
-  id: '1001-SHOP01',
-  goldId: 1001,
-  name: 'GLS ParcelShop Budapest',
-  description: 'Central Budapest location',
+   id: '1001-SHOP01',
+   goldId: 1001,
+   name: 'GLS ParcelShop Budapest',
+   description: 'Central Budapest location',
+   contact: {
+     countryCode: 'HU',
+     postalCode: '1011',
+     city: 'Budapest',
+     address: 'Akadémia utca 3.',
+     phone: '+36123456789',
+     web: 'https://www.gls-hungary.com',
+   },
+   location: [47.50295, 19.03343],
+   hours: [
+     [1, '08:00', '18:00'],  // Monday
+     [2, '08:00', '18:00'],  // Tuesday
+     [3, '08:00', '18:00'],  // Wednesday
+     [4, '08:00', '18:00'],  // Thursday
+     [5, '08:00', '18:00'],  // Friday
+     [6, '09:00', '14:00'],  // Saturday
+     [7, null as any, null as any],  // Sunday (closed)
+   ] as any,
+   features: ['pickup', 'delivery', 'acceptsCash', 'acceptsCard'],
+   type: 'parcel-shop',
+   externalId: 'ext-1001',
+   hasWheelchairAccess: true,
+ };
+
+const mockGLSLocker: GLSDeliveryPoint = {
+   id: '2001-LOCKER01',
+   name: 'GLS ParcelLocker',
+   contact: {
+     countryCode: 'HU',
+     postalCode: '1056',
+     city: 'Budapest',
+     address: 'Váci utca 62.',
+   },
+   location: [47.50432, 19.05874],
+   hours: [[1, '07:00', '22:00']],  // Monday
+   features: ['pickup', 'delivery'],
+   type: 'parcel-locker',
+   hasWheelchairAccess: false,
+ };
+
+const mockGLSLockerClosed: GLSDeliveryPoint = {
+  id: '3001-LOCKER02',
+  name: 'GLS ParcelLocker 24/7 (24-hour)',
   contact: {
     countryCode: 'HU',
     postalCode: '1011',
     city: 'Budapest',
-    address: 'Akadémia utca 3.',
-    phone: '+36123456789',
-    web: 'https://www.gls-hungary.com',
+    address: 'Kossuth Lajos tér 11.',
   },
-  location: [47.50295, 19.03343],
+  location: [47.50720, 19.04556],
   hours: [
-    [0, '08:00', '18:00'],
-    [1, '08:00', '18:00'],
-    [2, '08:00', '18:00'],
-    [3, '08:00', '18:00'],
-    [4, '08:00', '18:00'],
-    [5, '09:00', '14:00'],
-    [6, null as any, null as any],
+    [1, null, null],
+    [2, null, null],
+    [3, null, null],
+    [4, null, null],
+    [5, null, null],
+    [6, null, null],
+    [7, null, null],
   ],
-  features: ['pickup', 'delivery', 'acceptsCash', 'acceptsCard'],
-  type: 'parcel-shop',
-  externalId: 'ext-1001',
-  hasWheelchairAccess: true,
-};
-
-const mockGLSLocker: GLSDeliveryPoint = {
-  id: '2001-LOCKER01',
-  name: 'GLS ParcelLocker',
-  contact: {
-    countryCode: 'HU',
-    postalCode: '1056',
-    city: 'Budapest',
-    address: 'Váci utca 62.',
-  },
-  location: [47.50432, 19.05874],
-  hours: [[0, '07:00', '22:00']],
   features: ['pickup', 'delivery'],
   type: 'parcel-locker',
   hasWheelchairAccess: false,
@@ -97,14 +121,55 @@ describe('GLS Adapter - Mapper', () => {
       expect(point.contact).toBeUndefined();
     });
 
-    it('should parse opening hours correctly', () => {
-      const point = mapGLSDeliveryPointToPickupPoint(mockGLSDeliveryPoint, 'hu');
+     it('should parse opening hours correctly', () => {
+       const point = mapGLSDeliveryPointToPickupPoint(mockGLSDeliveryPoint, 'hu');
 
-      if (point.openingHours && typeof point.openingHours === 'object') {
-        expect(point.openingHours.Monday).toBe('08:00 - 18:00');
-        expect(point.openingHours.Friday).toBe('09:00 - 14:00');
-      }
-    });
+       if (point.openingHours && typeof point.openingHours === 'object') {
+         expect(point.openingHours.Monday).toBe('08:00 - 18:00');
+         expect(point.openingHours.Friday).toBe('08:00 - 18:00');
+         expect(point.openingHours.Saturday).toBe('09:00 - 14:00');
+         // Sunday is null, so should not be present
+         expect((point.openingHours as Record<string, string>).Sunday).toBeUndefined();
+       }
+     });
+
+     it('should skip null hours entries and return valid hours only', () => {
+       const point = mapGLSDeliveryPointToPickupPoint(mockGLSDeliveryPoint, 'hu');
+
+       // Sunday (index 7) has null hours and should be excluded
+       expect(point.openingHours).toBeDefined();
+       if (point.openingHours && typeof point.openingHours === 'object') {
+         expect((point.openingHours as Record<string, string>).Sunday).toBeUndefined();
+         // Monday-Saturday should be present (6 days)
+         expect(Object.keys(point.openingHours).length).toBe(6);
+       }
+     });
+
+     it('should return undefined for locations with only null hours (24/7 lockers)', () => {
+       const point = mapGLSDeliveryPointToPickupPoint(mockGLSLockerClosed, 'hu');
+
+       // All hours are null, so openingHours should be undefined
+       expect(point.openingHours).toBeUndefined();
+     });
+
+     it('should handle lunch break tuples (4+ elements)', () => {
+       const withLunchBreak: GLSDeliveryPoint = {
+         ...mockGLSDeliveryPoint,
+         hours: [
+           [1, '09:00', '18:00', '12:00', '12:30'], // Monday with lunch break
+           [2, '09:00', '18:00', '12:00', '12:30'],
+         ] as any,
+       };
+
+       const point = mapGLSDeliveryPointToPickupPoint(withLunchBreak, 'hu');
+
+       // Should extract primary hours, ignoring lunch break times
+       expect(point.openingHours).toBeDefined();
+       if (point.openingHours && typeof point.openingHours === 'object') {
+         expect((point.openingHours as Record<string, string>).Monday).toBe('09:00 - 18:00');
+         expect((point.openingHours as Record<string, string>).Tuesday).toBe('09:00 - 18:00');
+       }
+     });
 
     it('should preserve raw data', () => {
       const point = mapGLSDeliveryPointToPickupPoint(mockGLSDeliveryPoint, 'hu');

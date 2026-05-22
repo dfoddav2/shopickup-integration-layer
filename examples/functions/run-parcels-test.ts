@@ -1,8 +1,8 @@
 #!/usr/bin/env ts-node
 import path from 'path';
 import fs from 'fs';
-import { loadEnv } from './_lib/env';
-import { createHttpClient, buildAdapterContext } from './_lib/context';
+import { loadEnv } from './_lib/env.js';
+import { createHttpClient, buildAdapterContext } from './_lib/context.js';
 
 async function main() {
   // Load local .env if present

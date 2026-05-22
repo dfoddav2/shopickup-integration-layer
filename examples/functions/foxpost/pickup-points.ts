@@ -17,12 +17,7 @@ export async function run(args: FoxpostFetchPickupPointsRequest, ctx: { adapterC
     throw new Error('Adapter does not implement fetchPickupPoints');
   }
 
-  const res = await adapter.fetchPickupPoints(
-    {
-      options: args.options,
-    },
-    ctx.adapterContext,
-  );
+  const res = await adapter.fetchPickupPoints(args, ctx.adapterContext);
 
   return res as FetchPickupPointsResponse;
 }

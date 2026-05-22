@@ -55,6 +55,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest --run",
+    "test:live": "vitest --run --config vitest.live.config.ts",
     "dev": "tsc -w -p tsconfig.json",
     "codegen": "openapi-typescript ../../carrier-docs/hu-gls/hu-gls.openapi.yaml --output ./src/types/generated.ts"
   },

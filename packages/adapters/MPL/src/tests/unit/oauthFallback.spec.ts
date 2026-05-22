@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { isBasicAuthDisabledError } from '../utils/httpUtils.js';
+import { isBasicAuthDisabledError } from '../../utils/httpUtils.js';
 
 describe('OAuth Fallback - Error Detection', () => {
   describe('isBasicAuthDisabledError', () => {

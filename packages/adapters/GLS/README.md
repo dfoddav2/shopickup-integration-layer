@@ -28,8 +28,8 @@ pnpm add @shopickup/adapters-gls @shopickup/core
 ## Quick start
 
 ```ts
-import { GLSAdapter } from '@shopickup/adapters-gls';
-import { createAxiosHttpClient } from '@shopickup/core';
+import { GLSAdapter } from "@shopickup/adapters-gls";
+import { createAxiosHttpClient } from "@shopickup/core";
 
 const adapter = new GLSAdapter();
 const http = createAxiosHttpClient();
@@ -37,32 +37,92 @@ const http = createAxiosHttpClient();
 const result = await adapter.createParcel!(
   {
     parcel: {
-      id: 'ORDER-001',
+      id: "ORDER-001",
       package: { weightGrams: 1200 },
-      service: 'standard',
+      service: "standard",
       shipper: {
-        contact: { name: 'Shop', phone: '+361111111', email: 'ship@example.com' },
-        address: { name: 'Shop', street: 'Main utca 1', city: 'Budapest', postalCode: '1011', country: 'HU' },
+        contact: {
+          name: "Shop",
+          phone: "+361111111",
+          email: "ship@example.com",
+        },
+        address: {
+          name: "Shop",
+          street: "Main utca 1",
+          city: "Budapest",
+          postalCode: "1011",
+          country: "HU",
+        },
       },
       recipient: {
-        contact: { name: 'Customer', phone: '+362222222', email: 'customer@example.com' },
+        contact: {
+          name: "Customer",
+          phone: "+362222222",
+          email: "customer@example.com",
+        },
         delivery: {
-          method: 'HOME',
-          address: { name: 'Customer', street: 'Fo utca 2', city: 'Siofok', postalCode: '8600', country: 'HU' },
+          method: "HOME",
+          address: {
+            name: "Customer",
+            street: "Fo utca 2",
+            city: "Siofok",
+            postalCode: "8600",
+            country: "HU",
+          },
         },
       },
     },
     credentials: {
-      username: 'integration@example.com',
-      password: 'your-password',
+      username: "integration@example.com",
+      password: "your-password",
       clientNumberList: [12345],
     },
-    options: { useTestApi: true, gls: { country: 'HU' } },
+    options: { useTestApi: true, gls: { country: "HU" } },
   },
-  { http, logger: console }
+  { http, logger: console },
 );
 ```
 
 ## Status
 
 Published as `0.x.x` while the adapter API is still evolving.
+
+## Testing
+
+Tests are organized in three tiers under `src/tests/`:
+
+- **unit/** — pure logic and utility tests (no HTTP client required)
+- **mock/** — adapter capability tests using a mock HTTP client
+- **live/** — opt-in live tests against the GLS public feed or MyGLS test API
+
+### Run tests
+
+```bash
+# Unit + mock (default)
+pnpm --filter @shopickup/adapters-gls run test
+
+# Live (requires credentials for parcel/label/tracking tests)
+pnpm --filter @shopickup/adapters-gls run test:live
+```
+
+### Live test credentials
+
+Copy `live.env.example` to `.env.live` and fill in your MyGLS sandbox credentials:
+
+```bash
+cp live.env.example .env.live
+```
+
+Required variables for parcel/label/tracking live tests:
+
+- `GLS_LIVE_USERNAME` — MyGLS email
+- `GLS_LIVE_PASSWORD` — MyGLS password (plain text; adapter hashes it)
+- `GLS_LIVE_CLIENT_NUMBER_LIST` — comma-separated GLS client numbers
+
+Optional:
+
+- `GLS_LIVE_WEBSHOP_ENGINE`
+- `GLS_LIVE_USE_TEST_API` (default `true`)
+- `GLS_LIVE_COUNTRY` (default `HU`)
+
+The pickup-points live test does not require credentials (public feed).

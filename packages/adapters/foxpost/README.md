@@ -53,3 +53,15 @@ const result = await executeCreateLabelFlow({
 ## Status
 
 Published as `0.x.x` while the adapter API is still evolving.
+
+## Testing
+
+- `pnpm --filter @shopickup/adapters-foxpost run test` runs unit and mock tests.
+- `pnpm --filter @shopickup/adapters-foxpost run test:live` runs live tests.
+
+Live tests read `packages/adapters/foxpost/.env.live` automatically when present. Start from the example file:
+
+```bash
+cp packages/adapters/foxpost/live.env.example packages/adapters/foxpost/.env.live
+pnpm --filter @shopickup/adapters-foxpost run test:live
+```

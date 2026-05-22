@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MPLAdapter } from '../index.js';
+import { MPLAdapter } from '../../index.js';
 import type {
   AdapterContext,
   HttpResponse,
@@ -555,7 +555,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
       expect(result).toBeDefined();
       expect(result.trackingNumber).toBe(trackingNumber);
       // Verify that test API URL was used (sandbox)
-      expect(mockHttp.lastGetUrl).toContain('sandbox');
+      expect(mockHttp.lastPostUrl).toContain('sandbox');
     });
   });
 
@@ -646,7 +646,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
         mockResponse
       );
 
-      const { trackPull500Start } = await import('../capabilities/track.js');
+      const { trackPull500Start } = await import('../../capabilities/track.js');
 
       const request = {
         trackingNumbers: ['CL12345678901', 'CL98765432109'],
@@ -667,7 +667,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
     });
 
     it('should reject Pull-500 start request with >500 tracking numbers', async () => {
-      const { safeValidatePull500StartRequest } = await import('../validation.js');
+      const { safeValidatePull500StartRequest } = await import('../../validation.js');
 
       const trackingNumbers = Array.from({ length: 501 }, (_, i) => `CL${i.toString().padStart(12, '0')}`);
       const request = {
@@ -684,7 +684,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
     });
 
     it('should validate Pull-500 check request with valid trackingGUID', async () => {
-      const { safeValidatePull500CheckRequest } = await import('../validation.js');
+      const { safeValidatePull500CheckRequest } = await import('../../validation.js');
 
       const request = {
         trackingGUID: '550e8400-e29b-41d4-a716-446655440000',
@@ -701,7 +701,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
     });
 
     it('should reject Pull-500 check request with empty trackingGUID', async () => {
-      const { safeValidatePull500CheckRequest } = await import('../validation.js');
+      const { safeValidatePull500CheckRequest } = await import('../../validation.js');
 
       const request = {
         trackingGUID: '',
@@ -717,7 +717,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
     });
 
     it('should validate Pull-500 check response with NEW status', async () => {
-      const { safeValidatePull500CheckResponse } = await import('../validation.js');
+      const { safeValidatePull500CheckResponse } = await import('../../validation.js');
 
       const response = {
         status: 'NEW',
@@ -729,7 +729,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
     });
 
     it('should validate Pull-500 check response with INPROGRESS status', async () => {
-      const { safeValidatePull500CheckResponse } = await import('../validation.js');
+      const { safeValidatePull500CheckResponse } = await import('../../validation.js');
 
       const response = {
         status: 'INPROGRESS',
@@ -741,7 +741,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
     });
 
     it('should validate Pull-500 check response with READY status and report', async () => {
-      const { safeValidatePull500CheckResponse } = await import('../validation.js');
+      const { safeValidatePull500CheckResponse } = await import('../../validation.js');
 
       const response = {
         status: 'READY',
@@ -757,7 +757,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
     });
 
     it('should validate Pull-500 check response with ERROR status', async () => {
-      const { safeValidatePull500CheckResponse } = await import('../validation.js');
+      const { safeValidatePull500CheckResponse } = await import('../../validation.js');
 
       const response = {
         status: 'ERROR',
@@ -800,11 +800,11 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
       };
 
       mockHttp.setResponseMatcher(
-        (url) => url.includes('/nyomkovetes/registered'),
+        (url) => url.includes('/registered'),
         mockResponse
       );
 
-      const { trackRegistered } = await import('../capabilities/track.js');
+      const { trackRegistered } = await import('../../capabilities/track.js');
 
       const request = {
         trackingNumbers: [trackingNumber],
@@ -847,11 +847,11 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
       };
 
       mockHttp.setResponseMatcher(
-        (url) => url.includes('/nyomkovetes/registered'),
+        (url) => url.includes('/registered'),
         mockResponse
       );
 
-      const { trackRegistered } = await import('../capabilities/track.js');
+      const { trackRegistered } = await import('../../capabilities/track.js');
 
       const request = {
         trackingNumbers: [trackingNumber],
@@ -868,7 +868,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
       const result = await trackRegistered(request, ctx, (opts) => 'https://api.test');
 
       // Verify the URL used contains 'registered' endpoint
-      expect(mockHttp.lastGetUrl).toContain('/nyomkovetes/registered');
+      expect(mockHttp.lastPostUrl).toContain('/registered');
     });
   });
 });

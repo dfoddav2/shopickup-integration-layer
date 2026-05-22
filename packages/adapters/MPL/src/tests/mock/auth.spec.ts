@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { exchangeAuthToken } from '../capabilities/auth.js';
+import { exchangeAuthToken } from '../../capabilities/auth.js';
 import type { AdapterContext, HttpResponse } from '@shopickup/core';
 import { CarrierError } from '@shopickup/core';
-import type { ExchangeAuthTokenRequest } from '../validation.js';
-import { createResolveOAuthUrl } from '../utils/resolveBaseUrl.js';
+import type { ExchangeAuthTokenRequest } from '../../validation.js';
+import { createResolveOAuthUrl } from '../../utils/resolveBaseUrl.js';
 
 /**
  * Mock HTTP client for testing

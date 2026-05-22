@@ -9,7 +9,7 @@ import {
   mapCanonicalParcelToGLS,
   mapAddressToGLSAddress,
   mapDimensionsToGLSParcelProperty,
-} from '../mappers/parcels.js';
+} from '../../mappers/parcels.js';
 
 describe('GLS Parcel Mapper', () => {
   const mockAddress = {

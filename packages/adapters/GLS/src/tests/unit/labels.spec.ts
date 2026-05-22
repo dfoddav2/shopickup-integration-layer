@@ -9,12 +9,12 @@ import { describe, it, expect } from 'vitest';
 import {
   mapCanonicalCreateLabelsToGLSPrintLabels,
   mapGLSPrintLabelsToCanonicalCreateLabels,
-} from '../mappers/labels.js';
+} from '../../mappers/labels.js';
 import {
   GLSCreateLabelsRequestSchema,
   safeValidateGLSPrintLabelsRequest,
   safeValidateGLSPrintLabelsResponse,
-} from '../validation/labels.js';
+} from '../../validation/labels.js';
 
 describe('GLS Label Mappers', () => {
    describe('mapCanonicalCreateLabelsToGLSPrintLabels', () => {

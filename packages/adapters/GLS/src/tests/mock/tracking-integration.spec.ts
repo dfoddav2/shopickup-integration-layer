@@ -13,7 +13,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { AdapterContext, TrackingRequest, HttpClient, HttpResponse, HttpClientConfig } from '@shopickup/core';
 import { CarrierError } from '@shopickup/core';
-import { track } from '../capabilities/tracking.js';
+import { track } from '../../capabilities/tracking.js';
 
 /**
  * Mock HTTP client for testing

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MPLAdapter } from '../index.js';
+import { MPLAdapter } from '../../index.js';
 import type {
   AdapterContext,
   Parcel,
@@ -221,8 +221,12 @@ describe('MPLAdapter - Parcels (CREATE_PARCEL, CREATE_PARCELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          useTestApi: false,
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+            agreementCode: 'AGR-001',
+            bankAccountNumber: '12345678-12345678',
+          },
         },
       };
 
@@ -259,8 +263,12 @@ describe('MPLAdapter - Parcels (CREATE_PARCEL, CREATE_PARCELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          useTestApi: false,
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+            agreementCode: 'AGR-001',
+            bankAccountNumber: '12345678-12345678',
+          },
         },
       };
 
@@ -296,8 +304,12 @@ describe('MPLAdapter - Parcels (CREATE_PARCEL, CREATE_PARCELS)', () => {
           apiSecret: 'invalid-secret',
         },
         options: {
-          useTestApi: false,
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+            agreementCode: 'AGR-001',
+            bankAccountNumber: '12345678-12345678',
+          },
         },
       };
 
@@ -331,8 +343,12 @@ describe('MPLAdapter - Parcels (CREATE_PARCEL, CREATE_PARCELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          useTestApi: false,
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+            agreementCode: 'AGR-001',
+            bankAccountNumber: '12345678-12345678',
+          },
         },
       };
 
@@ -365,8 +381,12 @@ describe('MPLAdapter - Parcels (CREATE_PARCEL, CREATE_PARCELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          useTestApi: false,
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+            agreementCode: 'AGR-001',
+            bankAccountNumber: '12345678-12345678',
+          },
         },
       };
 
@@ -393,8 +413,12 @@ describe('MPLAdapter - Parcels (CREATE_PARCEL, CREATE_PARCELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          useTestApi: false,
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+            agreementCode: 'AGR-001',
+            bankAccountNumber: '12345678-12345678',
+          },
         },
       };
 
@@ -430,8 +454,12 @@ describe('MPLAdapter - Parcels (CREATE_PARCEL, CREATE_PARCELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          useTestApi: false,
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+            agreementCode: 'AGR-001',
+            bankAccountNumber: '12345678-12345678',
+          },
         },
       };
 

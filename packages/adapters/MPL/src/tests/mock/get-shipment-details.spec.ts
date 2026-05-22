@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getShipmentDetails, ShipmentDetailsResponse } from '../capabilities/get-shipment-details.js';
+import { getShipmentDetails, ShipmentDetailsResponse } from '../../capabilities/get-shipment-details.js';
 import type { AdapterContext, HttpResponse, Logger } from '@shopickup/core';
 import { CarrierError } from '@shopickup/core';
 

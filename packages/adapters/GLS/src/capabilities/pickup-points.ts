@@ -203,16 +203,20 @@ export async function fetchPickupPoints(
     }
 
     // Validate response structure
-    // Handle both response formats:
-    // 1. Axios: returns data directly as { items: [...] }
-    // 2. Wrapped: { status, body, statusText } format
+    // Handle multiple response formats:
+    // 1. Direct: response is already the payload ({ items: [...] })
+    // 2. AxiosResponse: response.data holds the payload ({ items: [...] })
+    // 3. Wrapped: { status, body, statusText } from mock/test harnesses
     let body: GLSDeliveryPointsFeed;
     
     if (response && response.items) {
-      // Direct format (axios)
+      // Direct format
       body = response;
+    } else if (response && response.data && response.data.items) {
+      // AxiosResponse format (live HTTP client)
+      body = response.data;
     } else if (response && response.body) {
-      // Wrapped format
+      // Wrapped format (mock/test harness)
       if (response.status !== 200) {
         throw translateHttpError(response.status, response.statusText || 'Unknown error');
       }

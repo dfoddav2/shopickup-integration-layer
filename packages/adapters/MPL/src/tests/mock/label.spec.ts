@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MPLAdapter } from '../index.js';
+import { MPLAdapter } from '../../index.js';
 import type {
   AdapterContext,
   HttpResponse,
@@ -164,7 +164,10 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+          },
         },
       };
 
@@ -213,7 +216,10 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+          },
         },
       };
 
@@ -235,7 +241,10 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
           apiKey: 'test-api-key',
           apiSecret: 'test-api-secret',
         },
-        // No accountingCode
+        options: {
+          useTestApi: true,
+          mpl: {},
+        },
       };
 
       try {
@@ -243,7 +252,7 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
         expect.fail('Should have thrown CarrierError');
       } catch (err) {
         expect(err).toBeInstanceOf(CarrierError);
-        expect((err as CarrierError).category).toBe('NotFound');
+        expect((err as CarrierError).category).toBe('Validation');
         expect((err as CarrierError).message).toMatch(/accountingCode/i);
       }
     });
@@ -268,7 +277,10 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+          },
         },
       };
 
@@ -301,7 +313,10 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
           apiSecret: 'invalid-secret',
         },
         options: {
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+          },
         },
       };
 
@@ -332,7 +347,10 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+          },
         },
       };
 
@@ -362,7 +380,10 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+          },
         },
       };
 
@@ -387,7 +408,10 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+          },
         },
       };
 
@@ -443,7 +467,10 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+          },
         },
       };
 
@@ -467,7 +494,10 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
           apiSecret: 'test-api-secret',
         },
         options: {
-          accountingCode: 'ACC-00001',
+          useTestApi: true,
+          mpl: {
+            accountingCode: 'ACC-00001',
+          },
         },
       };
 
@@ -476,7 +506,7 @@ describe('MPLAdapter - Labels (CREATE_LABEL, CREATE_LABELS)', () => {
         expect.fail('Should have thrown CarrierError for empty array');
       } catch (err) {
         expect(err).toBeInstanceOf(CarrierError);
-        expect((err as CarrierError).category).toBe('NotFound');
+        expect((err as CarrierError).category).toBe('Validation');
       }
     });
   });

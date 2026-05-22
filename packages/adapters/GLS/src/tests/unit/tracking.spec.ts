@@ -9,15 +9,15 @@ import { describe, it, expect } from 'vitest';
 import {
   mapGLSStatusToTrackingEvent,
   mapGLSTrackingResponseToCanonical,
-} from '../mappers/tracking.js';
+} from '../../mappers/tracking.js';
 import {
   safeValidateTrackingRequest,
   safeValidateGLSTrackingRequest,
   safeValidateGLSTrackingResponse,
   isValidPODFormat,
   isValidStatusDate,
-} from '../validation/tracking.js';
-import type { GLSParcelStatus, GLSGetParcelStatusesResponse } from '../types/index.js';
+} from '../../validation/tracking.js';
+import type { GLSParcelStatus, GLSGetParcelStatusesResponse } from '../../types/index.js';
 
 /**
  * ============================================

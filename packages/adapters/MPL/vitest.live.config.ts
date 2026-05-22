@@ -7,11 +7,9 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   root: rootDir,
   test: {
-    include: [
-      'src/tests/unit/**/*.{spec,test}.ts',
-      'src/tests/mock/**/*.{spec,test}.ts',
-    ],
+    include: ['src/tests/live/**/*.live.spec.ts'],
     environment: 'node',
     globals: false,
+    testTimeout: 120000,
   },
 });

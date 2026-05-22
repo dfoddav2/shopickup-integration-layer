@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { buildMPLHeaders, isBasicAuthDisabledError } from '../utils/httpUtils.js';
-import type { MPLCredentials } from '../validation.js';
+import { buildMPLHeaders, isBasicAuthDisabledError } from '../../utils/httpUtils.js';
+import type { MPLCredentials } from '../../validation.js';
 
 describe('MPL HTTP Utils', () => {
   describe('buildMPLHeaders', () => {

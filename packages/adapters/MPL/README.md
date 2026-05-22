@@ -45,6 +45,42 @@ const result = await adapter.exchangeAuthToken(
 );
 ```
 
+## Testing
+
+Tests are organized in three tiers under `src/tests/`:
+
+- **unit/** — pure logic and utility tests (no HTTP client required)
+- **mock/** — adapter capability tests using a mock HTTP client
+- **live/** — opt-in live tests against the MPL sandbox or production API
+
+### Run tests
+
+```bash
+# Unit + mock (default)
+pnpm --filter @shopickup/adapters-mpl run test
+
+# Live (requires credentials)
+pnpm --filter @shopickup/adapters-mpl run test:live
+```
+
+### Live test credentials
+
+Copy `live.env.example` to `.env.live` and fill in your MPL sandbox credentials:
+
+```bash
+cp live.env.example .env.live
+```
+
+Required variables:
+
+- `MPL_LIVE_API_KEY`
+- `MPL_LIVE_API_SECRET`
+- `MPL_LIVE_ACCOUNTING_CODE`
+- `MPL_LIVE_AGREEMENT_CODE`
+- `MPL_LIVE_BANK_ACCOUNT_NUMBER`
+
+The live suite skips automatically if credentials are missing.
+
 ## Status
 
 Published as `0.x.x` while the adapter API is still evolving.
