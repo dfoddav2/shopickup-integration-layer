@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Parcel } from '@shopickup/core';
 import { getGLSLiveConfig } from './live-env.js';
+import { pollWithRetries } from './live-test-utils.js';
 
 function createHomeDeliveryParcel(): Parcel {
   return {
-    id: `gls-live-${Date.now()}`,
+    id: `gls-live-home-${Date.now()}`,
     shipper: {
       contact: {
         name: 'Shopickup Test Sender',
@@ -46,7 +47,7 @@ function createHomeDeliveryParcel(): Parcel {
     },
     service: 'standard',
     references: {
-      customerReference: `GLS-LIVE-${Date.now()}`,
+      customerReference: `GLS-LIVE-HOME-${Date.now()}`,
     },
   };
 }
@@ -54,17 +55,17 @@ function createHomeDeliveryParcel(): Parcel {
 const live = getGLSLiveConfig();
 
 if (!live.enabled) {
-  describe.skip('GLS live parcel flow', () => {
+  describe.skip('GLS live home-delivery flow', () => {
     it(live.reason, () => { });
   });
 } else {
   const { adapter, context, credentials, useTestApi, country } = live;
 
-  describe('GLS live parcel flow', () => {
-    it('creates a parcel, generates a label, and tracks it in the test environment', async () => {
+  describe('GLS live home-delivery flow', () => {
+    it('creates a home-delivery parcel, generates a label, and tracks it in the test environment', async () => {
       const parcel = createHomeDeliveryParcel();
 
-      console.log('GLS live test config', {
+      console.log('GLS live home-delivery test config', {
         useTestApi,
         country,
         parcelId: parcel.id,
@@ -80,7 +81,7 @@ if (!live.enabled) {
         context,
       );
 
-      console.log('GLS live createParcel result', createdParcel);
+      console.log('GLS live home-delivery createParcel result', createdParcel);
 
       expect(createdParcel.carrierId).toBeTruthy();
       expect(createdParcel.status).toBe('created');
@@ -94,29 +95,40 @@ if (!live.enabled) {
         context,
       );
 
-      console.log('GLS live createLabel result', label);
+      console.log('GLS live home-delivery createLabel result', label);
 
       expect(label.status).toBe('created');
       expect(label.fileId).toBeTruthy();
 
-      // Tracking may return NotFound for a freshly created test parcel;
-      // accept either a valid tracking response or a NotFound error.
+      // GLS tracking requires the ParcelNumber (from label), not ParcelId (from createParcel)
+      const parcelNumber = (label.raw as any)?.parcelNumber || createdParcel.carrierId!;
+      console.log('GLS live home-delivery using tracking number', { parcelNumber, parcelId: createdParcel.carrierId });
+
+      // GLS test API has a ~30 second lag before a newly created parcel
+      // appears in the tracking system. We poll with a 15-second delay
+      // and up to 6 attempts (90 s total) to give the carrier time to
+      // register it.  If the parcel still cannot be found we treat that
+      // as an acceptable outcome for a freshly created test parcel.
       let tracking: any;
       try {
-        tracking = await adapter.track!(
-          {
-            trackingNumber: createdParcel.carrierId!,
-            credentials,
-            options: { useTestApi, country },
-          },
-          context,
+        const pollResult = await pollWithRetries(
+          () =>
+            adapter.track!(
+              {
+                trackingNumber: String(parcelNumber),
+                credentials,
+                options: { useTestApi, country },
+              },
+              context,
+            ),
+          { maxRetries: 6, retryDelayMs: 15_000 },
         );
-        console.log('GLS live track result', tracking);
-        expect(tracking.trackingNumber).toBe(createdParcel.carrierId!);
+        tracking = pollResult.result;
+        console.log('GLS live home-delivery track result', tracking);
+        expect(tracking.trackingNumber).toBe(String(parcelNumber));
         expect(tracking.status).toBeTruthy();
       } catch (err: any) {
-        console.log('GLS live track error (expected for fresh test parcel)', err.message);
-        // NotFound is expected when the test API hasn't synced the parcel yet
+        console.log('GLS live home-delivery track error (expected for fresh test parcel)', err.message);
         expect(err.category).toBe('NotFound');
       }
     });

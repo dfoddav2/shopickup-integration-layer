@@ -335,7 +335,7 @@ export interface GLSParcelStatus {
   depotCity: string; // Depot/location city
   depotNumber: string; // Depot identifier
   statusCode: string; // GLS status code (1-50+, see Appendix G)
-  statusDate: string; // ISO 8601 datetime of status
+  statusDate: string; // ISO 8601 or ASP.NET JSON date (/Date(1779460879807+0200)/)
   statusDescription: string; // Human-readable status description (e.g., "The parcel was handed over to GLS")
   statusInfo?: string; // Additional status information
 }

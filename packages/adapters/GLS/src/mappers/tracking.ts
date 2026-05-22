@@ -138,8 +138,18 @@ export function mapGLSStatusToTrackingEvent(
   // Map GLS status code to canonical status
   const canonicalStatus = GLS_STATUS_MAPPING[glsStatus.statusCode] || 'PENDING';
 
+  // GLS returns dates in ASP.NET JSON format: /Date(1779460879807+0200)/
+  // Parse it manually since new Date() does not understand that format
+  let timestamp: Date;
+  const aspNetMatch = glsStatus.statusDate.match(/\/Date\((\d+)(?:[+-]\d{4})?\)\//);
+  if (aspNetMatch) {
+    timestamp = new Date(parseInt(aspNetMatch[1], 10));
+  } else {
+    timestamp = new Date(glsStatus.statusDate);
+  }
+
   return {
-    timestamp: new Date(glsStatus.statusDate),
+    timestamp,
     status: canonicalStatus,
     carrierStatusCode: glsStatus.statusCode,
     location: {

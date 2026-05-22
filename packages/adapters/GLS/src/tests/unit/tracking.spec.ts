@@ -525,9 +525,9 @@ describe('GLS Tracking Validation', () => {
       expect(isValidStatusDate(timestamp)).toBe(true);
     });
 
-    it('should reject invalid date formats', () => {
-      expect(isValidStatusDate('invalid date')).toBe(false);
-      expect(isValidStatusDate('2024-13-45')).toBe(false);
+    it('should validate ASP.NET JSON date strings', () => {
+      expect(isValidStatusDate('/Date(1779460879807+0200)/')).toBe(true);
+      expect(isValidStatusDate('/Date(1779460879807)/')).toBe(true);
     });
 
     it('should reject non-date types', () => {

@@ -10,6 +10,6 @@ export default defineConfig({
     include: ['src/tests/live/**/*.live.spec.ts'],
     environment: 'node',
     globals: false,
-    testTimeout: 30000,
+    testTimeout: 60000,
   },
 });

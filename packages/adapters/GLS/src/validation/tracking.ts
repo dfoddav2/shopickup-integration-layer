@@ -6,10 +6,6 @@
 
 import { z, type ZodSafeParseResult } from 'zod';
 import type { TrackingRequest } from '@shopickup/core';
-import type {
-  GLSGetParcelStatusesRequest,
-  GLSGetParcelStatusesResponse,
-} from '../types/index.js';
 
 export type GLSTrackingRequest = TrackingRequest;
 
@@ -75,7 +71,8 @@ export function safeValidateGLSTrackingRequest(req: unknown): ZodSafeParseResult
 export function safeValidateGLSTrackingResponse(resp: unknown): ZodSafeParseResult<any> {
   const glsParcelStatusSchema = z.object({
     statusCode: z.string().min(1, 'Status code is required'),
-    statusDate: z.union([z.string().datetime(), z.number()]),
+    // GLS returns dates in ASP.NET JSON format: /Date(1779460879807+0200)/
+    statusDate: z.union([z.string(), z.number()]),
     statusDescription: z.string().optional().nullable(),
     depotCity: z.string().optional().nullable(),
     depotNumber: z.string().optional().nullable(),
@@ -120,15 +117,29 @@ export function isValidPODFormat(pod: unknown): boolean {
 }
 
 /**
+ * Parse ASP.NET JSON date format: /Date(1779460879807+0200)/
+ * Returns milliseconds timestamp, or null if not in ASP.NET format
+ */
+function parseAspNetDate(dateStr: string): number | null {
+  const match = dateStr.match(/\/Date\((\d+)(?:[+-]\d{4})?\)\//);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+/**
  * Helper to validate status date
- * 
- * Ensures status date is a valid date string (ISO 8601) or timestamp
+ *
+ * Ensures status date is a valid date string (ISO 8601, ASP.NET JSON, or similar) or timestamp
  * Rejects invalid date strings that JavaScript's Date() constructor accepts
  */
 export function isValidStatusDate(date: unknown): boolean {
   try {
     if (typeof date === 'string') {
-      // Check if it's a valid ISO date or similar
+      // Try ASP.NET JSON date format first
+      const aspNetTs = parseAspNetDate(date);
+      if (aspNetTs !== null) {
+        return !Number.isNaN(aspNetTs);
+      }
+      // Fall back to standard date parsing
       const d = new Date(date);
       // Ensure the date is actually valid (NaN would indicate invalid)
       return !Number.isNaN(d.getTime());

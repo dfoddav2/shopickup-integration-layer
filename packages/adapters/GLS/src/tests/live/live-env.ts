@@ -18,6 +18,7 @@ export type GLSLiveConfig =
       };
       useTestApi: boolean;
       country: string;
+      pickupPointId: string;
     }
   | {
       enabled: false;
@@ -57,6 +58,7 @@ export function getGLSLiveConfig(): GLSLiveConfig {
   const webshopEngine = process.env.GLS_LIVE_WEBSHOP_ENGINE;
   const useTestApi = process.env.GLS_LIVE_USE_TEST_API !== 'false';
   const country = process.env.GLS_LIVE_COUNTRY || 'HU';
+  const pickupPointId = process.env.GLS_LIVE_PICKUP_POINT_ID || '379-PARCELSHOP';
 
   if (!username || !password) {
     return {
@@ -87,5 +89,6 @@ export function getGLSLiveConfig(): GLSLiveConfig {
     },
     useTestApi,
     country,
+    pickupPointId,
   };
 }

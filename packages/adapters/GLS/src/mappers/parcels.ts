@@ -6,7 +6,7 @@
  */
 
 import type { Parcel } from '@shopickup/core';
-import type { GLSParcel, GLSAddress, GLSParcelProperty } from '../types/index.js';
+import type { GLSParcel, GLSAddress, GLSParcelProperty, GLSService } from '../types/index.js';
 
 /**
  * Maps a canonical Address to GLS Address format
@@ -102,12 +102,15 @@ export function mapCanonicalParcelToGLS(
   } else {
     // PICKUP_POINT delivery
     const pickupPoint = parcel.recipient.delivery.pickupPoint;
+    // GLS validates the delivery address even for PSD parcels, so we must
+    // supply realistic fallback values when the caller does not include the
+    // pickup point’s full address.
     deliveryAddressData = {
       ...(pickupPoint.address || {}),
       name: pickupPoint.name || 'Pickup Point',
-      city: pickupPoint.address?.city || 'Pickup Point',
+      city: pickupPoint.address?.city || 'Budapest',
       street: pickupPoint.address?.street || pickupPoint.id,
-      postalCode: pickupPoint.address?.postalCode || '00000',
+      postalCode: pickupPoint.address?.postalCode || '1011',
       country: pickupPoint.address?.country || 'HU',
       contactName: parcel.recipient.contact.name,
       contactPhone: parcel.recipient.contact.phone,
@@ -115,6 +118,22 @@ export function mapCanonicalParcelToGLS(
     };
   }
   const deliveryAddress = mapAddressToGLSAddress(deliveryAddressData);
+
+  // Build service list based on delivery method
+  const serviceList: GLSService[] = [];
+  if (parcel.recipient.delivery.method === 'PICKUP_POINT') {
+    const pickupPoint = parcel.recipient.delivery.pickupPoint;
+    // PSD (Parcel Shop Delivery) – the OpenAPI schema defines psdParameter as
+    // ServiceParameterStringInteger, but the live API accepts the simpler
+    // ServiceParameterString form (a plain "value" field).  We use "value"
+    // because that is what the GLS test environment actually expects.
+    // The shop ID format from the public feed is number-PARCELSHOP,
+    // e.g. "379-PARCELSHOP".
+    serviceList.push({
+      code: 'PSD',
+      value: pickupPoint.id,
+    });
+  }
 
   return {
     clientNumber: clientNumber, // REQUIRED: Each parcel must specify its client number for authorization
@@ -126,7 +145,8 @@ export function mapCanonicalParcelToGLS(
     codAmount,
     codCurrency: codCurrency || 'HUF',
     parcelPropertyList: mapDimensionsToGLSParcelProperty(parcel),
-    // Other fields like serviceList, senderIdentityCardNumber can be added as needed
+    serviceList: serviceList.length > 0 ? serviceList : undefined,
+    // Other fields like senderIdentityCardNumber can be added as needed
     // pickupDate: new Date().toISOString(), // Optional: current date
   };
 }
@@ -158,7 +178,7 @@ export function mapGLSParcelInfoToCarrierResource(parcelInfo: any, index: number
   const clientReference = parcelInfo.clientReference ?? parcelInfo.ClientReference;
   
   return {
-    carrierId: parcelId.toString(),
+    carrierId: parcelId != null ? String(parcelId) : undefined,
     status: 'created',
     raw: parcelInfo,
     metadata: {

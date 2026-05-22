@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Parcel } from '@shopickup/core';
 import { getFoxpostLiveConfig } from './live-env.js';
+import { pollWithRetries } from './live-test-utils.js';
 
 function createPickupPointParcel(pickupPointId: string): Parcel {
   return {
@@ -94,13 +95,20 @@ if (!live.enabled) {
       expect(label.status).toBe('created');
       expect(label.fileId).toBeTruthy();
 
-      const tracking = await adapter.track!(
-        {
-          trackingNumber: createdParcel.carrierId!,
-          credentials,
-          options: { useTestApi },
-        },
-        context,
+      // Foxpost test API may have a short lag before a newly created parcel
+      // appears in the tracking system. We poll with a 15-second delay
+      // and up to 4 attempts to give the carrier time to register it.
+      const { result: tracking } = await pollWithRetries(
+        () =>
+          adapter.track!(
+            {
+              trackingNumber: createdParcel.carrierId!,
+              credentials,
+              options: { useTestApi },
+            },
+            context,
+          ),
+        { maxRetries: 4, retryDelayMs: 15_000 },
       );
 
       console.log('Foxpost live pickup-point track result', tracking);
