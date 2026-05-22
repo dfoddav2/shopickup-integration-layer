@@ -242,7 +242,7 @@ export function mapService(
  *   M  – medium locker slot (max dim ≤ 60 cm)
  *   L  – large locker slot (anything larger)
  */
-function mapDimensionsToSize(
+export function mapDimensionsToSize(
   dimensions: { length: number; width: number; height: number }
 ): PackageSize {
   const maxDim = Math.max(dimensions.length, dimensions.width, dimensions.height);
@@ -256,7 +256,7 @@ function mapDimensionsToSize(
  *
  * A parcel contains one item (package) in MPL terms
  */
-export function mapItem(parcel: Parcel): Item {
+export function mapItem(parcel: Parcel, sizeOverride?: PackageSize): Item {
   const item: Item = {
     services: mapService(parcel),
   };
@@ -269,8 +269,10 @@ export function mapItem(parcel: Parcel): Item {
     };
   }
 
-  // Add size category from dimensions (required for parcel-machine / CS deliveries)
-  if (parcel.package?.dimensionsCm) {
+  // Add size category: explicit override takes precedence, otherwise derive from dimensions
+  if (sizeOverride) {
+    item.size = sizeOverride;
+  } else if (parcel.package?.dimensionsCm) {
     item.size = mapDimensionsToSize(parcel.package.dimensionsCm);
   }
 
@@ -327,6 +329,7 @@ export function mapParcelToMPLShipment(
   bankAccountNumber: string,
   labelType?: LabelType,
   developerName: string = 'shopickup-mpl',
+  sizeOverride?: PackageSize,
 ): ShipmentCreateRequest {
   return {
     developer: developerName,
@@ -335,7 +338,7 @@ export function mapParcelToMPLShipment(
     webshopId: parcel.id, // Use parcel ID as unique identifier within request
     orderId: parcel.references?.orderId,
     labelType: labelType || 'A5', // Default to A5
-    item: [mapItem(parcel)],
+    item: [mapItem(parcel, sizeOverride)],
   };
 }
 
@@ -354,6 +357,7 @@ export function mapParcelsToMPLShipments(
   bankAccountNumber: string,
   labelType?: LabelType,
   developerName?: string,
+  sizeOverride?: PackageSize,
 ): ShipmentCreateRequest[] {
   return parcels.map((parcel, idx) =>
     mapParcelToMPLShipment(
@@ -363,6 +367,7 @@ export function mapParcelsToMPLShipments(
       bankAccountNumber,
       labelType,
       developerName,
+      sizeOverride,
     ),
   );
 }

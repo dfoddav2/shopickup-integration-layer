@@ -175,7 +175,8 @@ export async function createParcels(
 
     // Map canonical parcels to GLS format
     // NOTE: Parcels DO NOT include auth fields - those go at the request root level per GLS API spec
-    const glsParcelList = mapCanonicalParcelsToGLS(req.parcels, clientNumber);
+    const packageTypeOverride = (req.options as any)?.gls?.packageType;
+    const glsParcelList = mapCanonicalParcelsToGLS(req.parcels, clientNumber, packageTypeOverride);
 
     safeLog(
       ctx.logger,
@@ -190,58 +191,58 @@ export async function createParcels(
       ['createParcels']
     );
 
-     // Build GLS PrepareLabels request with auth at root level (per spec ver. 25.12.11)
-     // TESTING: Converting to PascalCase to match PHP example exactly
-     const glsRequestCamelCase = {
-       username: credentials.username,
-       password: hashedPassword,
-       clientNumberList: [clientNumber],
-       webshopEngine: credentials.webshopEngine || 'shopickup-adapter/1.0',
-       parcelList: glsParcelList,
-     };
+    // Build GLS PrepareLabels request with auth at root level (per spec ver. 25.12.11)
+    // TESTING: Converting to PascalCase to match PHP example exactly
+    const glsRequestCamelCase = {
+      username: credentials.username,
+      password: hashedPassword,
+      clientNumberList: [clientNumber],
+      webshopEngine: credentials.webshopEngine || 'shopickup-adapter/1.0',
+      parcelList: glsParcelList,
+    };
 
-     // Convert to PascalCase (matching PHP example)
-     const glsRequest = convertToPascalCase(glsRequestCamelCase);
+    // Convert to PascalCase (matching PHP example)
+    const glsRequest = convertToPascalCase(glsRequestCamelCase);
 
-     // Log request for debugging (sanitize sensitive data)
-     safeLog(
-       ctx.logger,
-       'debug',
-       'GLS: Request payload',
-       {
-         url: `${baseUrl}/json/PrepareLabels`,
-         requestKeys: Object.keys(glsRequest),
-         hasUsername: !!glsRequest.Username,
-         hasPassword: Array.isArray(glsRequest.Password),
-         passwordLength: glsRequest.Password?.length,
-         clientNumberList: glsRequest.ClientNumberList,
-         parcelCount: glsRequest.ParcelList?.length,
-       },
-       ctx,
-       ['createParcels', 'debug']
-     );
+    // Log request for debugging (sanitize sensitive data)
+    safeLog(
+      ctx.logger,
+      'debug',
+      'GLS: Request payload',
+      {
+        url: `${baseUrl}/json/PrepareLabels`,
+        requestKeys: Object.keys(glsRequest),
+        hasUsername: !!glsRequest.Username,
+        hasPassword: Array.isArray(glsRequest.Password),
+        passwordLength: glsRequest.Password?.length,
+        clientNumberList: glsRequest.ClientNumberList,
+        parcelCount: glsRequest.ParcelList?.length,
+      },
+      ctx,
+      ['createParcels', 'debug']
+    );
 
-     // Call GLS PrepareLabels endpoint
-     // No HTTP Basic Auth header needed - password is in JSON body as byte array
-     const httpResponse = await ctx.http.post(
-       `${baseUrl}/json/PrepareLabels`,
-       glsRequest
-     );
+    // Call GLS PrepareLabels endpoint
+    // No HTTP Basic Auth header needed - password is in JSON body as byte array
+    const httpResponse = await ctx.http.post(
+      `${baseUrl}/json/PrepareLabels`,
+      glsRequest
+    );
 
-     // Log response for debugging
-     safeLog(
-       ctx.logger,
-       'debug',
-       'GLS: Response received',
-       {
-         statusCode: (httpResponse as any).statusCode || 'unknown',
-         hasBody: !!httpResponse.body,
-         bodyKeys: httpResponse.body ? Object.keys(httpResponse.body).slice(0, 5) : [],
-         bodyPreview: httpResponse.body ? JSON.stringify(httpResponse.body).substring(0, 200) : 'none',
-       },
-       ctx,
-       ['createParcels', 'debug']
-     );
+    // Log response for debugging
+    safeLog(
+      ctx.logger,
+      'debug',
+      'GLS: Response received',
+      {
+        statusCode: (httpResponse as any).statusCode || 'unknown',
+        hasBody: !!httpResponse.body,
+        bodyKeys: httpResponse.body ? Object.keys(httpResponse.body).slice(0, 5) : [],
+        bodyPreview: httpResponse.body ? JSON.stringify(httpResponse.body).substring(0, 200) : 'none',
+      },
+      ctx,
+      ['createParcels', 'debug']
+    );
 
     // Extract body from response
     const carrierRespBody = httpResponse.body as GLSPrepareLabelsResponse;

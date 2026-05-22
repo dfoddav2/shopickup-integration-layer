@@ -11,16 +11,16 @@ import type {
  * 2. OAuth2 authentication with oAuth2Token
  */
 const ApiKeyBranch = z.object({
-    authType: z.literal('apiKey'),
-    apiKey: z.string().min(1),
-    apiSecret: z.string().min(1),
-    accountingCode: z.string().optional(),
+     authType: z.literal('apiKey'),
+     apiKey: z.string().min(1),
+     apiSecret: z.string().min(1),
+     accountingCode: z.string().optional(),
 });
 
 const OAuthBranch = z.object({
-    authType: z.literal('oauth2'),
-    oAuth2Token: z.string().min(1),
-    accountingCode: z.string().optional(),
+     authType: z.literal('oauth2'),
+     oAuth2Token: z.string().min(1),
+     accountingCode: z.string().optional(),
 });
 
 /**
@@ -28,18 +28,18 @@ const OAuthBranch = z.object({
  * Allows callers to pass credentials without explicitly setting authType.
  */
 export const MPLCredentialsSchema = z.preprocess((input) => {
-    if (input && typeof input === 'object') {
-        const anyInput = input as any;
-        // Prefer oauth2 if token is present
-        if (anyInput.oAuth2Token) {
-            return { ...anyInput, authType: 'oauth2' };
-        }
-        // Otherwise default to apiKey
-        if (anyInput.apiKey && anyInput.apiSecret) {
-            return { ...anyInput, authType: 'apiKey' };
-        }
-    }
-    return input;
+     if (input && typeof input === 'object') {
+          const anyInput = input as any;
+          // Prefer oauth2 if token is present
+          if (anyInput.oAuth2Token) {
+               return { ...anyInput, authType: 'oauth2' };
+          }
+          // Otherwise default to apiKey
+          if (anyInput.apiKey && anyInput.apiSecret) {
+               return { ...anyInput, authType: 'apiKey' };
+          }
+     }
+     return input;
 }, z.discriminatedUnion('authType', [ApiKeyBranch, OAuthBranch]));
 
 export type MPLCredentials = z.infer<typeof MPLCredentialsSchema>;
@@ -107,13 +107,13 @@ export type FetchPickupPointsMPLRequest = FetchPickupPointsRequestMPL;
  * Optional: useTestApi flag to use sandbox OAuth endpoint
  */
 export const ExchangeAuthTokenRequestSchema = z.object({
-    credentials: MPLCredentialsSchema.refine(
-        (cred) => cred.authType === 'apiKey',
-        { message: "exchangeAuthToken requires apiKey credentials, not oauth2 token" }
-    ),
-    options: z.object({
-        useTestApi: z.boolean().optional(),
-    }).optional(),
+     credentials: MPLCredentialsSchema.refine(
+          (cred) => cred.authType === 'apiKey',
+          { message: "exchangeAuthToken requires apiKey credentials, not oauth2 token" }
+     ),
+     options: z.object({
+          useTestApi: z.boolean().optional(),
+     }).optional(),
 });
 
 export type ExchangeAuthTokenRequest = z.infer<typeof ExchangeAuthTokenRequestSchema>;
@@ -122,21 +122,21 @@ export type ExchangeAuthTokenRequest = z.infer<typeof ExchangeAuthTokenRequestSc
  * OAuth token response from MPL /oauth2/token endpoint
  */
 export interface MPLOAuthTokenResponse {
-    access_token: string;
-    token_type: 'Bearer';
-    expires_in: number;     // seconds (typically 3600)
-    issued_at?: number;     // timestamp in ms (optional in response)
+     access_token: string;
+     token_type: 'Bearer';
+     expires_in: number;     // seconds (typically 3600)
+     issued_at?: number;     // timestamp in ms (optional in response)
 }
 
 /**
  * Normalized response for exchangeAuthToken capability
  */
 export interface ExchangeAuthTokenResponse {
-    access_token: string;
-    token_type: 'Bearer';
-    expires_in: number;     // seconds
-    issued_at?: number;     // timestamp in ms when token was issued
-    raw: MPLOAuthTokenResponse;
+     access_token: string;
+     token_type: 'Bearer';
+     expires_in: number;     // seconds
+     issued_at?: number;     // timestamp in ms when token was issued
+     raw: MPLOAuthTokenResponse;
 }
 
 /**
@@ -149,27 +149,27 @@ export type MPLPickupPointResponse = MPLAPIGatewayErrorResponse | MPLPickupPoint
  * Single delivery place entry from the 200 response
  */
 export interface MPLPickupPointEntry {
-    deliveryplacesQueryResult: {
-        deliveryplace: string;
-        postCode: string;
-        city: string;
-        address: string;
-        geocodeLat: number;
-        geocodeLong: number;
-        id: string;
-        errors: MPLPickupPointEntryError[] | null;
-    };
-    servicePointType: PickupServicePointType[];
+     deliveryplacesQueryResult: {
+          deliveryplace: string;
+          postCode: string;
+          city: string;
+          address: string;
+          geocodeLat: number;
+          geocodeLong: number;
+          id: string;
+          errors: MPLPickupPointEntryError[] | null;
+     };
+     servicePointType: PickupServicePointType[];
 }
 
 /**
  * Error details within a pickup point entry
  */
 export interface MPLPickupPointEntryError {
-    code: string;
-    parameter: string;
-    text: string;
-    text_eng: string;
+     code: string;
+     parameter: string;
+     text: string;
+     text_eng: string;
 }
 
 /**
@@ -189,12 +189,12 @@ export interface MPLPickupPointEntryError {
  * - If "Gateway", the error was generated in the API Gateway.
  */
 export interface MPLAPIGatewayErrorResponse {
-    fault: {
-        faultstring: string;
-        detail: {
-            errorcode: string;
-        };
-    };
+     fault: {
+          faultstring: string;
+          detail: {
+               errorcode: string;
+          };
+     };
 }
 
 
@@ -206,35 +206,35 @@ export interface MPLAPIGatewayErrorResponse {
  * Helper: validate credentials in one pass and get authType
  */
 export function safeValidateCredentials(input: unknown) {
-    return MPLCredentialsSchema.safeParse(input);
+     return MPLCredentialsSchema.safeParse(input);
 }
 
 /**
  * Helper: validate full fetchPickupPoints request
  */
 export function safeValidateFetchPickupPointsRequest(input: unknown) {
-    return FetchPickupPointsMPLSchema.safeParse(input);
+     return FetchPickupPointsMPLSchema.safeParse(input);
 }
 
 /**
  * Helper: validate exchangeAuthToken request
  */
 export function safeValidateExchangeAuthTokenRequest(input: unknown) {
-    return ExchangeAuthTokenRequestSchema.safeParse(input);
+     return ExchangeAuthTokenRequestSchema.safeParse(input);
 }
 
 /**
  * Type guard: check if response is a gateway error
  */
 export function isGatewayError(response: unknown): response is MPLAPIGatewayErrorResponse {
-    return (
-        response !== null &&
-        typeof response === 'object' &&
-        'fault' in response &&
-        response.fault !== null &&
-        typeof response.fault === 'object' &&
-        'faultstring' in response.fault
-    );
+     return (
+          response !== null &&
+          typeof response === 'object' &&
+          'fault' in response &&
+          response.fault !== null &&
+          typeof response.fault === 'object' &&
+          'faultstring' in response.fault
+     );
 }
 
 /**
@@ -528,6 +528,7 @@ export const CreateParcelsMPLCarrierOptionsSchema = z.object({
      agreementCode: z.string().min(1),
      bankAccountNumber: z.string().min(1),
      labelType: LabelTypeSchema.optional(),
+     size: PackageSizeSchema.optional().describe('Override parcel size category (S, M, L, PRINT, PACK). If omitted, derived from parcel dimensions using a max-dimension heuristic.'),
 });
 export type CreateParcelsMPLCarrierOptions = z.infer<typeof CreateParcelsMPLCarrierOptionsSchema>;
 
@@ -631,9 +632,9 @@ export const CreateLabelsMPLOptionsSchema = z.object({
 export type CreateLabelsMPLOptions = z.infer<typeof CreateLabelsMPLOptionsSchema>;
 
 export const CreateLabelsMPLRequestSchema = z.object({
-      parcelCarrierIds: z.array(z.string().min(1)).min(1),
-      credentials: MPLCredentialsSchema,
-      options: CreateLabelsMPLOptionsSchema,
+     parcelCarrierIds: z.array(z.string().min(1)).min(1),
+     credentials: MPLCredentialsSchema,
+     options: CreateLabelsMPLOptionsSchema,
 });
 export type CreateLabelsMPLRequest = z.infer<typeof CreateLabelsMPLRequestSchema>;
 
@@ -656,7 +657,7 @@ export const CreateLabelMPLRequestSchema = z.object({
 export type CreateLabelMPLRequest = z.infer<typeof CreateLabelMPLRequestSchema>;
 
 export function safeValidateCreateLabelRequest(input: unknown) {
-      return CreateLabelMPLRequestSchema.safeParse(input);
+     return CreateLabelMPLRequestSchema.safeParse(input);
 }
 
 // ===== CLOSE SHIPMENTS TYPES (CLOSE_SHIPMENT capability) =====
@@ -686,8 +687,8 @@ export const CloseShipmentsMPLRequestSchema = z.object({
      trackingNumbers: z.array(z.string().min(1)).optional(),
      credentials: MPLCredentialsSchema,
      options: z.object({
-         useTestApi: z.boolean().optional(),
-         mpl: z.object({ accountingCode: z.string().min(1) }).optional(),
+          useTestApi: z.boolean().optional(),
+          mpl: z.object({ accountingCode: z.string().min(1) }).optional(),
      }).optional(),
 }).catchall(z.unknown());
 export type CloseShipmentsMPLRequest = z.infer<typeof CloseShipmentsMPLRequestSchema>;
@@ -782,13 +783,13 @@ export type MPLShipmentQueryResult = z.infer<typeof MPLShipmentQueryResultSchema
  * - useTestApi: use sandbox API instead of production
  */
 export const TrackingRequestMPLSchema = z.object({
-  trackingNumbers: z.array(z.string().min(1)).min(1, 'At least one tracking number is required'),
-  credentials: MPLCredentialsSchema,
-  state: z.enum(['last', 'all']).optional().default('last'),
-  useRegisteredEndpoint: z.boolean().optional().default(false),
-  options: z.object({
-    useTestApi: z.boolean().optional(),
-  }).optional(),
+     trackingNumbers: z.array(z.string().min(1)).min(1, 'At least one tracking number is required'),
+     credentials: MPLCredentialsSchema,
+     state: z.enum(['last', 'all']).optional().default('last'),
+     useRegisteredEndpoint: z.boolean().optional().default(false),
+     options: z.object({
+          useTestApi: z.boolean().optional(),
+     }).optional(),
 });
 export type TrackingRequestMPL = z.infer<typeof TrackingRequestMPLSchema>;
 
@@ -796,7 +797,7 @@ export type TrackingRequestMPL = z.infer<typeof TrackingRequestMPLSchema>;
  * Helper: validate tracking request
  */
 export function safeValidateTrackingRequest(input: unknown) {
-  return TrackingRequestMPLSchema.safeParse(input);
+     return TrackingRequestMPLSchema.safeParse(input);
 }
 
 /**
@@ -807,32 +808,32 @@ export function safeValidateTrackingRequest(input: unknown) {
  * Registered endpoint includes all fields
  */
 export const MPLTrackingRecordSchema = z.object({
-  c0: z.string().nullable().optional(),   // System ID
-  c1: z.string(),                          // Consignment ID (Tracking number) - REQUIRED
-  c2: z.string().nullable().optional(),    // Service Code (Registered only)
-  c4: z.string().nullable().optional(),   // Delivery Mode
-  c5: z.string().nullable().optional(),    // Weight (Registered only)
-  c6: z.string().nullable().optional(),    // Service Description
-  c8: z.string().nullable().optional(),    // Location
-  c9: z.string().nullable().optional(),   // Last Event Status (CRITICAL)
-  c10: z.string().nullable().optional(),  // Timestamp
-  c11: z.string().nullable().optional(),  // Location Details
-  c12: z.string().nullable().optional(),  // Event Description
-  c13: z.string().nullable().optional(),  // Event Notes
-  c38: z.string().nullable().optional(),  // Service Name
-  c39: z.string().nullable().optional(),  // Service Details
-  c41: z.string().nullable().optional(),  // Size Length (Registered only)
-  c42: z.string().nullable().optional(),  // Size Width (Registered only)
-  c43: z.string().nullable().optional(),  // Size Height
-  c49: z.string().nullable().optional(),  // Destination
-  c53: z.string().nullable().optional(),  // Signature/Receiver
-  c55: z.string().nullable().optional(),  // Insurance flag
-  c56: z.string().nullable().optional(),  // COD flag
-  c57: z.string().nullable().optional(),  // Signature required flag
-  c59: z.string().nullable().optional(),  // Additional flag 1
-  c60: z.string().nullable().optional(),  // Additional flag 2
-  c61: z.string().nullable().optional(),  // Additional flag 3
-  c63: z.string().nullable().optional(),  // Custom/Reference data
+     c0: z.string().nullable().optional(),   // System ID
+     c1: z.string(),                          // Consignment ID (Tracking number) - REQUIRED
+     c2: z.string().nullable().optional(),    // Service Code (Registered only)
+     c4: z.string().nullable().optional(),   // Delivery Mode
+     c5: z.string().nullable().optional(),    // Weight (Registered only)
+     c6: z.string().nullable().optional(),    // Service Description
+     c8: z.string().nullable().optional(),    // Location
+     c9: z.string().nullable().optional(),   // Last Event Status (CRITICAL)
+     c10: z.string().nullable().optional(),  // Timestamp
+     c11: z.string().nullable().optional(),  // Location Details
+     c12: z.string().nullable().optional(),  // Event Description
+     c13: z.string().nullable().optional(),  // Event Notes
+     c38: z.string().nullable().optional(),  // Service Name
+     c39: z.string().nullable().optional(),  // Service Details
+     c41: z.string().nullable().optional(),  // Size Length (Registered only)
+     c42: z.string().nullable().optional(),  // Size Width (Registered only)
+     c43: z.string().nullable().optional(),  // Size Height
+     c49: z.string().nullable().optional(),  // Destination
+     c53: z.string().nullable().optional(),  // Signature/Receiver
+     c55: z.string().nullable().optional(),  // Insurance flag
+     c56: z.string().nullable().optional(),  // COD flag
+     c57: z.string().nullable().optional(),  // Signature required flag
+     c59: z.string().nullable().optional(),  // Additional flag 1
+     c60: z.string().nullable().optional(),  // Additional flag 2
+     c61: z.string().nullable().optional(),  // Additional flag 3
+     c63: z.string().nullable().optional(),  // Custom/Reference data
 }).passthrough();  // Allow additional fields
 export type MPLTrackingRecord = z.infer<typeof MPLTrackingRecordSchema>;
 
@@ -841,7 +842,7 @@ export type MPLTrackingRecord = z.infer<typeof MPLTrackingRecordSchema>;
  * Returns array of tracking records (one per tracking number) or error
  */
 export const TrackingResponseMPLSchema = z.object({
-  trackAndTrace: z.array(MPLTrackingRecordSchema).optional(),
+     trackAndTrace: z.array(MPLTrackingRecordSchema).optional(),
 }).passthrough();
 export type TrackingResponseMPL = z.infer<typeof TrackingResponseMPLSchema>;
 
@@ -849,7 +850,7 @@ export type TrackingResponseMPL = z.infer<typeof TrackingResponseMPLSchema>;
  * Helper: validate tracking response
  */
 export function safeValidateTrackingResponse(input: unknown) {
-  return TrackingResponseMPLSchema.safeParse(input);
+     return TrackingResponseMPLSchema.safeParse(input);
 }
 
 // ===== PULL-500 BATCH TRACKING TYPES =====
@@ -866,12 +867,12 @@ export function safeValidateTrackingResponse(input: unknown) {
  * - useTestApi: use sandbox API
  */
 export const Pull500StartRequestSchema = z.object({
-  trackingNumbers: z.array(z.string().min(1)).min(1).max(500, 'Maximum 500 tracking numbers allowed'),
-  credentials: MPLCredentialsSchema,
-  language: z.enum(['hu', 'en']).default('hu').optional(),
-  options: z.object({
-    useTestApi: z.boolean().optional(),
-  }).optional(),
+     trackingNumbers: z.array(z.string().min(1)).min(1).max(500, 'Maximum 500 tracking numbers allowed'),
+     credentials: MPLCredentialsSchema,
+     language: z.enum(['hu', 'en']).default('hu').optional(),
+     options: z.object({
+          useTestApi: z.boolean().optional(),
+     }).optional(),
 });
 export type Pull500StartRequest = z.infer<typeof Pull500StartRequestSchema>;
 
@@ -879,7 +880,7 @@ export type Pull500StartRequest = z.infer<typeof Pull500StartRequestSchema>;
  * Helper: validate Pull-500 start request
  */
 export function safeValidatePull500StartRequest(input: unknown) {
-  return Pull500StartRequestSchema.safeParse(input);
+     return Pull500StartRequestSchema.safeParse(input);
 }
 
 /**
@@ -887,8 +888,8 @@ export function safeValidatePull500StartRequest(input: unknown) {
  * Returns trackingGUID for polling, plus any submission errors
  */
 export const Pull500StartResponseSchema = z.object({
-  trackingGUID: z.string().min(1),
-  errors: z.array(ErrorDescriptorSchema).optional(),
+     trackingGUID: z.string().min(1),
+     errors: z.array(ErrorDescriptorSchema).optional(),
 }).passthrough();
 export type Pull500StartResponse = z.infer<typeof Pull500StartResponseSchema>;
 
@@ -896,7 +897,7 @@ export type Pull500StartResponse = z.infer<typeof Pull500StartResponseSchema>;
  * Helper: validate Pull-500 start response
  */
 export function safeValidatePull500StartResponse(input: unknown) {
-  return Pull500StartResponseSchema.safeParse(input);
+     return Pull500StartResponseSchema.safeParse(input);
 }
 
 /**
@@ -907,11 +908,11 @@ export function safeValidatePull500StartResponse(input: unknown) {
  * - credentials: MPLCredentials
  */
 export const Pull500CheckRequestSchema = z.object({
-  trackingGUID: z.string().min(1, 'trackingGUID is required'),
-  credentials: MPLCredentialsSchema,
-  options: z.object({
-    useTestApi: z.boolean().optional(),
-  }).optional(),
+     trackingGUID: z.string().min(1, 'trackingGUID is required'),
+     credentials: MPLCredentialsSchema,
+     options: z.object({
+          useTestApi: z.boolean().optional(),
+     }).optional(),
 });
 export type Pull500CheckRequest = z.infer<typeof Pull500CheckRequestSchema>;
 
@@ -919,7 +920,7 @@ export type Pull500CheckRequest = z.infer<typeof Pull500CheckRequestSchema>;
  * Helper: validate Pull-500 check request
  */
 export function safeValidatePull500CheckRequest(input: unknown) {
-  return Pull500CheckRequestSchema.safeParse(input);
+     return Pull500CheckRequestSchema.safeParse(input);
 }
 
 /**
@@ -940,10 +941,10 @@ export type Pull500Status = z.infer<typeof Pull500StatusSchema>;
  * report_fields contains column headers
  */
 export const Pull500CheckResponseSchema = z.object({
-  status: Pull500StatusSchema,
-  report: z.string().optional(),        // CSV-formatted data (when status=READY)
-  report_fields: z.string().optional(), // CSV header (when status=READY)
-  errors: z.array(ErrorDescriptorSchema).optional(),
+     status: Pull500StatusSchema,
+     report: z.string().optional(),        // CSV-formatted data (when status=READY)
+     report_fields: z.string().optional(), // CSV header (when status=READY)
+     errors: z.array(ErrorDescriptorSchema).optional(),
 }).passthrough();
 export type Pull500CheckResponse = z.infer<typeof Pull500CheckResponseSchema>;
 
@@ -951,5 +952,5 @@ export type Pull500CheckResponse = z.infer<typeof Pull500CheckResponseSchema>;
  * Helper: validate Pull-500 check response
  */
 export function safeValidatePull500CheckResponse(input: unknown) {
-  return Pull500CheckResponseSchema.safeParse(input);
+     return Pull500CheckResponseSchema.safeParse(input);
 }

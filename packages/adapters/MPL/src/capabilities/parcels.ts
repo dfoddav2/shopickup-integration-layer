@@ -210,6 +210,7 @@ export async function createParcels(
       accountingCode: parsedReq.options.mpl.accountingCode,
       agreementCode: parsedReq.options.mpl.agreementCode,
       bankAccountNumber: parsedReq.options.mpl.bankAccountNumber,
+      size: parsedReq.options.mpl.size,
     };
 
     // Validate we have required context
@@ -266,6 +267,8 @@ export async function createParcels(
       internalOptions.agreementCode,
       internalOptions.bankAccountNumber,
       internalOptions.labelType as any, // Cast to satisfy type constraint
+      undefined,
+      internalOptions.size,
     );
 
     ctx.logger?.debug('MPL: Mapped parcels to MPL shipments', {

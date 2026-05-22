@@ -4,6 +4,7 @@ import path from 'path';
 export default defineConfig({
   test: {
     include: ['packages/**/src/**/*.{test,spec}.{ts,tsx,js,mjs}'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/*.live.spec.ts'],
     environment: 'node',
     globals: true,          // allows describe/it without importing
     isolate: false,         // share Vite context across tests (faster, avoids some module issues)

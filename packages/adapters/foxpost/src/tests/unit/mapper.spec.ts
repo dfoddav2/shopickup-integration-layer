@@ -9,6 +9,7 @@ import {
   mapAddressToFoxpost,
   determineFoxpostSize,
   mapParcelToFoxpost,
+  mapParcelToFoxpostRequest,
   mapFoxpostStatusToCanonical,
   mapFoxpostTrackToCanonical,
 } from '../../mappers/index.js';
@@ -129,6 +130,35 @@ describe('Foxpost Mappers', () => {
       const result = determineFoxpostSize(parcel);
 
       expect(result).toBe('s');
+    });
+  });
+
+  describe('mapParcelToFoxpostRequest', () => {
+    it('uses explicit size override when provided', () => {
+      const parcel = createTestParcel();
+      parcel.package.dimensionsCm = { length: 10, width: 10, height: 10 }; // Would normally be xs
+
+      const result = mapParcelToFoxpostRequest(parcel, { size: 'xl' });
+
+      expect(result.size).toBe('XL');
+    });
+
+    it('falls back to heuristic when no size override provided', () => {
+      const parcel = createTestParcel();
+      parcel.package.dimensionsCm = { length: 10, width: 10, height: 10 };
+
+      const result = mapParcelToFoxpostRequest(parcel);
+
+      expect(result.size).toBe('XS');
+    });
+
+    it('uses size override even when dimensions are missing', () => {
+      const parcel = createTestParcel();
+      parcel.package.dimensionsCm = undefined;
+
+      const result = mapParcelToFoxpostRequest(parcel, { size: 'm' });
+
+      expect(result.size).toBe('M');
     });
   });
 

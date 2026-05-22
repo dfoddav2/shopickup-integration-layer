@@ -140,6 +140,20 @@ describe('GLS Parcel Mapper', () => {
       const result = mapDimensionsToGLSParcelProperty(parcelWithoutDimensions as any);
       expect(result).toBeUndefined();
     });
+
+    it('should use packageType override when provided', () => {
+      const result = mapDimensionsToGLSParcelProperty(mockParcel as any, 5);
+
+      expect(result).toHaveLength(1);
+      expect(result![0].packageType).toBe(5); // Case
+    });
+
+    it('should default packageType to 1 (Colli) when no override', () => {
+      const result = mapDimensionsToGLSParcelProperty(mockParcel as any);
+
+      expect(result).toHaveLength(1);
+      expect(result![0].packageType).toBe(1);
+    });
   });
 
   describe('mapCanonicalParcelToGLS', () => {

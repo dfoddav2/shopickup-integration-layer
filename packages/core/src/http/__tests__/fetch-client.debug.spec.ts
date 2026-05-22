@@ -54,6 +54,6 @@ describe('fetch client debug', () => {
     const requestCall = (spy.debug as any).mock.calls.find((c: any[]) => c[0] === 'request');
     expect(requestCall).toBeDefined();
     expect(requestCall[1].bodyPreview).toHaveLength(8);
-    expect(requestCall[1].bodyPreview.startsWith('"')).toBe(true);
+    expect(requestCall[1].bodyPreview).toBe('abcdefgh');
   });
 });

@@ -79,6 +79,7 @@ export function mapParcelToFoxpostRequest(
   options: {
     isWeb?: boolean;
     isRedirect?: boolean;
+    size?: FoxpostSize;
   } = {}
 ): FoxCreateParcelRequestItem {
   const buildRefCode = (parcel: Parcel): string | undefined => {
@@ -91,10 +92,10 @@ export function mapParcelToFoxpostRequest(
 
   const delivery = parcel.recipient.delivery;
   const isHomeDelivery = delivery.method === 'HOME';
-  const recipientAddr = isHomeDelivery 
-    ? delivery.address 
+  const recipientAddr = isHomeDelivery
+    ? delivery.address
     : undefined;
-  
+
   const recipient = {
     name: parcel.recipient.contact.name.substring(0, 150),
     phone: parcel.recipient.contact.phone || "",
@@ -108,11 +109,14 @@ export function mapParcelToFoxpostRequest(
   // COD amount from parcel if present, default to 0
   const codAmount = parcel.cod?.amount.amount ?? 0;
 
+  // Use explicit size override if provided, otherwise derive from dimensions
+  const parcelSize = options.size ?? determineFoxpostSize(parcel);
+
   const baseRequest: any = {
     recipientName: recipient.name,
     recipientPhone: recipient.phone,
     recipientEmail: recipient.email,
-    size: determineFoxpostSize(parcel)?.toUpperCase() || 'S',
+    size: parcelSize?.toUpperCase() || 'S',
     cod: codAmount,
     // Optional fields
     refCode: buildRefCode(parcel),
@@ -166,10 +170,10 @@ export function mapParcelToFoxpost(
 
   const delivery = parcel.recipient.delivery;
   const isHomeDelivery = delivery.method === 'HOME';
-  const recipientAddr = isHomeDelivery 
-    ? delivery.address 
+  const recipientAddr = isHomeDelivery
+    ? delivery.address
     : undefined;
-  
+
   const recipient = {
     name: parcel.recipient.contact.name.substring(0, 150),
     phone: parcel.recipient.contact.phone || "",
@@ -259,20 +263,20 @@ export function mapFoxpostTrackToCanonical(
 export function mapFoxpostTraceToCanonical(
   trace: FoxpostTraceDTO | { statusDate: string | Date; status?: string; shortName?: string; longName?: string }
 ): TrackingEvent {
-  const statusDate = typeof trace.statusDate === 'string' 
-    ? new Date(trace.statusDate) 
+  const statusDate = typeof trace.statusDate === 'string'
+    ? new Date(trace.statusDate)
     : trace.statusDate;
-  
+
   const statusCode = (trace.status as string) || "PENDING";
   const statusMapping = mapFoxpostStatusCode(statusCode);
 
   // Prefer mapped human description; fall back to API data if available
-  const humanDescription = statusMapping.human_en 
+  const humanDescription = statusMapping.human_en
     || ((trace as any).longName || (trace as any).shortName || null)
     || `Foxpost: ${statusCode}`;
 
   const humanDescriptionHu = statusMapping.human_hu || null;
-    
+
   return {
     timestamp: statusDate || new Date(),
     status: mapFoxpostStatusToCanonical(statusCode),
@@ -331,7 +335,7 @@ export function mapParcelToFoxpostCarrierType(
   // Otherwise (HOME delivery), create HD parcel
   const homeDelivery = delivery;
   const recipientAddr = homeDelivery.address;
-  
+
   const hdParcel: FoxpostParcel = {
     type: 'HD',
     cod: codAmount,

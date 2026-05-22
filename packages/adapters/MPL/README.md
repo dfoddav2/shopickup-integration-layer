@@ -30,18 +30,18 @@ pnpm add @shopickup/adapters-mpl @shopickup/core
 ## Quick start
 
 ```ts
-import { MPLAdapter } from '@shopickup/adapters-mpl';
-import { createAxiosHttpClient } from '@shopickup/core';
+import { MPLAdapter } from "@shopickup/adapters-mpl";
+import { createAxiosHttpClient } from "@shopickup/core";
 
 const adapter = new MPLAdapter();
 const http = createAxiosHttpClient();
 
 const result = await adapter.exchangeAuthToken(
   {
-    credentials: { apiKey: 'your-api-key', apiSecret: 'your-api-secret' },
+    credentials: { apiKey: "your-api-key", apiSecret: "your-api-secret" },
     options: { useTestApi: true },
   },
-  { http, logger: console }
+  { http, logger: console },
 );
 ```
 
@@ -97,3 +97,41 @@ If you need to test an end-to-end create → label → close → track flow, be 
 ## Status
 
 Published as `0.x.x` while the adapter API is still evolving.
+
+## Parcel Creation
+
+### Size / Dimensions Handling
+
+MPL requires a **size category** (`S`, `M`, `L`, `PRINT`, `PACK`) for parcel-machine (`CS`) deliveries. Weight is also sent as `item.weight`.
+
+**Default heuristic** (when no explicit override is provided):
+
+- The adapter derives the size from `parcel.package.dimensionsCm` using a **max-dimension** heuristic:
+  - max dimension `≤ 38 cm` → `S`
+  - max dimension `≤ 60 cm` → `M`
+  - max dimension `> 60 cm` → `L`
+- If no dimensions are provided, no size field is sent (may fail for CS deliveries).
+
+**Manual override:**
+You can bypass the heuristic by passing an explicit size in the request options:
+
+```ts
+await adapter.createParcel!(
+  {
+    parcel,
+    credentials,
+    options: {
+      useTestApi: true,
+      mpl: {
+        accountingCode: "...",
+        agreementCode: "...",
+        bankAccountNumber: "...",
+        size: "M", // S, M, L, PRINT, PACK
+      },
+    },
+  },
+  context,
+);
+```
+
+**Note:** `PRINT` and `PACK` are valid MPL size codes but are not produced by the current heuristic. Use the manual override if you need them.

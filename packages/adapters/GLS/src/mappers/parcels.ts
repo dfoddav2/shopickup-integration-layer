@@ -34,7 +34,10 @@ export function mapAddressToGLSAddress(address: any): GLSAddress {
  * @param parcel Canonical parcel with optional dimensions
  * @returns GLS ParcelProperty array or undefined if no dimensions
  */
-export function mapDimensionsToGLSParcelProperty(parcel: Parcel): GLSParcelProperty[] | undefined {
+export function mapDimensionsToGLSParcelProperty(
+  parcel: Parcel,
+  packageTypeOverride?: number
+): GLSParcelProperty[] | undefined {
   if (!parcel.package?.dimensionsCm) {
     return undefined;
   }
@@ -45,7 +48,7 @@ export function mapDimensionsToGLSParcelProperty(parcel: Parcel): GLSParcelPrope
   // Create a parcel property with dimensions and packaging info
   properties.push({
     content: 'Package contents',
-    packageType: 1, // Default to parcel (1=parcel, 2=pallet, etc.)
+    packageType: packageTypeOverride ?? 1, // Use override or default to Colli (1)
     height: dim.height,
     length: dim.length,
     width: dim.width,
@@ -78,7 +81,8 @@ export function mapCanonicalParcelToGLS(
   parcel: Parcel,
   clientNumber: number,
   codAmount?: number,
-  codCurrency?: string
+  codCurrency?: string,
+  packageTypeOverride?: number
 ): GLSParcel {
   // Map shipper/sender address
   const pickupAddress = mapAddressToGLSAddress({
@@ -144,7 +148,7 @@ export function mapCanonicalParcelToGLS(
     deliveryAddress,
     codAmount,
     codCurrency: codCurrency || 'HUF',
-    parcelPropertyList: mapDimensionsToGLSParcelProperty(parcel),
+    parcelPropertyList: mapDimensionsToGLSParcelProperty(parcel, packageTypeOverride),
     serviceList: serviceList.length > 0 ? serviceList : undefined,
     // Other fields like senderIdentityCardNumber can be added as needed
     // pickupDate: new Date().toISOString(), // Optional: current date
@@ -160,9 +164,10 @@ export function mapCanonicalParcelToGLS(
  */
 export function mapCanonicalParcelsToGLS(
   parcels: Parcel[],
-  clientNumber: number
+  clientNumber: number,
+  packageTypeOverride?: number
 ): GLSParcel[] {
-  return parcels.map((parcel) => mapCanonicalParcelToGLS(parcel, clientNumber));
+  return parcels.map((parcel) => mapCanonicalParcelToGLS(parcel, clientNumber, undefined, undefined, packageTypeOverride));
 }
 
 /**
@@ -176,7 +181,7 @@ export function mapGLSParcelInfoToCarrierResource(parcelInfo: any, index: number
   // Handle both camelCase and PascalCase from GLS response
   const parcelId = parcelInfo.parcelId ?? parcelInfo.ParcelId;
   const clientReference = parcelInfo.clientReference ?? parcelInfo.ClientReference;
-  
+
   return {
     carrierId: parcelId != null ? String(parcelId) : undefined,
     status: 'created',

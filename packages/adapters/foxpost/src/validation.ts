@@ -281,6 +281,7 @@ export interface CreateLabelsRequestFoxpost extends CoreCreateLabelsRequest {
 const FoxpostParcelFlagsSchema = z.object({
   isWeb: z.boolean().optional(),
   isRedirect: z.boolean().optional(),
+  size: z.enum(['xs', 's', 'm', 'l', 'xl']).optional().describe('Override parcel size category (xs, s, m, l, xl). If omitted, derived from parcel dimensions using a volume heuristic.'),
 }).catchall(z.unknown());
 
 const FoxpostParcelOptionsSchema = z.object({

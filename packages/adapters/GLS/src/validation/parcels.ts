@@ -117,9 +117,12 @@ export function safeValidateCreateParcelRequest(req: unknown): ZodSafeParseResul
     options: z.object({
       country: z.string().min(2).max(2).optional(),
       useTestApi: z.boolean().optional(),
+      gls: z.object({
+        packageType: z.number().int().min(1).max(7).optional().describe('Override package type (1=Colli, 2=Box, 3=Roll, 4=Can, 5=Case, 6=Reel, 7=Sack). If omitted, defaults to 1 (Colli).'),
+      }).optional(),
     }).optional(),
   });
-  
+
   return schema.safeParse(req);
 }
 
@@ -278,9 +281,12 @@ export function safeValidateCreateParcelsRequest(req: unknown): ZodSafeParseResu
     options: z.object({
       country: z.string().min(2).max(2).optional(),
       useTestApi: z.boolean().optional(),
+      gls: z.object({
+        packageType: z.number().int().min(1).max(7).optional().describe('Override package type (1=Colli, 2=Box, 3=Roll, 4=Can, 5=Case, 6=Reel, 7=Sack). If omitted, defaults to 1 (Colli).'),
+      }).optional(),
     }).optional(),
   });
-  
+
   return schema.safeParse(req);
 }
 

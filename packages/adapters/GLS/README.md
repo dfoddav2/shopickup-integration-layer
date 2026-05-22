@@ -126,3 +126,37 @@ Optional:
 - `GLS_LIVE_COUNTRY` (default `HU`)
 
 The pickup-points live test does not require credentials (public feed).
+
+## Parcel Creation
+
+### Size / Dimensions Handling
+
+GLS accepts **raw dimensions and weight** via `parcelPropertyList` rather than a size category.
+
+**Default behavior** (when no explicit override is provided):
+
+- The adapter maps `parcel.package.dimensionsCm` directly as `height`, `length`, and `width` (cm).
+- Weight is converted from grams to kilograms (`weightGrams / 1000`).
+- `packageType` defaults to **`1`** (Colli / parcel).
+
+**Manual override:**
+You can override the `packageType` by passing it in the request options:
+
+```ts
+await adapter.createParcel!(
+  {
+    parcel,
+    credentials,
+    options: {
+      useTestApi: true,
+      gls: {
+        country: "HU",
+        packageType: 2, // 1=Colli, 2=Box, 3=Roll, 4=Can, 5=Case, 6=Reel, 7=Sack
+      },
+    },
+  },
+  context,
+);
+```
+
+**Note:** Raw dimensions and weight are always sent when available; the override only changes the `packageType` field.
