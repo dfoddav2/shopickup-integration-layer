@@ -81,6 +81,19 @@ Required variables:
 
 The live suite skips automatically if credentials are missing.
 
+### Sandbox tracking limitation
+
+**Important:** The MPL sandbox tracking endpoint (`/v2/nyomkovetes`) is backed by a **separate mock service** that does **not** share data with the sandbox shipment API. Parcels created via `createParcel` / `closeShipments` will **not** appear in tracking results.
+
+To verify tracking in sandbox, use the hardcoded mock identifiers that the mock backend recognises:
+
+- `UA000449616US`
+- `PB2SW00021917`
+
+The `tracking.live.spec.ts` live test queries these IDs directly and confirms the adapter parses the mock responses correctly.
+
+If you need to test an end-to-end create → label → close → track flow, be aware that the final tracking step may return `NotFound` in the sandbox even after a successful `closeShipments`. This is a known sandbox limitation, not an adapter bug.
+
 ## Status
 
 Published as `0.x.x` while the adapter API is still evolving.

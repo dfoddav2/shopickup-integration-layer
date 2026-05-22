@@ -4,7 +4,7 @@ import { exchangeAuthToken } from '../../capabilities/auth.js';
 import { createResolveOAuthUrl } from '../../utils/resolveBaseUrl.js';
 import type { ExchangeAuthTokenRequest } from '../../validation.js';
 
-const live = getMPLLiveConfig();
+const live = await getMPLLiveConfig();
 
 if (!live.enabled) {
   describe.skip('MPL live auth flow', () => {
@@ -23,27 +23,28 @@ if (!live.enabled) {
         },
         options: {
           useTestApi: baseUrl.includes('sandbox'),
-          mpl: {
-            accountingCode: credentials.accountingCode,
-          },
         },
       };
 
       const result = await exchangeAuthToken(
         req,
         live.context,
-        createResolveOAuthUrl(baseUrl),
+        createResolveOAuthUrl(
+          'https://core.api.posta.hu/oauth2/token',
+          'https://sandbox.api.posta.hu/oauth2/token',
+        ),
+        credentials.accountingCode,
       );
 
       console.log('MPL live auth token exchange result', {
-        hasAccessToken: !!result.accessToken,
-        expiresIn: result.expiresIn,
-        tokenType: result.tokenType,
+        hasAccessToken: !!result.access_token,
+        expiresIn: result.expires_in,
+        tokenType: result.token_type,
       });
 
-      expect(result.accessToken).toBeTruthy();
-      expect(result.tokenType).toBe('Bearer');
-      expect(result.expiresIn).toBeGreaterThan(0);
+      expect(result.access_token).toBeTruthy();
+      expect(result.token_type).toBe('Bearer');
+      expect(result.expires_in).toBeGreaterThan(0);
     });
   });
 }

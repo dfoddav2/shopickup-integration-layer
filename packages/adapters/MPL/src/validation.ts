@@ -807,32 +807,32 @@ export function safeValidateTrackingRequest(input: unknown) {
  * Registered endpoint includes all fields
  */
 export const MPLTrackingRecordSchema = z.object({
-  c0: z.string().optional(),   // System ID
-  c1: z.string(),               // Consignment ID (Tracking number) - REQUIRED
-  c2: z.string().optional(),    // Service Code (Registered only)
-  c4: z.string().optional(),    // Delivery Mode
-  c5: z.string().optional(),    // Weight (Registered only)
-  c6: z.string().optional(),    // Service Description
-  c8: z.string().optional(),    // Location
-  c9: z.string().optional(),    // Last Event Status (CRITICAL)
-  c10: z.string().optional(),   // Timestamp
-  c11: z.string().optional(),   // Location Details
-  c12: z.string().optional(),   // Event Description
-  c13: z.string().optional(),   // Event Notes
-  c38: z.string().optional(),   // Service Name
-  c39: z.string().optional(),   // Service Details
-  c41: z.string().optional(),   // Size Length (Registered only)
-  c42: z.string().optional(),   // Size Width (Registered only)
-  c43: z.string().optional(),   // Size Height
-  c49: z.string().optional(),   // Destination
-  c53: z.string().optional(),   // Signature/Receiver
-  c55: z.string().optional(),   // Insurance flag
-  c56: z.string().optional(),   // COD flag
-  c57: z.string().optional(),   // Signature required flag
-  c59: z.string().optional(),   // Additional flag 1
-  c60: z.string().optional(),   // Additional flag 2
-  c61: z.string().optional(),   // Additional flag 3
-  c63: z.string().optional(),   // Custom/Reference data
+  c0: z.string().nullable().optional(),   // System ID
+  c1: z.string(),                          // Consignment ID (Tracking number) - REQUIRED
+  c2: z.string().nullable().optional(),    // Service Code (Registered only)
+  c4: z.string().nullable().optional(),   // Delivery Mode
+  c5: z.string().nullable().optional(),    // Weight (Registered only)
+  c6: z.string().nullable().optional(),    // Service Description
+  c8: z.string().nullable().optional(),    // Location
+  c9: z.string().nullable().optional(),   // Last Event Status (CRITICAL)
+  c10: z.string().nullable().optional(),  // Timestamp
+  c11: z.string().nullable().optional(),  // Location Details
+  c12: z.string().nullable().optional(),  // Event Description
+  c13: z.string().nullable().optional(),  // Event Notes
+  c38: z.string().nullable().optional(),  // Service Name
+  c39: z.string().nullable().optional(),  // Service Details
+  c41: z.string().nullable().optional(),  // Size Length (Registered only)
+  c42: z.string().nullable().optional(),  // Size Width (Registered only)
+  c43: z.string().nullable().optional(),  // Size Height
+  c49: z.string().nullable().optional(),  // Destination
+  c53: z.string().nullable().optional(),  // Signature/Receiver
+  c55: z.string().nullable().optional(),  // Insurance flag
+  c56: z.string().nullable().optional(),  // COD flag
+  c57: z.string().nullable().optional(),  // Signature required flag
+  c59: z.string().nullable().optional(),  // Additional flag 1
+  c60: z.string().nullable().optional(),  // Additional flag 2
+  c61: z.string().nullable().optional(),  // Additional flag 3
+  c63: z.string().nullable().optional(),  // Custom/Reference data
 }).passthrough();  // Allow additional fields
 export type MPLTrackingRecord = z.infer<typeof MPLTrackingRecordSchema>;
 

@@ -18,9 +18,11 @@ import type {
   Sender,
   Contact as MPLContact,
   Address as MPLAddress,
+  DeliveryAddress,
   BasicServiceCode,
   DeliveryMode,
   LabelType,
+  PackageSize,
 } from '../validation.js';
 
 /**
@@ -131,19 +133,21 @@ export function mapAddress(address: CoreAddress): MPLAddress {
 
 /**
  * Maps canonical Delivery to MPL DeliveryAddress
- * If PICKUP_POINT, includes pickup point information
+ * If PICKUP_POINT, includes pickup point information and parcelPickupSite
  */
-export function mapDeliveryAddress(delivery: Delivery): MPLAddress {
+export function mapDeliveryAddress(delivery: Delivery): DeliveryAddress {
   if (delivery.method === 'HOME') {
     return mapAddress(delivery.address);
   } else {
     // PICKUP_POINT - use pickup point address if available, otherwise use fallback
     const pickupAddr = delivery.pickupPoint.address;
-    if (pickupAddr) {
-      return mapAddress(pickupAddr);
+    if (!pickupAddr) {
+      throw new Error('PickupPointDelivery missing address information');
     }
-    // Fallback - this shouldn't happen but be defensive
-    throw new Error('PickupPointDelivery missing address information');
+    return {
+      ...mapAddress(pickupAddr),
+      parcelPickupSite: delivery.pickupPoint.id,
+    };
   }
 }
 
@@ -230,8 +234,26 @@ export function mapService(
 }
 
 /**
+ * Maps canonical parcel dimensions to an MPL package size category.
+ *
+ * MPL parcel lockers (CS) require a size code rather than raw dimensions.
+ * Heuristic thresholds based on common locker slot sizes:
+ *   S  – small locker slot (max dim ≤ 38 cm)
+ *   M  – medium locker slot (max dim ≤ 60 cm)
+ *   L  – large locker slot (anything larger)
+ */
+function mapDimensionsToSize(
+  dimensions: { length: number; width: number; height: number }
+): PackageSize {
+  const maxDim = Math.max(dimensions.length, dimensions.width, dimensions.height);
+  if (maxDim <= 38) return 'S';
+  if (maxDim <= 60) return 'M';
+  return 'L';
+}
+
+/**
  * Maps canonical Parcel package to MPL Item format
- * 
+ *
  * A parcel contains one item (package) in MPL terms
  */
 export function mapItem(parcel: Parcel): Item {
@@ -245,6 +267,11 @@ export function mapItem(parcel: Parcel): Item {
       value: parcel.package.weightGrams,
       unit: 'g',
     };
+  }
+
+  // Add size category from dimensions (required for parcel-machine / CS deliveries)
+  if (parcel.package?.dimensionsCm) {
+    item.size = mapDimensionsToSize(parcel.package.dimensionsCm);
   }
 
   // Add custom data from references if available

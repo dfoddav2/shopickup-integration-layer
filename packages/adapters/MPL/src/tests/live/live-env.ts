@@ -1,6 +1,8 @@
 import { MPLAdapter } from '../../index.js';
 import { createFetchHttpClient } from '@shopickup/core';
 import type { AdapterContext } from '@shopickup/core';
+import { exchangeAuthToken } from '../../capabilities/auth.js';
+import { createResolveOAuthUrl } from '../../utils/resolveBaseUrl.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,7 +49,7 @@ function loadEnvFile(filePath: string): void {
   }
 }
 
-export function getMPLLiveConfig(): MPLLiveConfig {
+export async function getMPLLiveConfig(): Promise<MPLLiveConfig> {
   const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
   loadEnvFile(path.join(packageRoot, '.env.live'));
 
@@ -84,4 +86,36 @@ export function getMPLLiveConfig(): MPLLiveConfig {
     },
     baseUrl,
   };
+}
+
+/**
+ * Exchanges API key credentials for an OAuth2 Bearer token.
+ * Call this before any MPL API operation that requires OAuth2 auth.
+ */
+export async function exchangeMPLToken(
+  config: Extract<MPLLiveConfig, { enabled: true }>,
+): Promise<string> {
+  const { credentials, baseUrl, context } = config;
+  const resolveOAuthUrl = createResolveOAuthUrl(
+    'https://core.api.posta.hu/oauth2/token',
+    'https://sandbox.api.posta.hu/oauth2/token',
+  );
+
+  const result = await exchangeAuthToken(
+    {
+      credentials: {
+        authType: 'apiKey',
+        apiKey: credentials.apiKey,
+        apiSecret: credentials.apiSecret,
+      },
+      options: {
+        useTestApi: baseUrl.includes('sandbox'),
+      },
+    },
+    context,
+    resolveOAuthUrl,
+    credentials.accountingCode,
+  );
+
+  return result.access_token;
 }
