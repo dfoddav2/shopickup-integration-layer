@@ -301,22 +301,64 @@ export const PackageSizeSchema = z.enum(['S', 'M', 'L', 'PRINT', 'PACK']);
 export type PackageSize = z.infer<typeof PackageSizeSchema>;
 
 /**
- * Extra services codes (subset relevant for CREATE_SHIPMENT)
- * These are additional paid services that can be added to shipments
+ * Extra services codes from OpenAPI (complete set of 59 codes)
+ * These are additional paid services that can be added to shipments.
+ * The adapter auto-derives K_ENY, K_TER, K_UVT from parcel data;
+ * all others can be passed explicitly via options.mpl.extraServices.
  */
 export const ExtraServiceCodeSchema = z.enum([
      'K_ENY',  // Értéknyilvánítás (Value insurance)
      'K_TER',  // Terjedelmes kezelés (Bulky handling)
      'K_UVT',  // Árufizetés (Cash on delivery)
-     'K_TOR',  // Törvényi
-     'K_ORZ',  // Óvadék
-     'K_IDO',  // Időablak (Time window)
-     'K_RLC',  // Ragasz logikai csomag
-     'K_TEV',  // Tevékenység
-     'K_CSE',  // Csere-csomag alapcsomag
-     'K_CSA',  // Csere-csomag inverz csomag
-     'K_IDA',  // Időablak (delivery time window)
-     'K_FNK',  // Fixed day delivery
+     'K_TOR',  // Törékeny kezelés (Fragile handling)
+     'K_ORZ',  // Őrzési idő (Retention period)
+     'K_IDO',  // 1 munkanapos időgarancia (1-day time guarantee)
+     'K_RLC',  // Raklapcsere (Pallet replacement)
+     'K_TEV',  // Tértivevény (Advice of delivery)
+     'K_MSZ',  // Szombati kézbesítés (Saturday delivery)
+     'K_SKZ',  // Saját kézbe (Delivery to recipient in person)
+     'K_ALA',  // Alkalmi átvevőnek kézbesíthető (Occasional recipient)
+     'K_BER',  // Címzett fizet (Recipient pays)
+     'K_EKE',  // Egyedi kezelés (Individual handling)
+     'K_AAT',  // Tételes áruátadás (Itemised delivery)
+     'K_AAA',  // Áruházi átadás (Store delivery)
+     'K_DOK',  // Dokumentum menedzsment (Document management)
+     'K_TEP',  // Háznál történő felvétel (Home collection)
+     'K_PSZ',  // Postaszolgálati (Postal service)
+     'K_IDA',  // Időablak (Time window)
+     'K_FNK',  // Fix napi kézbesítés (Fixed day delivery)
+     'K_EXT',  // Extra kezelés (Extra handling)
+     'K_CSE',  // Cserecsomag (Replacement parcel)
+     'K_CSA',  // Alapcsomag (Base package / inverse)
+     'K_INV',  // Inverz csomag (Inverse parcel / returned goods)
+     'K_LEH',  // Lehívás (Call-out)
+     'K_TET',  // Tételes kezelés (Itemised handling)
+     'K_GLO',  // Globális szolgáltatás (Global service)
+     'K_LEZ',  // Postai lezárás (Postal sealing)
+     'K_POT',  // Kiviteli vám pótlap (Export customs supplementary sheet)
+     'K_VNY',  // Kiviteli Kísérő Okmány (Accompanying Document)
+     'K_CSM',  // Csomagmegőrzés (Packet storage)
+     'K_EFF',  // e-értesítés (e-notification)
+     'K_VIK',  // Visszakézbesítés (Return delivery)
+     'K_ZSK',  // Zsilipes kézbesítés (Lock-gate delivery)
+     'K_EFC',  // e-előrejelzés (e-prealert)
+     'K_DU',   // Délutáni kézbesítés (Afternoon delivery)
+     'K_LX',   // Kézbesítés dísztáviraton (Decorative telegram delivery)
+     'K_KRC',  // Címzett kézbesítési rendelkezése (Recipient's delivery provisions)
+     'K_ESZ',  // Éjszakai kézbesítés (Overnight delivery)
+     'K_ETV',  // eTértivevény (eReturn Receipt)
+     'K_KRF',  // Feladó kézbesítési rendelkezése (Sender's delivery provisions)
+     'K_VAR',  // Várakozási díj (Waiting time charge)
+     'K_UTN',  // Utánküldés (Reforwarding)
+     'K_VER',  // Vámérték (Customs value)
+     'K_EPR',  // eCIP Premium
+     'K_IDG',  // 1 munkanapos időgarancia (1 working day time guarantee)
+     'K_KNY',  // Könnyített kézbesítés (Simplified delivery)
+     'K_KOR',  // Életkor ellenőrzése (Age verification)
+     'K_PRE',  // PrePaid címke (PrePaid label)
+     'K_UTK',  // Utánküldés (Reforwarding)
+     'K_ANT',  // Aznap nem továbbítható (Cannot be forwarded same day)
+     'K_CIP',  // eCIP Standard
 ]);
 export type ExtraServiceCode = z.infer<typeof ExtraServiceCodeSchema>;
 
@@ -328,10 +370,11 @@ export type DeliveryTime = z.infer<typeof DeliveryTimeSchema>;
 
 /**
  * UnitValue - weight/size with unit
+ * MPL OpenAPI only accepts 'g' or 'G' for weight unit.
  */
 export const UnitValueSchema = z.object({
      value: z.number(),
-     unit: z.enum(['kg', 'g']).optional(),
+     unit: z.enum(['g', 'G']).optional(),
 });
 export type UnitValue = z.infer<typeof UnitValueSchema>;
 
@@ -353,6 +396,7 @@ export const AddressSchema = z.object({
      postCode: z.string().length(4),
      city: z.string().max(35).min(2),
      address: z.string().max(60).min(3),
+     remark: z.string().max(50).optional(),
 });
 export type Address = z.infer<typeof AddressSchema>;
 
@@ -377,6 +421,18 @@ export const RecipientSchema = z.object({
 export type Recipient = z.infer<typeof RecipientSchema>;
 
 /**
+ * Invoice information (optional, for billing)
+ */
+export const InvoiceSchema = z.object({
+     name: z.string().max(150).min(1),
+     postCode: z.string().length(4),
+     city: z.string().max(35).min(2),
+     address: z.string().max(60).min(3),
+     vatIdentificationNumber: z.string().max(15).min(1),
+});
+export type Invoice = z.infer<typeof InvoiceSchema>;
+
+/**
  * Sender information
  */
 export const SenderSchema = z.object({
@@ -384,6 +440,7 @@ export const SenderSchema = z.object({
      accountNo: z.string().min(16).max(24).optional(),
      contact: ContactSchema,
      address: AddressSchema,
+     invoice: InvoiceSchema.optional(),
      parcelTerminal: z.boolean().optional(),
 });
 export type Sender = z.infer<typeof SenderSchema>;
@@ -395,10 +452,16 @@ export const ServiceSchema = z.object({
      basic: BasicServiceCodeSchema,
      deliveryMode: DeliveryModeSchema,
      extra: z.array(ExtraServiceCodeSchema).optional(),
-     cod: z.number().optional(), // Cash on delivery amount in HUF
-     value: z.number().int().optional(), // Value insurance amount in HUF
-     codCurrency: z.string().max(3).optional(), // For international
-     customsValue: z.number().optional(), // For international
+     cod: z.number().optional(),
+     value: z.number().int().optional(),
+     codCurrency: z.string().max(3).optional(),
+     customsValue: z.number().optional(),
+     customsValueCurrency: z.string().max(3).optional(),
+     supplementarySheetNr: z.number().int().optional(),
+     exportAuthorisation: z.string().max(35).optional(),
+     otherComment: z.string().max(105).optional(),
+     secId: z.boolean().optional(),
+     produceContent: z.string().max(512).optional(),
 });
 export type Service = z.infer<typeof ServiceSchema>;
 
@@ -412,20 +475,9 @@ export const ItemSchema = z.object({
      size: PackageSizeSchema.optional(),
      services: ServiceSchema,
      senderParcelPickupSite: z.string().max(100).optional(),
+     qrCode: z.string().max(150).optional(),
 });
 export type Item = z.infer<typeof ItemSchema>;
-
-/**
- * Invoice information (optional, for billing)
- */
-export const InvoiceSchema = z.object({
-     name: z.string().max(150).min(1),
-     postCode: z.string().length(4),
-     city: z.string().max(35).min(2),
-     address: z.string().max(60).min(3),
-     vatIdentificationNumber: z.string().max(15).min(1),
-});
-export type Invoice = z.infer<typeof InvoiceSchema>;
 
 /**
  * Shipment creation request (maps to OpenAPI ShipmentCreateRequest)
@@ -528,7 +580,30 @@ export const CreateParcelsMPLCarrierOptionsSchema = z.object({
      agreementCode: z.string().min(1),
      bankAccountNumber: z.string().min(1),
      labelType: LabelTypeSchema.optional(),
+     labelFormat: LabelFormatSchema.optional(),
      size: PackageSizeSchema.optional().describe('Override parcel size category (S, M, L, PRINT, PACK). If omitted, derived from parcel dimensions using a max-dimension heuristic.'),
+     shipmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Planned posting date in yyyy-MM-dd format (max 6 months in the future).'),
+     tag: z.string().max(50).optional().describe('Optional tag for grouping/filtering shipments before close.'),
+     groupTogether: z.boolean().optional().describe('Whether items in this shipment should be delivered together.'),
+     deliveryTime: DeliveryTimeSchema.optional().describe('Required when K_IDA (time-window) extra service is used.'),
+     deliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Required when K_FNK (fixed-day) extra service is used.'),
+     paymentMode: z.enum(['UV_AT', 'UV_KP']).optional().describe('COD payout method: UV_AT = bank transfer, UV_KP = cash.'),
+     packageRetention: z.number().int().refine((v) => [0, 5, 10].includes(v), { message: 'packageRetention must be 0, 5, or 10' }).optional().describe('Retention period in business days: 0, 5, or 10.'),
+     senderParcelPickupSite: z.string().max(100).optional().describe('Parcel terminal name when dispatching via parcel locker.'),
+     customsValue: z.number().optional().describe('Customs value for international shipments.'),
+     customsValueCurrency: z.string().max(3).optional().describe('Currency for customs value (e.g. EUR).'),
+     parcelTerminal: z.boolean().optional().describe('Set to true when dispatching via parcel locker.'),
+     printRecipientData: z.enum(['PRINTALL', 'PRINTPHONENUMBER', 'PRINTEMAIL', 'PRINTNOTHING']).optional().describe('What recipient data to print on the label.'),
+     recipientLuaCode: z.string().max(20).optional().describe('Recipient Retail Customer ID (LÜA) with Magyar Posta.'),
+     recipientDisabled: z.boolean().optional().describe('Set to true for disabled recipients when delivering to parcel terminal.'),
+     invoice: InvoiceSchema.optional().describe('Invoice recipient if different from sender.'),
+     qrCode: z.string().max(150).optional().describe('Custom QR code content to print on the label.'),
+     extraServices: z.array(ExtraServiceCodeSchema).optional().describe('Explicit extra service codes (e.g. K_IDA, K_FNK, K_UVT). These are merged with auto-derived extras (K_ENY, K_TER).'),
+     supplementarySheetNr: z.number().int().optional().describe('Supplementary sheet number (international).'),
+     exportAuthorisation: z.string().max(35).optional().describe('Export authorization code (international).'),
+     otherComment: z.string().max(105).optional().describe('Other comment for customs (international).'),
+     secId: z.boolean().optional().describe('When A_125_HAR service is used, set to true to generate inverse parcel data.'),
+     produceContent: z.string().max(512).optional().describe('Produce content code (international).'),
 });
 export type CreateParcelsMPLCarrierOptions = z.infer<typeof CreateParcelsMPLCarrierOptionsSchema>;
 
