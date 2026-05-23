@@ -99,7 +99,7 @@ export function mapCanonicalCreateLabelsToGLSPrintLabels(
   showPrintDialog?: boolean
 ): GLSPrintLabelsRequest {
   const glsParcels = req.parcels.map((parcel) =>
-    mapCanonicalParcelToGLS(parcel, clientNumber, parcel.cod?.amount.amount, parcel.cod?.amount.currency)
+    mapCanonicalParcelToGLS(parcel, clientNumber)
   );
 
    return {

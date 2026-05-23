@@ -106,7 +106,7 @@ export function safeValidateCreateParcelRequest(req: unknown): ZodSafeParseResul
     metadata: z.record(z.string(), z.unknown()).optional(),
   });
 
-  const schema = z.object({
+    const schema = z.object({
     parcel: ParcelSchema,
     credentials: z.object({
       username: z.string().min(1, 'Username is required'),
@@ -119,6 +119,28 @@ export function safeValidateCreateParcelRequest(req: unknown): ZodSafeParseResul
       useTestApi: z.boolean().optional(),
       gls: z.object({
         packageType: z.number().int().min(1).max(7).optional().describe('Override package type (1=Colli, 2=Box, 3=Roll, 4=Can, 5=Case, 6=Reel, 7=Sack). If omitted, defaults to 1 (Colli).'),
+        pickupDate: z.string().datetime().optional().describe('Planned pickup date (ISO 8601).'),
+        saturdayDelivery: z.boolean().optional().describe('Enable Saturday Delivery (SAT service).'),
+        senderIdentityCardNumber: z.string().optional().describe('Serbia-only: sender identity card number / PIB.'),
+        pickupType: z.number().optional().describe('LRS (LockerReturn Service) pickup type — always 2 for HU.'),
+        services: z.array(z.object({
+          code: z.string().min(1, 'Service code is required'),
+          adrParameter: z.object({ value: z.string() }).optional(),
+          aosParameter: z.object({ value: z.string() }).optional(),
+          cs1Parameter: z.object({ value: z.string() }).optional(),
+          ddsParameter: z.object({ value: z.string() }).optional(),
+          dpvParameter: z.object({ stringValue: z.string(), decimalValue: z.number() }).optional(),
+          fdsParameter: z.object({ value: z.string() }).optional(),
+          fssParameter: z.object({ value: z.string() }).optional(),
+          insParameter: z.object({ value: z.number() }).optional(),
+          mmpParameter: z.object({ value: z.number() }).optional(),
+          sdsParameter: z.object({ startTime: z.string(), endTime: z.string() }).optional(),
+          sm1Parameter: z.object({ value: z.string() }).optional(),
+          sm2Parameter: z.object({ value: z.string() }).optional(),
+          szlParameter: z.object({ value: z.string() }).optional(),
+          value: z.string().optional(),
+        })).optional().describe('Explicit additional services.'),
+        content: z.string().optional().describe('Override parcel contents description.'),
       }).optional(),
     }).optional(),
   });
@@ -140,6 +162,29 @@ export type GLSCreateParcelRequest = {
     gls?: {
       country?: string;
       printerType?: string;
+      packageType?: number;
+      pickupDate?: string;
+      saturdayDelivery?: boolean;
+      senderIdentityCardNumber?: string;
+      pickupType?: number;
+      services?: Array<{
+        code: string;
+        value?: string;
+        adrParameter?: { value: string };
+        aosParameter?: { value: string };
+        cs1Parameter?: { value: string };
+        ddsParameter?: { value: string };
+        dpvParameter?: { stringValue: string; decimalValue: number };
+        fdsParameter?: { value: string };
+        fssParameter?: { value: string };
+        insParameter?: { value: number };
+        mmpParameter?: { value: number };
+        sdsParameter?: { startTime: string; endTime: string };
+        sm1Parameter?: { value: string };
+        sm2Parameter?: { value: string };
+        szlParameter?: { value: string };
+      }>;
+      content?: string;
     };
   };
 };
@@ -283,6 +328,28 @@ export function safeValidateCreateParcelsRequest(req: unknown): ZodSafeParseResu
       useTestApi: z.boolean().optional(),
       gls: z.object({
         packageType: z.number().int().min(1).max(7).optional().describe('Override package type (1=Colli, 2=Box, 3=Roll, 4=Can, 5=Case, 6=Reel, 7=Sack). If omitted, defaults to 1 (Colli).'),
+        pickupDate: z.string().datetime().optional().describe('Planned pickup date (ISO 8601).'),
+        saturdayDelivery: z.boolean().optional().describe('Enable Saturday Delivery (SAT service).'),
+        senderIdentityCardNumber: z.string().optional().describe('Serbia-only: sender identity card number / PIB.'),
+        pickupType: z.number().optional().describe('LRS (LockerReturn Service) pickup type — always 2 for HU.'),
+        services: z.array(z.object({
+          code: z.string().min(1, 'Service code is required'),
+          adrParameter: z.object({ value: z.string() }).optional(),
+          aosParameter: z.object({ value: z.string() }).optional(),
+          cs1Parameter: z.object({ value: z.string() }).optional(),
+          ddsParameter: z.object({ value: z.string() }).optional(),
+          dpvParameter: z.object({ stringValue: z.string(), decimalValue: z.number() }).optional(),
+          fdsParameter: z.object({ value: z.string() }).optional(),
+          fssParameter: z.object({ value: z.string() }).optional(),
+          insParameter: z.object({ value: z.number() }).optional(),
+          mmpParameter: z.object({ value: z.number() }).optional(),
+          sdsParameter: z.object({ startTime: z.string(), endTime: z.string() }).optional(),
+          sm1Parameter: z.object({ value: z.string() }).optional(),
+          sm2Parameter: z.object({ value: z.string() }).optional(),
+          szlParameter: z.object({ value: z.string() }).optional(),
+          value: z.string().optional(),
+        })).optional().describe('Explicit additional services.'),
+        content: z.string().optional().describe('Override parcel contents description.'),
       }).optional(),
     }).optional(),
   });

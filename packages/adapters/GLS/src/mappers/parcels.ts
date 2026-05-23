@@ -9,16 +9,166 @@ import type { Parcel } from '@shopickup/core';
 import type { GLSParcel, GLSAddress, GLSParcelProperty, GLSService } from '../types/index.js';
 
 /**
+ * GLS-specific carrier options for parcel creation.
+ */
+export interface CreateParcelsGLSCarrierOptions {
+  /** Override package type (1=Colli, 2=Box, 3=Roll, 4=Can, 5=Case, 6=Reel, 7=Sack). */
+  packageType?: number;
+  /** Planned pickup date (ISO 8601). */
+  pickupDate?: string;
+  /** Enable Saturday Delivery (SAT service). */
+  saturdayDelivery?: boolean;
+  /** Serbia-only: sender identity card number / PIB. */
+  senderIdentityCardNumber?: string;
+  /** LRS (LockerReturn Service) pickup type — always 2 for HU. */
+  pickupType?: number;
+  /** Explicit additional services. */
+  services?: GLSService[];
+  /** Override parcel contents description. */
+  content?: string;
+}
+
+/**
+ * Extracts house number from street address string.
+ * Looks for trailing digits (e.g. "Main St 123" → "123").
+ * Returns undefined if no trailing digits found.
+ */
+export function extractHouseNumber(street: string): string | undefined {
+  const match = street.trim().match(/\s(\d+[a-zA-Z]*)$/);
+  return match ? match[1] : undefined;
+}
+
+/**
+ * Removes trailing house number from street address string.
+ * E.g. "Main St 123" → "Main St"
+ */
+export function removeHouseNumber(street: string): string {
+  const houseNumber = extractHouseNumber(street);
+  if (!houseNumber) return street;
+  return street.trim().replace(new RegExp(`\\s${houseNumber.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`), '').trim();
+}
+
+/**
+ * Determines parcel content description from parcel metadata, items, or explicit override.
+ */
+export function determineContent(
+  parcel: Parcel,
+  override?: string
+): string | undefined {
+  if (override) return override;
+  const meta = parcel.metadata?.glsContent as string | undefined;
+  if (meta) return meta;
+  if (parcel.items && parcel.items.length > 0) {
+    const descriptions = parcel.items
+      .map((item) => item.description)
+      .filter((d): d is string => !!d);
+    if (descriptions.length > 0) {
+      return descriptions.join(', ');
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Builds auto-derived services from parcel data and options.
+ */
+export function buildGLSServiceList(
+  parcel: Parcel,
+  options?: CreateParcelsGLSCarrierOptions
+): GLSService[] {
+  const services: GLSService[] = [];
+
+  // PICKUP_POINT → PSD (Parcel Shop Delivery)
+  if (parcel.recipient.delivery.method === 'PICKUP_POINT') {
+    const pickupPoint = parcel.recipient.delivery.pickupPoint;
+    services.push({
+      code: 'PSD',
+      value: pickupPoint.id,
+    });
+  }
+
+  // Saturday Delivery
+  if (options?.saturdayDelivery) {
+    services.push({ code: 'SAT' });
+  }
+
+  // Express / Overnight → T09/T10/T12
+  if (parcel.service === 'express' || parcel.service === 'overnight') {
+    services.push({ code: 'T09' });
+    services.push({ code: 'T10' });
+    services.push({ code: 'T12' });
+  }
+
+  // Insurance → INS
+  if (parcel.insurance?.amount.amount != null) {
+    services.push({
+      code: 'INS',
+      insParameter: { value: parcel.insurance.amount.amount },
+    });
+  }
+
+  // Declared Value → DPV
+  if (parcel.declaredValue?.amount != null) {
+    services.push({
+      code: 'DPV',
+      dpvParameter: {
+        stringValue: parcel.declaredValue.currency || 'HUF',
+        decimalValue: parcel.declaredValue.amount,
+      },
+    });
+  }
+
+  // Email notification → FDS (recipient email)
+  if (parcel.recipient.contact.email) {
+    services.push({
+      code: 'FDS',
+      fdsParameter: { value: parcel.recipient.contact.email },
+    });
+  }
+
+  // SMS notification → FSS (recipient phone)
+  if (parcel.recipient.contact.phone) {
+    services.push({
+      code: 'FSS',
+      fssParameter: { value: parcel.recipient.contact.phone },
+    });
+  }
+
+  // Merge explicit services (provided by integrator)
+  if (options?.services && options.services.length > 0) {
+    for (const svc of options.services) {
+      // Avoid duplicate codes: explicit overrides auto-derived
+      const existing = services.find((s) => s.code === svc.code);
+      if (existing) {
+        // Replace with explicit version
+        Object.assign(existing, svc);
+      } else {
+        services.push(svc);
+      }
+    }
+  }
+
+  return services.length > 0 ? services : [];
+}
+
+/**
  * Maps a canonical Address to GLS Address format
- * 
+ *
  * @param address Canonical address (sender or destination)
  * @returns GLS Address object
  */
 export function mapAddressToGLSAddress(address: any): GLSAddress {
+  const streetRaw = address.street || '';
+  const houseNumberExplicit = address.houseNumber || address.houseNr;
+  const houseNumberExtracted = !houseNumberExplicit ? extractHouseNumber(streetRaw) : undefined;
+  const houseNumber = houseNumberExplicit || houseNumberExtracted;
+  const streetClean = houseNumberExtracted ? removeHouseNumber(streetRaw) : streetRaw;
+
   return {
     name: address.name || '',
-    street: address.street || '',
-    houseNumber: address.houseNumber || '',
+    street: streetClean || address.street || '',
+    houseNumber: houseNumber || '',
+    houseNumberInfo: address.houseNumberInfo || address.building || '',
     city: address.city || '',
     zipCode: address.postalCode || address.zipCode || '',
     countryIsoCode: (address.country || 'HU').toUpperCase(),
@@ -30,13 +180,14 @@ export function mapAddressToGLSAddress(address: any): GLSAddress {
 
 /**
  * Maps parcel dimensions to GLS ParcelProperty format
- * 
+ *
  * @param parcel Canonical parcel with optional dimensions
+ * @param options GLS carrier options
  * @returns GLS ParcelProperty array or undefined if no dimensions
  */
 export function mapDimensionsToGLSParcelProperty(
   parcel: Parcel,
-  packageTypeOverride?: number
+  options?: CreateParcelsGLSCarrierOptions
 ): GLSParcelProperty[] | undefined {
   if (!parcel.package?.dimensionsCm) {
     return undefined;
@@ -47,8 +198,8 @@ export function mapDimensionsToGLSParcelProperty(
 
   // Create a parcel property with dimensions and packaging info
   properties.push({
-    content: 'Package contents',
-    packageType: packageTypeOverride ?? 1, // Use override or default to Colli (1)
+    content: determineContent(parcel, options?.content),
+    packageType: options?.packageType ?? 1, // Use override or default to Colli (1)
     height: dim.height,
     length: dim.length,
     width: dim.width,
@@ -60,14 +211,14 @@ export function mapDimensionsToGLSParcelProperty(
 
 /**
  * Maps canonical Parcel to GLS Parcel format
- * 
+ *
  * This is the main mapping function for parcel creation.
- * 
+ *
  * @param parcel Canonical parcel
  * @param clientNumber GLS client number
- * @param codAmount Optional COD amount
+ * @param options GLS carrier options (pickupDate, services, etc.)
  * @returns GLS Parcel ready for API submission
- * 
+ *
  * @example
  * const canonical = {
  *   id: "ORDER-123",
@@ -75,14 +226,12 @@ export function mapDimensionsToGLSParcelProperty(
  *   shipper: { contact: {...}, address: {...} },
  *   recipient: { contact: {...}, delivery: {...} }
  * };
- * const glsParcel = mapCanonicalParcelToGLS(canonical, 12345);
+ * const glsParcel = mapCanonicalParcelToGLS(canonical, 12345, { pickupDate: "2026-05-25" });
  */
 export function mapCanonicalParcelToGLS(
   parcel: Parcel,
   clientNumber: number,
-  codAmount?: number,
-  codCurrency?: string,
-  packageTypeOverride?: number
+  options?: CreateParcelsGLSCarrierOptions
 ): GLSParcel {
   // Map shipper/sender address
   const pickupAddress = mapAddressToGLSAddress({
@@ -108,7 +257,7 @@ export function mapCanonicalParcelToGLS(
     const pickupPoint = parcel.recipient.delivery.pickupPoint;
     // GLS validates the delivery address even for PSD parcels, so we must
     // supply realistic fallback values when the caller does not include the
-    // pickup point’s full address.
+    // pickup point's full address.
     deliveryAddressData = {
       ...(pickupPoint.address || {}),
       name: pickupPoint.name || 'Pickup Point',
@@ -123,51 +272,51 @@ export function mapCanonicalParcelToGLS(
   }
   const deliveryAddress = mapAddressToGLSAddress(deliveryAddressData);
 
-  // Build service list based on delivery method
-  const serviceList: GLSService[] = [];
-  if (parcel.recipient.delivery.method === 'PICKUP_POINT') {
-    const pickupPoint = parcel.recipient.delivery.pickupPoint;
-    // PSD (Parcel Shop Delivery) – the OpenAPI schema defines psdParameter as
-    // ServiceParameterStringInteger, but the live API accepts the simpler
-    // ServiceParameterString form (a plain "value" field).  We use "value"
-    // because that is what the GLS test environment actually expects.
-    // The shop ID format from the public feed is number-PARCELSHOP,
-    // e.g. "379-PARCELSHOP".
-    serviceList.push({
-      code: 'PSD',
-      value: pickupPoint.id,
-    });
+  // Build service list (auto-derived + explicit)
+  const serviceList = buildGLSServiceList(parcel, options);
+
+  // COD mapping
+  let codAmount: number | undefined;
+  let codCurrency: string | undefined;
+  let codReference: string | undefined;
+  if (parcel.cod) {
+    codAmount = parcel.cod.amount.amount;
+    codCurrency = parcel.cod.amount.currency;
+    codReference = parcel.cod.reference;
   }
 
   return {
     clientNumber: clientNumber, // REQUIRED: Each parcel must specify its client number for authorization
     clientReference: parcel.id,
     count: 1,
-    content: 'Package contents',
+    content: determineContent(parcel, options?.content),
     pickupAddress,
     deliveryAddress,
     codAmount,
-    codCurrency: codCurrency || 'HUF',
-    parcelPropertyList: mapDimensionsToGLSParcelProperty(parcel, packageTypeOverride),
+    codCurrency,
+    codReference,
+    pickupDate: options?.pickupDate,
+    senderIdentityCardNumber: options?.senderIdentityCardNumber,
+    pickupType: options?.pickupType,
+    parcelPropertyList: mapDimensionsToGLSParcelProperty(parcel, options),
     serviceList: serviceList.length > 0 ? serviceList : undefined,
-    // Other fields like senderIdentityCardNumber can be added as needed
-    // pickupDate: new Date().toISOString(), // Optional: current date
   };
 }
 
 /**
  * Maps an array of canonical Parcels to GLS Parcel format
- * 
+ *
  * @param parcels Canonical parcels
  * @param clientNumber GLS client number
+ * @param options GLS carrier options
  * @returns Array of GLS Parcel objects
  */
 export function mapCanonicalParcelsToGLS(
   parcels: Parcel[],
   clientNumber: number,
-  packageTypeOverride?: number
+  options?: CreateParcelsGLSCarrierOptions
 ): GLSParcel[] {
-  return parcels.map((parcel) => mapCanonicalParcelToGLS(parcel, clientNumber, undefined, undefined, packageTypeOverride));
+  return parcels.map((parcel) => mapCanonicalParcelToGLS(parcel, clientNumber, options));
 }
 
 /**

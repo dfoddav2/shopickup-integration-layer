@@ -175,8 +175,8 @@ export async function createParcels(
 
     // Map canonical parcels to GLS format
     // NOTE: Parcels DO NOT include auth fields - those go at the request root level per GLS API spec
-    const packageTypeOverride = (req.options as any)?.gls?.packageType;
-    const glsParcelList = mapCanonicalParcelsToGLS(req.parcels, clientNumber, packageTypeOverride);
+    const glsOptions = (req.options as any)?.gls;
+    const glsParcelList = mapCanonicalParcelsToGLS(req.parcels, clientNumber, glsOptions);
 
     safeLog(
       ctx.logger,
