@@ -245,6 +245,10 @@ export interface FoxpostParcelOptions extends RequestOptions {
   foxpost?: {
     isWeb?: boolean;
     isRedirect?: boolean;
+    size?: 'xs' | 's' | 'm' | 'l' | 'xl';
+    comment?: string;
+    label?: boolean;
+    uniqueBarcode?: string;
   };
 }
 
@@ -282,6 +286,9 @@ const FoxpostParcelFlagsSchema = z.object({
   isWeb: z.boolean().optional(),
   isRedirect: z.boolean().optional(),
   size: z.enum(['xs', 's', 'm', 'l', 'xl']).optional().describe('Override parcel size category (xs, s, m, l, xl). If omitted, derived from parcel dimensions using a volume heuristic.'),
+  comment: z.string().max(50).optional().describe('Carrier comment attached to parcel.'),
+  label: z.boolean().optional().describe('Whether Foxpost should print label (C2C HD use-case).'),
+  uniqueBarcode: z.string().max(20).optional().describe('Optional integrator-provided unique barcode.'),
 }).catchall(z.unknown());
 
 const FoxpostParcelOptionsSchema = z.object({
@@ -317,6 +324,14 @@ export const CreateParcelsRequestFoxpostSchema = z.object({
   parcels: z.array(ParcelSchema).min(1),
   credentials: FoxpostCredentialsSchema,
   options: FoxpostParcelOptionsSchema.optional(),
+}).superRefine((req, ctx) => {
+  if (req.parcels.length > 1 && req.options?.foxpost?.uniqueBarcode) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['options', 'foxpost', 'uniqueBarcode'],
+      message: 'options.foxpost.uniqueBarcode can only be used with a single parcel request',
+    });
+  }
 });
 
 export const CreateLabelRequestFoxpostSchema = z.object({

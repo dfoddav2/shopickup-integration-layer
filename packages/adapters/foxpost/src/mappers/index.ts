@@ -15,6 +15,48 @@ import { mapFoxpostStatusCode, getFoxpostStatusDescription } from './trackStatus
 const FOXPOST_SIZES = ["xs", "s", "m", "l", "xl"] as const;
 type FoxpostSize = typeof FOXPOST_SIZES[number]; // "xs" | "s" | "m" | "l" | "xl"
 
+type FoxpostSizeRule = {
+  size: FoxpostSize;
+  // Sorted ascending [min, mid, max] to be orientation-agnostic
+  maxDimsCm: [number, number, number];
+  maxWeightKg: number;
+};
+
+/**
+ * Foxpost parcel size rules based on published locker constraints.
+ *
+ * Notes:
+ * - We use conservative common-denominator dimensions that are safe across legacy/newer lockers.
+ * - Dimensions are compared in sorted order to allow parcel rotation.
+ * - Weight caps are enforced per size tier.
+ */
+const FOXPOST_SIZE_RULES: FoxpostSizeRule[] = [
+  { size: 'xs', maxDimsCm: [7.3, 17, 61], maxWeightKg: 5 },
+  { size: 's', maxDimsCm: [8, 36, 61], maxWeightKg: 15 },
+  { size: 'm', maxDimsCm: [17, 36, 61], maxWeightKg: 25 },
+  { size: 'l', maxDimsCm: [36, 36, 61], maxWeightKg: 25 },
+  { size: 'xl', maxDimsCm: [36, 60, 61], maxWeightKg: 25 },
+];
+
+function getWeightKg(parcel: Parcel): number | undefined {
+  const grams = parcel.package?.weightGrams;
+  if (typeof grams !== 'number' || !Number.isFinite(grams) || grams <= 0) {
+    return undefined;
+  }
+  return grams / 1000;
+}
+
+function fitsDims(
+  parcelDimsSorted: [number, number, number],
+  maxDimsSorted: [number, number, number],
+): boolean {
+  return (
+    parcelDimsSorted[0] <= maxDimsSorted[0]
+    && parcelDimsSorted[1] <= maxDimsSorted[1]
+    && parcelDimsSorted[2] <= maxDimsSorted[2]
+  );
+}
+
 /**
  * Map canonical Address (from Parcel.sender or Parcel.recipient) to Foxpost address format
  */
@@ -39,33 +81,37 @@ export function mapAddressToFoxpost(addr: { name: string; street: string; city: 
 }
 
 /**
- * Determine parcel size based on dimensions or weight
- * Foxpost sizes: xs, s, m, l, xl
+ * Determine Foxpost parcel size from carrier rules.
+ *
+ * Precedence:
+ * 1) If dimensions + weight are available, choose the smallest tier that fits both.
+ * 2) If dimensions are available (weight missing), choose the smallest tier that fits dimensions.
+ * 3) If dimensions are missing, fall back to legacy default "s".
  */
 export function determineFoxpostSize(parcel: Parcel): FoxpostSize | undefined {
-  // If no dimensions, default to 's' (small)
-  if (!parcel.package.dimensionsCm) {
-    return "s";
+  const dims = parcel.package.dimensionsCm;
+  const weightKg = getWeightKg(parcel);
+
+  if (!dims) {
+    return 's';
   }
 
-  const { length, width, height } = parcel.package.dimensionsCm;
-  const volume = length * width * height;
+  const parcelDimsSorted = [dims.length, dims.width, dims.height]
+    .sort((a, b) => a - b) as [number, number, number];
 
-  // Very rough heuristic based on volume
-  let candidate: FoxpostSize = "xs";
-  if (volume < 5000) {
-    candidate = "xs";
-  } else if (volume < 15000) {
-    candidate = "s";
-  } else if (volume < 50000) {
-    candidate = "m";
-  } else if (volume < 100000) {
-    candidate = "l";
-  } else {
-    candidate = "xl";
+  for (const rule of FOXPOST_SIZE_RULES) {
+    const dimsFit = fitsDims(parcelDimsSorted, rule.maxDimsCm);
+    if (!dimsFit) {
+      continue;
+    }
+
+    if (weightKg === undefined || weightKg <= rule.maxWeightKg) {
+      return rule.size;
+    }
   }
 
-  return candidate;
+  // If dimensions exceed known limits, best-effort fallback to largest tier.
+  return 'xl';
 }
 
 /**
@@ -80,6 +126,9 @@ export function mapParcelToFoxpostRequest(
     isWeb?: boolean;
     isRedirect?: boolean;
     size?: FoxpostSize;
+    comment?: string;
+    label?: boolean;
+    uniqueBarcode?: string;
   } = {}
 ): FoxCreateParcelRequestItem {
   const buildRefCode = (parcel: Parcel): string | undefined => {
@@ -112,6 +161,11 @@ export function mapParcelToFoxpostRequest(
   // Use explicit size override if provided, otherwise derive from dimensions
   const parcelSize = options.size ?? determineFoxpostSize(parcel);
 
+  // Comment priority: explicit option > metadata > fragile fallback
+  const comment = options.comment
+    ?? (parcel.metadata?.foxpostComment as string | undefined)
+    ?? (parcel.handling?.fragile ? 'FRAGILE' : undefined);
+
   const baseRequest: any = {
     recipientName: recipient.name,
     recipientPhone: recipient.phone,
@@ -120,11 +174,13 @@ export function mapParcelToFoxpostRequest(
     cod: codAmount,
     // Optional fields
     refCode: buildRefCode(parcel),
-    comment: parcel.handling?.fragile ? 'FRAGILE' : undefined,
+    comment,
     fragile: parcel.handling?.fragile || false,
+    label: options.label,
+    uniqueBarcode: options.uniqueBarcode,
   };
 
-  // HOME delivery includes address fields
+  // HOME delivery includes address fields and delivery note
   if (isHomeDelivery) {
     return {
       ...baseRequest,
@@ -132,6 +188,7 @@ export function mapParcelToFoxpostRequest(
       recipientZip: recipient.zip,
       recipientAddress: recipient.address,
       recipientCountry: recipient.country,
+      deliveryNote: delivery.instructions,
     } as FoxCreateParcelRequestItem;
   }
 

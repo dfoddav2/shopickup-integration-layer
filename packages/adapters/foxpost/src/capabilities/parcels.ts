@@ -14,11 +14,10 @@ import type {
 } from "@shopickup/core";
 import { CarrierError, serializeForLog, errorToLog } from "@shopickup/core";
 import {
-  mapParcelToFoxpost,
   mapParcelToFoxpostRequest,
 } from '../mappers/index.js';
 import { translateFoxpostError, sanitizeResponseForLog } from '../errors.js';
-import { safeValidateCreateParcelRequest, safeValidateCreateParcelsRequest, safeValidateFoxpostCreateResponse, safeValidateFoxpostPackage, type FoxCreateResponse, type FoxPackage, type FoxFieldError } from '../validation.js';
+import { safeValidateCreateParcelRequest, safeValidateCreateParcelsRequest, safeValidateFoxpostCreateResponse, type FoxCreateResponse, type FoxPackage, type FoxFieldError } from '../validation.js';
 import { buildFoxpostHeaders } from '../utils/httpUtils.js';
 import type { ResolveBaseUrl } from '../utils/resolveBaseUrl.js';
 
@@ -125,12 +124,20 @@ export async function createParcels(
     const isWeb = validated.data.options?.foxpost?.isWeb ?? !useTestApi;
     const isRedirect = validated.data.options?.foxpost?.isRedirect ?? false;
     const sizeOverride = validated.data.options?.foxpost?.size;
+    const commentOverride = validated.data.options?.foxpost?.comment;
+    const labelOverride = validated.data.options?.foxpost?.label;
+    const uniqueBarcodeOverride = validated.data.options?.foxpost?.uniqueBarcode;
 
     // Validate and map each canonical parcel to Foxpost request format
     // mapParcelToFoxpostRequest returns strongly-typed FoxCreateParcelRequestItem
     const foxpostRequestsWithValidation = req.parcels.map((parcel, idx) => {
       // Map canonical parcel to Foxpost CreateParcelRequest format
-      const foxpostRequest = mapParcelToFoxpostRequest(parcel, { size: sizeOverride });
+      const foxpostRequest = mapParcelToFoxpostRequest(parcel, {
+        size: sizeOverride,
+        comment: commentOverride,
+        label: labelOverride,
+        uniqueBarcode: uniqueBarcodeOverride,
+      });
 
       // Validate the mapped request shape before sending to Foxpost API
       try {

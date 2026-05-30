@@ -3,6 +3,8 @@
  * Ensures Zod schemas correctly validate tracking responses and requests
  */
 
+/// <reference types="node" />
+
 import { describe, it, expect } from 'vitest';
 import {
    validateFoxpostTracking,
@@ -423,6 +425,8 @@ describe('Foxpost Validation Schemas', () => {
           foxpost: {
             isWeb: true,
             isRedirect: false,
+            comment: 'Contains socks',
+            label: true,
           },
         },
       };
@@ -432,6 +436,104 @@ describe('Foxpost Validation Schemas', () => {
       if (result.success) {
         expect(result.data.options?.foxpost?.isWeb).toBe(true);
         expect(result.data.options?.foxpost?.isRedirect).toBe(false);
+        expect(result.data.options?.foxpost?.comment).toBe('Contains socks');
+        expect(result.data.options?.foxpost?.label).toBe(true);
+      }
+    });
+
+    it('rejects shared uniqueBarcode for multi-parcel batch requests', () => {
+      const req = {
+        parcels: [
+          {
+            id: 'p1',
+            shipper: {
+              contact: { name: 'Sender' },
+              address: { name: 'Sender', street: 'Main', city: 'Budapest', postalCode: '1011', country: 'HU' },
+            },
+            recipient: {
+              contact: { name: 'Recipient' },
+              delivery: {
+                method: 'HOME',
+                address: { name: 'Recipient', street: 'Other', city: 'Budapest', postalCode: '1012', country: 'HU' },
+              },
+            },
+            package: { weightGrams: 1000 },
+            service: 'standard',
+          },
+          {
+            id: 'p2',
+            shipper: {
+              contact: { name: 'Sender' },
+              address: { name: 'Sender', street: 'Main', city: 'Budapest', postalCode: '1011', country: 'HU' },
+            },
+            recipient: {
+              contact: { name: 'Recipient' },
+              delivery: {
+                method: 'HOME',
+                address: { name: 'Recipient', street: 'Other', city: 'Budapest', postalCode: '1012', country: 'HU' },
+              },
+            },
+            package: { weightGrams: 1000 },
+            service: 'standard',
+          },
+        ],
+        credentials: {
+          apiKey: 'key',
+          basicUsername: 'user',
+          basicPassword: 'pass',
+        },
+        options: {
+          foxpost: {
+            uniqueBarcode: 'UB-0000000001',
+          },
+        },
+      };
+
+      const result = safeValidateCreateParcelsRequest(req);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(
+          result.error.issues.some(
+            (issue) => issue.path.join('.') === 'options.foxpost.uniqueBarcode' && issue.message.includes('single parcel request')
+          )
+        ).toBe(true);
+      }
+    });
+
+    it('accepts uniqueBarcode for single-parcel requests', () => {
+      const req = {
+        parcel: {
+          id: 'p1',
+          shipper: {
+            contact: { name: 'Sender' },
+            address: { name: 'Sender', street: 'Main', city: 'Budapest', postalCode: '1011', country: 'HU' },
+          },
+          recipient: {
+            contact: { name: 'Recipient' },
+            delivery: {
+              method: 'HOME',
+              address: { name: 'Recipient', street: 'Other', city: 'Budapest', postalCode: '1012', country: 'HU' },
+            },
+          },
+          package: { weightGrams: 1000 },
+          service: 'standard',
+        },
+        credentials: {
+          apiKey: 'key',
+          basicUsername: 'user',
+          basicPassword: 'pass',
+        },
+        options: {
+          foxpost: {
+            uniqueBarcode: 'UB-0000000001',
+          },
+        },
+      };
+
+      const result = safeValidateCreateParcelRequest(req);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.options?.foxpost?.uniqueBarcode).toBe('UB-0000000001');
       }
     });
 

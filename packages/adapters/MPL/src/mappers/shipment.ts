@@ -297,6 +297,28 @@ export function mapService(
 }
 
 /**
+ * TODO: MPL size mapping explainer
+ *
+ * That mapping is shown in partner documentation and examples of MPL locker handling, and it
+ * matches the API examples where shipments are tagged with  size: "L"  while weight is sent
+ * separately. If you are targeting the Hungarian Posta business parcel product rather than
+ * parcel lockers, the weight limits can differ by destination type, so the service code alone
+ * is not enough to infer the correct cap.
+ *
+ * Most useful implementation note:
+ * For your integration layer, the safest approach is to treat  size  as a carrier-specific enum
+ * and validate it against the delivery method: home delivery, post office, or locker.
+ * That means you should not rely only on the API schema text; you should explicitly encode
+ * the actual dimension and weight rules per MPL service in your adapter or validation layer.
+ *
+ * Recommended interpretation:
+ * If your docs only say  szabvány méret , the best reading is: MPL expects one of the carrier’s
+ * predefined size classes, and those classes are service-dependent rather than universal.
+ *
+ * TODO: Consult MPL service representative to encode exact dimension and weight thresholds.
+ */
+
+/**
  * Maps canonical parcel dimensions to an MPL package size category.
  *
  * MPL parcel lockers (CS) require a size code rather than raw dimensions.
@@ -356,7 +378,9 @@ export function mapItem(
     };
   }
 
-  // Add size category: explicit override takes precedence, otherwise derive from dimensions
+  // Add size category: explicit override via mplOpts.size takes precedence, otherwise derive
+  // from parcel dimensions using mapDimensionsToSize. NOTE: this heuristic should be validated
+  // against the delivery method and MPL service rules (see TODO above).
   if (sizeOverride) {
     item.size = sizeOverride;
   } else if (parcel.package?.dimensionsCm) {

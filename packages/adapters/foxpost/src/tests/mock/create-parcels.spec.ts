@@ -6,8 +6,10 @@ import { CarrierError } from '@shopickup/core';
 
 class MockHttpClient {
   lastUrl?: string;
+  lastPayload?: any;
   async post<T>(url: string, data?: any): Promise<T> {
     this.lastUrl = url;
+    this.lastPayload = data;
 
     // If payload contains two parcels, simulate mixed response
     if (Array.isArray(data) && data.length === 2) {
@@ -219,6 +221,42 @@ describe('FoxpostAdapter createParcels', () => {
       await adapter.createParcels(req, ctx);
       expect(mockHttp.lastUrl).toContain('isWeb=false');
       expect(mockHttp.lastUrl).toContain('isRedirect=true');
+    });
+
+    it('passes optional Foxpost parcel fields to carrier payload', async () => {
+      const req: CreateParcelsRequestFoxpost = {
+        parcels: [createTestParcel('p1')],
+        credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+        options: {
+          foxpost: {
+            comment: 'Contains socks',
+            label: true,
+            uniqueBarcode: 'UB-0000000001',
+          },
+        },
+      };
+
+      await adapter.createParcels(req, ctx);
+      expect(Array.isArray(mockHttp.lastPayload)).toBe(true);
+      expect(mockHttp.lastPayload[0].comment).toBe('Contains socks');
+      expect(mockHttp.lastPayload[0].label).toBe(true);
+      expect(mockHttp.lastPayload[0].uniqueBarcode).toBe('UB-0000000001');
+    });
+
+    it('rejects batch createParcels when shared uniqueBarcode is provided', async () => {
+      const req: CreateParcelsRequestFoxpost = {
+        parcels: [createTestParcel('p1'), createTestParcel('p2')],
+        credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+        options: {
+          foxpost: {
+            uniqueBarcode: 'UB-0000000001',
+          },
+        },
+      };
+
+      await expect(adapter.createParcels(req, ctx)).rejects.toThrow(
+        'uniqueBarcode can only be used with a single parcel request'
+      );
     });
 });
 

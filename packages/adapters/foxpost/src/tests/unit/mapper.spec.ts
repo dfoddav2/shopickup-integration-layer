@@ -96,31 +96,44 @@ describe('Foxpost Mappers', () => {
   });
 
   describe('determineFoxpostSize', () => {
-    it('determines size based on dimensions', () => {
+    it('determines size using Foxpost dimension + weight rules', () => {
       const parcel = createTestParcel();
+      parcel.package.dimensionsCm = { length: 50, width: 30, height: 8 }; // Fits S
+      parcel.package.weightGrams = 2000; // 2kg
 
       const result = determineFoxpostSize(parcel);
 
-      expect(result).toBeDefined();
-      expect(['xs', 's', 'm', 'l', 'xl']).toContain(result);
+      expect(result).toBe('s');
     });
 
-    it('returns default size for small parcels', () => {
+    it('returns xs for parcel fitting xs limits', () => {
       const parcel = createTestParcel();
-      parcel.package.dimensionsCm = { length: 10, width: 10, height: 10 };
+      parcel.package.dimensionsCm = { length: 30, width: 16, height: 6 };
+      parcel.package.weightGrams = 4000; // 4kg <= XS max 5kg
 
       const result = determineFoxpostSize(parcel);
 
       expect(result).toBe('xs');
     });
 
-    it('returns larger size for bigger parcels', () => {
+    it('bumps size when weight exceeds xs threshold', () => {
       const parcel = createTestParcel();
-      parcel.package.dimensionsCm = { length: 50, width: 40, height: 30 };
+      parcel.package.dimensionsCm = { length: 30, width: 16, height: 6 }; // XS by dims
+      parcel.package.weightGrams = 8000; // 8kg -> not XS, should fit S
 
       const result = determineFoxpostSize(parcel);
 
-      expect(['l', 'xl']).toContain(result);
+      expect(result).toBe('s');
+    });
+
+    it('returns xl for very large parcels', () => {
+      const parcel = createTestParcel();
+      parcel.package.dimensionsCm = { length: 70, width: 50, height: 40 };
+      parcel.package.weightGrams = 20000;
+
+      const result = determineFoxpostSize(parcel);
+
+      expect(result).toBe('xl');
     });
 
     it('returns default size when no dimensions provided', () => {
@@ -136,16 +149,17 @@ describe('Foxpost Mappers', () => {
   describe('mapParcelToFoxpostRequest', () => {
     it('uses explicit size override when provided', () => {
       const parcel = createTestParcel();
-      parcel.package.dimensionsCm = { length: 10, width: 10, height: 10 }; // Would normally be xs
+      parcel.package.dimensionsCm = { length: 30, width: 16, height: 6 }; // Would normally be XS
 
       const result = mapParcelToFoxpostRequest(parcel, { size: 'xl' });
 
       expect(result.size).toBe('XL');
     });
 
-    it('falls back to heuristic when no size override provided', () => {
+    it('falls back to automatic carrier-rule mapping when no size override provided', () => {
       const parcel = createTestParcel();
-      parcel.package.dimensionsCm = { length: 10, width: 10, height: 10 };
+      parcel.package.dimensionsCm = { length: 30, width: 16, height: 6 };
+      parcel.package.weightGrams = 3000;
 
       const result = mapParcelToFoxpostRequest(parcel);
 

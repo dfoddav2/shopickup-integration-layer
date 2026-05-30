@@ -630,10 +630,3 @@ pnpm run dev  # Runs tsx for hot reload (development only)
 - **Security:** Credentials never stored in adapters; always passed at runtime.
 
 For contribution workflow and adapter testing guidance, see `docs/contributing.md` and `docs/adapter-development.md`.
-
-## 9. Roadmap
-
-- **v1.0 (Current):** ✅ Core types, Foxpost adapter (3 capabilities: CREATE_PARCEL, CREATE_LABEL, TRACK), 22 passing tests, ESM/NodeNext foundation
-- **v1.1:** DHL adapter, webhook receiver helpers, rate negotiation
-- **v1.2:** UPS adapter, async flow orchestration (background jobs)
-- **v2:** Returns management, pickup scheduling, advanced routing
