@@ -17,6 +17,10 @@ export const Capabilities = {
   TEST_MODE_SUPPORTED: "TEST_MODE_SUPPORTED",
   LIST_PICKUP_POINTS: "LIST_PICKUP_POINTS",
   EXCHANGE_AUTH_TOKEN: "EXCHANGE_AUTH_TOKEN",
+  DELETE_PARCEL: "DELETE_PARCEL",
+  CREATE_RETURN: "CREATE_RETURN",
+  CREATE_RETURNS: "CREATE_RETURNS",
+  BATCH_TRACK: "BATCH_TRACK",
 } as const;
 
 export type Capability = (typeof Capabilities)[keyof typeof Capabilities];

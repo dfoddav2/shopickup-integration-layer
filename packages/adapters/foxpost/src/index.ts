@@ -20,6 +20,12 @@ import type {
   TrackingUpdate,
   FetchPickupPointsRequest,
   FetchPickupPointsResponse,
+  DeleteParcelRequest,
+  DeleteParcelResult,
+  CreateReturnRequest,
+  CreateReturnsRequest,
+  BatchTrackingRequest,
+  BatchTrackingResponse,
 } from "@shopickup/core";
 import { Capabilities, CarrierError, NotImplementedError } from "@shopickup/core";
 import {
@@ -29,6 +35,10 @@ import {
   createLabels as createLabelsImpl,
   track as trackImpl,
   fetchPickupPoints as fetchPickupPointsImpl,
+  deleteParcel as deleteParcelImpl,
+  createReturn as createReturnImpl,
+  createReturns as createReturnsImpl,
+  batchTrack as batchTrackImpl,
 } from './capabilities/index.js';
 import { createResolveBaseUrl, type ResolveBaseUrl } from './utils/resolveBaseUrl.js';
 import type {
@@ -36,6 +46,10 @@ import type {
   CreateLabelsRequestFoxpost,
   CreateParcelRequestFoxpost,
   CreateParcelsRequestFoxpost,
+  DeleteParcelRequestFoxpost,
+  CreateReturnRequestFoxpost,
+  CreateReturnsRequestFoxpost,
+  BatchTrackingRequestFoxpost,
 } from './validation.js';
 
 /**
@@ -73,6 +87,10 @@ export class FoxpostAdapter implements CarrierAdapter {
     Capabilities.TRACK,
     Capabilities.LIST_PICKUP_POINTS,
     Capabilities.TEST_MODE_SUPPORTED,
+    Capabilities.DELETE_PARCEL,
+    Capabilities.CREATE_RETURN,
+    Capabilities.CREATE_RETURNS,
+    Capabilities.BATCH_TRACK,
   ];
 
   // Foxpost doesn't require close before label
@@ -196,6 +214,78 @@ export class FoxpostAdapter implements CarrierAdapter {
     ctx: AdapterContext
   ): Promise<TrackingUpdate> {
     return trackImpl(req, ctx, this.resolveBaseUrl);
+  }
+
+  /**
+   * Delete a parcel from Foxpost by its barcode.
+   * 
+   * @param req DeleteParcelRequest with parcelCarrierId (Foxpost barcode)
+   * @param ctx AdapterContext with HTTP client and logger
+   * @returns DeleteParcelResult indicating success or failure
+   */
+  async deleteParcel(
+    req: DeleteParcelRequestFoxpost,
+    ctx: AdapterContext
+  ): Promise<DeleteParcelResult>;
+  async deleteParcel(
+    req: DeleteParcelRequest,
+    ctx: AdapterContext
+  ): Promise<DeleteParcelResult> {
+    return deleteParcelImpl(req, ctx, this.resolveBaseUrl);
+  }
+
+  /**
+   * Create a return parcel for an existing shipment.
+   * 
+   * @param req CreateReturnRequest with original parcelCarrierId
+   * @param ctx AdapterContext with HTTP client and logger
+   * @returns CarrierResource with new return barcode
+   */
+  async createReturn(
+    req: CreateReturnRequestFoxpost,
+    ctx: AdapterContext
+  ): Promise<CarrierResource>;
+  async createReturn(
+    req: CreateReturnRequest,
+    ctx: AdapterContext
+  ): Promise<CarrierResource> {
+    return createReturnImpl(req, ctx, this.resolveBaseUrl);
+  }
+
+  /**
+   * Create multiple return parcels in one batch call.
+   * 
+   * @param req CreateReturnsRequest with array of return items
+   * @param ctx AdapterContext with HTTP client and logger
+   * @returns CreateParcelsResponse-style summary with per-item results
+   */
+  async createReturns(
+    req: CreateReturnsRequestFoxpost,
+    ctx: AdapterContext
+  ): Promise<CreateParcelsResponse>;
+  async createReturns(
+    req: CreateReturnsRequest,
+    ctx: AdapterContext
+  ): Promise<CreateParcelsResponse> {
+    return createReturnsImpl(req, ctx, this.resolveBaseUrl);
+  }
+
+  /**
+   * Track multiple parcels in a single batch call.
+   * 
+   * @param req BatchTrackingRequest with array of trackingNumbers
+   * @param ctx AdapterContext with HTTP client and logger
+   * @returns BatchTrackingResponse with per-item results and summary
+   */
+  async batchTrack(
+    req: BatchTrackingRequestFoxpost,
+    ctx: AdapterContext
+  ): Promise<BatchTrackingResponse>;
+  async batchTrack(
+    req: BatchTrackingRequest,
+    ctx: AdapterContext
+  ): Promise<BatchTrackingResponse> {
+    return batchTrackImpl(req, ctx, this.resolveBaseUrl);
   }
 
   /**

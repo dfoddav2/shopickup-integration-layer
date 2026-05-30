@@ -1,7 +1,7 @@
 import type { Capability } from './capabilities.js';
 import type { AdapterContext } from './adapter-context.js';
 import type { CarrierResource } from './carrier-resource.js';
-import type { Parcel, RatesResponse, TrackingUpdate, CreateParcelsResponse, CreateLabelResponse, CreateLabelsResponse, FetchPickupPointsRequest, FetchPickupPointsResponse, ShipmentDetailsResponse } from '../types/index.js';
+import type { Parcel, RatesResponse, TrackingUpdate, CreateParcelsResponse, CreateLabelResponse, CreateLabelsResponse, FetchPickupPointsRequest, FetchPickupPointsResponse, ShipmentDetailsResponse, DeleteParcelRequest, DeleteParcelResult, CreateReturnRequest, CreateReturnsRequest, BatchTrackingRequest, BatchTrackingResponse } from '../types/index.js';
 
 /**
  * Request options
@@ -330,6 +330,42 @@ export interface CarrierAdapter {
     req: TrackingRequest,
     ctx: AdapterContext
   ): Promise<TrackingUpdate>;
+
+  /**
+   * Delete a parcel by carrier-specific parcel ID
+   * Capability: DELETE_PARCEL
+   */
+  deleteParcel?(
+    req: DeleteParcelRequest,
+    ctx: AdapterContext
+  ): Promise<DeleteParcelResult>;
+
+  /**
+   * Create a return parcel for an existing shipment
+   * Capability: CREATE_RETURN
+   */
+  createReturn?(
+    req: CreateReturnRequest,
+    ctx: AdapterContext
+  ): Promise<CarrierResource>;
+
+  /**
+   * Create multiple return parcels in one call
+   * Capability: CREATE_RETURNS
+   */
+  createReturns?(
+    req: CreateReturnsRequest,
+    ctx: AdapterContext
+  ): Promise<CreateParcelsResponse>;
+
+  /**
+   * Track multiple parcels in a single batch
+   * Capability: BATCH_TRACK
+   */
+  batchTrack?(
+    req: BatchTrackingRequest,
+    ctx: AdapterContext
+  ): Promise<BatchTrackingResponse>;
 
   /**
    * Get shipment details/metadata by tracking number

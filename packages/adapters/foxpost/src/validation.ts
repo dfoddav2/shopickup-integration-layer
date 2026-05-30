@@ -1062,3 +1062,90 @@ export function safeValidateFoxpostApmEntry(entry: unknown) {
 export function safeValidateFetchPickupPointsRequest(input: unknown) {
   return FoxpostFetchPickupPointsRequestSchema.safeParse(input);
 }
+
+// ============================================================================
+// Delete Parcel Schemas
+// ============================================================================
+
+const FoxpostDeleteParcelOptionsSchema = z.object({
+  useTestApi: z.boolean().optional(),
+  foxpost: z.object({
+    isWeb: z.boolean().optional().default(true),
+  }).optional(),
+}).catchall(z.unknown());
+
+export type FoxpostDeleteParcelOptions = z.infer<typeof FoxpostDeleteParcelOptionsSchema>;
+
+export const DeleteParcelRequestFoxpostSchema = z.object({
+  parcelCarrierId: z.string().min(1, 'Parcel carrier ID is required'),
+  credentials: FoxpostCredentialsSchema,
+  options: FoxpostDeleteParcelOptionsSchema.optional(),
+});
+
+export type DeleteParcelRequestFoxpost = z.infer<typeof DeleteParcelRequestFoxpostSchema>;
+
+export function safeValidateDeleteParcelRequest(req: unknown) {
+  return DeleteParcelRequestFoxpostSchema.safeParse(req);
+}
+
+// ============================================================================
+// Create Return Schemas
+// ============================================================================
+
+const FoxpostCreateReturnOptionsSchema = z.object({
+  useTestApi: z.boolean().optional(),
+  foxpost: z.object({
+    returnType: z.enum(['RE', 'IRE']).optional().default('RE'),
+  }).optional(),
+}).catchall(z.unknown());
+
+export type FoxpostCreateReturnOptions = z.infer<typeof FoxpostCreateReturnOptionsSchema>;
+
+const ReturnItemSchema = z.object({
+  parcelCarrierId: z.string().min(1, 'Parcel carrier ID is required'),
+  uniqueBarcode: z.string().max(20).optional(),
+  refCode: z.string().max(30).optional(),
+});
+
+export const CreateReturnRequestFoxpostSchema = z.object({
+  return: ReturnItemSchema,
+  credentials: FoxpostCredentialsSchema,
+  options: FoxpostCreateReturnOptionsSchema.optional(),
+});
+
+export const CreateReturnsRequestFoxpostSchema = z.object({
+  returns: z.array(ReturnItemSchema).min(1, 'At least one return is required'),
+  credentials: FoxpostCredentialsSchema,
+  options: FoxpostCreateReturnOptionsSchema.optional(),
+});
+
+export type CreateReturnRequestFoxpost = z.infer<typeof CreateReturnRequestFoxpostSchema>;
+export type CreateReturnsRequestFoxpost = z.infer<typeof CreateReturnsRequestFoxpostSchema>;
+
+export function safeValidateCreateReturnRequest(req: unknown) {
+  return CreateReturnRequestFoxpostSchema.safeParse(req);
+}
+
+export function safeValidateCreateReturnsRequest(req: unknown) {
+  return CreateReturnsRequestFoxpostSchema.safeParse(req);
+}
+
+// ============================================================================
+// Batch Tracking Schemas
+// ============================================================================
+
+const BatchTrackingOptionsSchema = z.object({
+  useTestApi: z.boolean().optional(),
+}).catchall(z.unknown());
+
+export const BatchTrackingRequestFoxpostSchema = z.object({
+  trackingNumbers: z.array(z.string().min(1)).min(1, 'At least one tracking number is required').max(100, 'Max 100 tracking numbers per batch'),
+  credentials: FoxpostCredentialsSchema.optional(),
+  options: BatchTrackingOptionsSchema.optional(),
+});
+
+export type BatchTrackingRequestFoxpost = z.infer<typeof BatchTrackingRequestFoxpostSchema>;
+
+export function safeValidateBatchTrackingRequest(req: unknown) {
+  return BatchTrackingRequestFoxpostSchema.safeParse(req);
+}

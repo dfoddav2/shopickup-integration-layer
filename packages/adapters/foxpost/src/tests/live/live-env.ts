@@ -134,8 +134,13 @@ function createFetchHttpClient(): HttpClient {
     async patch<T>(): Promise<T> {
       throw new Error('PATCH not implemented');
     },
-    async delete<T>(): Promise<T> {
-      throw new Error('DELETE not implemented');
+    async delete<T>(url: string, options?: any): Promise<T> {
+      traceRequest('DELETE', url, undefined, options);
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: normalizeHeaders(options?.headers),
+      });
+      return buildResponse<T>(response, options);
     },
   };
 }

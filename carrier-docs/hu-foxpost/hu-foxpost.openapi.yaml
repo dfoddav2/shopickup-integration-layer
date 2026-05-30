@@ -185,6 +185,10 @@ paths:
         - Returns
       summary: Create return parcels
       operationId: createReParcelExts
+      x-shopickup-notes: |
+        The test/sandbox API (webapi-test.foxpost.hu) returns HTTP 201 with
+        `created: false` and `errors: [{ field: 'parcel', message: 'PROCESS_NOT_IMPLEMENTED_YET' }]`.
+        This is an undocumented sandbox limitation; returns can only be verified against production.
       parameters:
         - name: returnType
           in: query
@@ -238,6 +242,10 @@ paths:
         - Returns
       summary: Create return parcel
       operationId: createReParcelExt
+      x-shopickup-notes: |
+        The test/sandbox API (webapi-test.foxpost.hu) returns HTTP 201 with
+        `created: false` and `errors: [{ field: 'parcel', message: 'PROCESS_NOT_IMPLEMENTED_YET' }]`.
+        This is an undocumented sandbox limitation; returns can only be verified against production.
       parameters:
         - name: returnType
           in: query

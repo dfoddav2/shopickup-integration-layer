@@ -174,6 +174,88 @@ describe('Foxpost Mappers', () => {
 
       expect(result.size).toBe('M');
     });
+
+    it('maps deliveryNote from delivery.instructions for HOME delivery', () => {
+      const parcel = createTestParcel({
+        recipient: {
+          contact: {
+            name: 'John Doe',
+            phone: '+36302222222',
+            email: 'john@example.com',
+          },
+          delivery: {
+            method: 'HOME',
+            address: {
+              name: 'John Doe',
+              street: '456 Main St',
+              city: 'Debrecen',
+              postalCode: '4024',
+              country: 'HU',
+            },
+            instructions: 'Leave on porch',
+          },
+        },
+      });
+
+      const result = mapParcelToFoxpostRequest(parcel);
+      expect((result as any).deliveryNote).toBe('Leave on porch');
+    });
+
+    it('uses explicit comment option over fragile fallback', () => {
+      const parcel = createTestParcel({
+        handling: { fragile: true },
+      });
+
+      const result = mapParcelToFoxpostRequest(parcel, { comment: 'Custom note' });
+      expect((result as any).comment).toBe('Custom note');
+    });
+
+    it('falls back to FRAGILE comment when handling.fragile is true and no override', () => {
+      const parcel = createTestParcel({
+        handling: { fragile: true },
+      });
+
+      const result = mapParcelToFoxpostRequest(parcel);
+      expect((result as any).comment).toBe('FRAGILE');
+    });
+
+    it('falls back to metadata foxpostComment when no explicit option', () => {
+      const parcel = createTestParcel({
+        metadata: { foxpostComment: 'From metadata' },
+      });
+
+      const result = mapParcelToFoxpostRequest(parcel);
+      expect((result as any).comment).toBe('From metadata');
+    });
+
+    it('has no comment when no fragile, metadata, or option', () => {
+      const parcel = createTestParcel();
+
+      const result = mapParcelToFoxpostRequest(parcel);
+      expect((result as any).comment).toBeUndefined();
+    });
+
+    it('maps label option when provided', () => {
+      const parcel = createTestParcel();
+
+      const result = mapParcelToFoxpostRequest(parcel, { label: true });
+      expect((result as any).label).toBe(true);
+    });
+
+    it('maps uniqueBarcode option when provided', () => {
+      const parcel = createTestParcel();
+
+      const result = mapParcelToFoxpostRequest(parcel, { uniqueBarcode: 'MYBARCODE123' });
+      expect((result as any).uniqueBarcode).toBe('MYBARCODE123');
+    });
+
+    it('does not include label or uniqueBarcode when not provided', () => {
+      const parcel = createTestParcel();
+
+      const result = mapParcelToFoxpostRequest(parcel);
+      expect((result as any).label).toBeUndefined();
+      expect((result as any).uniqueBarcode).toBeUndefined();
+    });
   });
 
   describe('mapParcelToFoxpost', () => {
