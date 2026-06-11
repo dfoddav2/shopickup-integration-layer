@@ -1,6 +1,6 @@
 {
   "name": "@shopickup/adapters-foxpost",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "publishConfig": {
     "access": "public"
   },
@@ -44,7 +44,7 @@
     "codegen": "openapi-typescript ../../carrier-docs/hu-foxpost/hu-foxpost.openapi.yaml --output ./src/types/generated.ts"
   },
   "peerDependencies": {
-    "@shopickup/core": ">=0.0.2 <0.1.0"
+    "@shopickup/core": ">=0.0.10 <0.1.0"
   },
   "devDependencies": {
     "@shopickup/core": "workspace:*",
