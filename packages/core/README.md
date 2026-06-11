@@ -46,7 +46,7 @@ import { createFetchHttpClient } from '@shopickup/core/http/fetch-client';
 
 ## Status
 
-This package is early and published as `0.0.1`.
+This package is early and published as `0.0.8`.
 
 ## Releases
 
