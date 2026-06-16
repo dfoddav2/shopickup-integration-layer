@@ -48,7 +48,14 @@
       },
       "references": {
         "orderId": "GLS-PRINT-BATCH-001"
-      }
+      },
+      "items": [
+        {
+          "sku": "WIDGET-001",
+          "quantity": 1,
+          "description": "Widget"
+        }
+      ]
     },
     {
       "id": "GLS-PRINT-BATCH-002",
@@ -89,14 +96,28 @@
       },
       "references": {
         "orderId": "GLS-PRINT-BATCH-002"
-      }
+      },
+      "items": [
+        {
+          "sku": "WIDGET-002",
+          "quantity": 3,
+          "description": "Premium Widget"
+        }
+      ]
     }
   ],
   "credentials": {
     "username": "GLS_USERNAME",
     "password": "GLS_PASSWORD",
-    "clientNumberList": [12345],
-    "webshopEngine": "shopickup/1.0"
+    "clientNumberList": [12345]
   },
-  "options": { "useTestApi": true, "gls": { "country": "HU", "printerType": "Thermo" } }
+  "options": {
+    "useTestApi": true,
+    "gls": {
+      "country": "HU",
+      "printerType": "Thermo",
+      "content": "Merchandise",
+      "smsPreadviceSM2": true
+    }
+  }
 }

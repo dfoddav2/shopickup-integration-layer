@@ -1,6 +1,6 @@
 /**
  * Pickup Point Types
- * 
+ *
  * Defines the canonical types for APM (Automated Parcel Machine) / pickup point operations
  * Used for fetching lists of pickup points from carriers (e.g., Foxpost APMs)
  */
@@ -12,14 +12,36 @@
 export interface PickupPoint {
   /**
    * Unique identifier for this pickup point
-   * For Foxpost: operator_id if present, otherwise place_id
-   * Should be stable and used as primary key
+   *
+   * For Foxpost: the `operator_id` from the carrier feed.
+   *
+   * The carrier considers `operator_id` the primary key for all new connections:
+   * "új kapcsolat esetén ezt a mezőt szükséges használni"
+   * (use this field for new connections).
+   *
+   * For Packeta-operated machines (variants like `Packeta Z-BOX` or `Packeta Z-Pont`), `operator_id` is always the preferred identifier.
+   * `place_id` is a legacy/fallback ID that should only be used when `operator_id`
+   * is absent or empty.
+   *
+   * @see providerId — the alternative ID (usually `place_id`)
    */
   id: string;
 
   /**
    * Provider's native ID (for reference/reconciliation)
-   * For Foxpost: place_id or operator_id (whichever was not used as id)
+   *
+   * For Foxpost: the `place_id` from the carrier feed.
+   *
+   * `place_id` is the carrier's legacy/alternative identifier, used specifically
+   * for Packeta-operated machines when `operator_id` is not available:
+   * "Abban az esetben, ha az operator_id üres, a place_id mezőt kell használni."
+   * (if operator_id is empty, use place_id).
+   *
+   * When `operator_id` is present, `id` and `providerId` will differ —
+   * `id` holds `operator_id` and `providerId` holds `place_id`.
+   * When `operator_id` is absent, both will be the `place_id` value.
+   *
+   * @see id — the primary key (usually `operator_id`)
    */
   providerId?: string;
 

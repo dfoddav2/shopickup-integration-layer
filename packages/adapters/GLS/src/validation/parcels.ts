@@ -50,61 +50,61 @@ export function safeValidateCreateParcelRequest(req: unknown): ZodSafeParseResul
     instructions: z.string().optional(),
   });
 
-  const ParcelSchema = z.object({
-    id: z.string().min(1, 'Parcel ID is required'),
-    package: z.object({
-      weightGrams: z.number().positive('Weight must be positive'),
-      dimensionsCm: z.object({
-        length: z.number().positive(),
-        width: z.number().positive(),
-        height: z.number().positive(),
-      }).optional(),
-    }),
-    service: z.enum(['standard', 'express', 'economy', 'overnight']),
-    shipper: z.object({
-      contact: ContactSchema,
-      address: AddressSchema,
-    }),
-    recipient: z.object({
-      contact: ContactSchema,
-      delivery: z.union([HomeDeliverySchema, PickupPointDeliverySchema]),
-    }),
-    carrierServiceCode: z.string().optional(),
-    handling: z.object({
-      fragile: z.boolean().optional(),
-      perishables: z.boolean().optional(),
-      batteries: z.enum(['NONE', 'LITHIUM_ION', 'LITHIUM_METAL']).optional(),
-    }).optional(),
-    cod: z.object({
-      amount: z.object({
-        value: z.number().nonnegative(),
-        currency: z.string().length(3),
-      }),
-      reference: z.string().optional(),
-    }).optional(),
-    declaredValue: z.object({
-      value: z.number().nonnegative(),
-      currency: z.string().length(3),
-    }).optional(),
-    insurance: z.object({
-      amount: z.object({
-        value: z.number().nonnegative(),
-        currency: z.string().length(3),
-      }),
-    }).optional(),
-    references: z.object({
-      orderId: z.string().optional(),
-      customerReference: z.string().optional(),
-    }).optional(),
-    items: z.array(z.object({
-      sku: z.string().optional(),
-      quantity: z.number().positive('Quantity must be positive'),
-      description: z.string().optional(),
-      weight: z.number().optional(),
-      metadata: z.record(z.string(), z.unknown()).optional(),
-    })).optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-  });
+const ParcelSchema = z.object({
+     id: z.string().min(1, 'Parcel ID is required'),
+     package: z.object({
+       weightGrams: z.number().positive('Weight must be positive'),
+       dimensionsCm: z.object({
+         length: z.number().positive(),
+         width: z.number().positive(),
+         height: z.number().positive(),
+       }).optional(),
+     }),
+     service: z.enum(['standard', 'express', 'economy', 'overnight']),
+     shipper: z.object({
+       contact: ContactSchema,
+       address: AddressSchema,
+     }),
+     recipient: z.object({
+       contact: ContactSchema,
+       delivery: z.union([HomeDeliverySchema, PickupPointDeliverySchema]),
+     }),
+     carrierServiceCode: z.string().optional(),
+     handling: z.object({
+       fragile: z.boolean().optional(),
+       perishables: z.boolean().optional(),
+       batteries: z.enum(['NONE', 'LITHIUM_ION', 'LITHIUM_METAL']).optional(),
+     }).optional(),
+     cod: z.object({
+       amount: z.object({
+         value: z.number().nonnegative(),
+         currency: z.string().length(3),
+       }),
+       reference: z.string().optional(),
+     }).optional(),
+     declaredValue: z.object({
+       value: z.number().nonnegative(),
+       currency: z.string().length(3),
+     }).optional(),
+     insurance: z.object({
+       amount: z.object({
+         value: z.number().nonnegative(),
+         currency: z.string().length(3),
+       }),
+     }).optional(),
+     references: z.object({
+       orderId: z.string().optional(),
+       customerReference: z.string().optional(),
+     }).optional(),
+     items: z.array(z.object({
+       sku: z.string().optional(),
+       quantity: z.number().positive('Quantity must be positive'),
+       description: z.string().optional(),
+       weight: z.number().optional(),
+       metadata: z.record(z.string(), z.unknown()).optional(),
+     })).optional(),
+metadata: z.record(z.string(), z.unknown()).optional(),
+   });
 
     const schema = z.object({
     parcel: ParcelSchema,
@@ -141,6 +141,13 @@ export function safeValidateCreateParcelRequest(req: unknown): ZodSafeParseResul
           value: z.string().optional(),
         })).optional().describe('Explicit additional services.'),
         content: z.string().optional().describe('Override parcel contents description.'),
+        flexDeliveryServiceEmailFDS: z.boolean().optional().describe('Enable FDS Flexible Delivery Service (email notification). Requires valid email in recipient.contact.email.'),
+        flexDeliveryServiceSmsFSS: z.boolean().optional().describe('Enable FSS Flexible Delivery SMS Service (SMS notification). Requires valid phone in recipient.contact.phone and flexDeliveryServiceEmailFDS must be true.'),
+        guaranteed24H: z.boolean().optional().describe('Enable guaranteed 24H delivery service.'),
+        contactServiceCS1: z.boolean().optional().describe('Enable CS1 Contact Service. Requires valid phone in recipient.contact.phone.'),
+        smsPreadviceSM2: z.boolean().optional().describe('Enable SMS pre-advice (SM2). Requires valid phone in international format.'),
+        shopReturnServiceSRS: z.boolean().optional().describe('Enable ShopReturn Service (SRS). Available only in HU and SI.'),
+        useTestApi: z.boolean().optional().describe('GLS API mode: false=production, true=test. FDS/FSS are disabled in test mode.'),
       }).optional(),
     }).optional(),
   });
@@ -184,8 +191,15 @@ export type GLSCreateParcelRequest = {
         sm2Parameter?: { value: string };
         szlParameter?: { value: string };
       }>;
-      content?: string;
-    };
+content?: string;
+        flexDeliveryServiceEmailFDS?: boolean;
+        flexDeliveryServiceSmsFSS?: boolean;
+       guaranteed24H?: boolean;
+       contactServiceCS1?: boolean;
+       smsPreadviceSM2?: boolean;
+       shopReturnServiceSRS?: boolean;
+       useTestApi?: boolean;
+     };
   };
 };
 
@@ -350,6 +364,8 @@ export function safeValidateCreateParcelsRequest(req: unknown): ZodSafeParseResu
           value: z.string().optional(),
         })).optional().describe('Explicit additional services.'),
         content: z.string().optional().describe('Override parcel contents description.'),
+        flexDeliveryServiceEmailFDS: z.boolean().optional().describe('Enable FDS Flexible Delivery Service (email notification). Requires valid email in recipient.contact.email.'),
+        flexDeliveryServiceSmsFSS: z.boolean().optional().describe('Enable FSS Flexible Delivery SMS Service (SMS notification). Requires valid phone in recipient.contact.phone and flexDeliveryServiceEmailFDS must be true.'),
       }).optional(),
     }).optional(),
   });

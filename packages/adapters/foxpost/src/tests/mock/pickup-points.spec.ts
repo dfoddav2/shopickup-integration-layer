@@ -150,7 +150,8 @@ describe("Foxpost Pickup Points", () => {
       const firstPoint = result.points[0];
 
       expect(firstPoint.id).toBe("hu5844");
-      expect(firstPoint.providerId).toBe("hu5844");
+       // operator_id (hu5844) is the primary key; place_id (1444335) is the alternative
+      expect(firstPoint.providerId).toBe("1444335");
     });
 
     it("should fall back to place_id when operator_id is empty", async () => {

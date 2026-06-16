@@ -176,7 +176,28 @@ export async function createParcels(
     // Map canonical parcels to GLS format
     // NOTE: Parcels DO NOT include auth fields - those go at the request root level per GLS API spec
     const glsOptions = (req.options as any)?.gls;
-    const glsParcelList = mapCanonicalParcelsToGLS(req.parcels, clientNumber, glsOptions);
+    const rootOptions = req.options as any;
+    const glsParcelList = mapCanonicalParcelsToGLS(req.parcels, clientNumber, {
+      ...glsOptions,
+      useTestApi,
+      flexDeliveryServiceEmailFDS: rootOptions.flexDeliveryServiceEmailFDS ?? glsOptions?.flexDeliveryServiceEmailFDS,
+      flexDeliveryServiceSmsFSS: rootOptions.flexDeliveryServiceSmsFSS ?? glsOptions?.flexDeliveryServiceSmsFSS,
+    }, ctx.logger);
+
+    safeLog(
+      ctx.logger,
+      'debug',
+      'GLS: Created GLS parcels',
+      {
+        count: glsParcelList.length,
+        parcelList: glsParcelList.map((p: any) => ({
+          clientReference: p.clientReference,
+          serviceList: p.serviceList,
+        })),
+      },
+      ctx,
+      ['createParcels']
+    );
 
     safeLog(
       ctx.logger,
@@ -274,13 +295,22 @@ export async function createParcels(
     const parcelList = (carrierRespBody.parcelInfoList || (carrierRespBody as any).ParcelInfoList || []) as any[];
     const errorList = (carrierRespBody.prepareLabelsError || (carrierRespBody as any).PrepareLabelsError || []) as any[];
 
+    // Group errors by client reference to avoid counting multiple errors for same parcel as separate parcels
+    const errorGroups = new Map<string, any[]>();
+    for (const err of errorList) {
+      const clientRefs = err.clientReferenceList || err.ClientReferenceList || [];
+      const inputId = clientRefs[0] || 'unknown';
+      if (!errorGroups.has(inputId)) {
+        errorGroups.set(inputId, []);
+      }
+      errorGroups.get(inputId)?.push(err);
+    }
+
     const results: CarrierResource[] = [
       ...parcelList.map((p: any, idx: number) => mapGLSParcelInfoToCarrierResource(p, idx)),
-      ...errorList.map((err: any, idx: number) => {
-        const errorCode = err.errorCode || err.ErrorCode;
-        const errorDescription = err.errorDescription || err.ErrorDescription || 'Unknown error';
-        const clientRefs = err.clientReferenceList || err.ClientReferenceList || [];
-        const inputId = clientRefs[0] || `error-${idx}`;
+      ...Array.from(errorGroups.entries()).map(([inputId, errors], idx: number) => {
+        const errorCode = errors[0].errorCode || errors[0].ErrorCode;
+        const errorDescription = errors[0].errorDescription || errors[0].ErrorDescription || 'Unknown error';
 
         let category: 'Auth' | 'Validation' | 'Permanent' | 'Transient' = 'Validation';
         if (errorCode === -1 || errorCode === 14 || errorCode === 15 || errorCode === 27) {
@@ -292,13 +322,11 @@ export async function createParcels(
         const failed: FailedCarrierResource = {
           carrierId: undefined,
           status: 'failed',
-          raw: serializeForLog(err) as any,
-          errors: [
-            {
-              code: String(errorCode),
-              message: errorDescription,
-            },
-          ],
+          raw: serializeForLog(errors) as any,
+          errors: errors.map((err: any) => ({
+            code: String(err.errorCode || err.ErrorCode),
+            message: err.errorDescription || err.ErrorDescription || 'Unknown error',
+          })),
         };
 
         safeLog(
@@ -310,6 +338,7 @@ export async function createParcels(
             errorCode,
             errorDescription,
             category,
+            errorCount: errors.length,
           },
           ctx,
           ['createParcels']

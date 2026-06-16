@@ -1,6 +1,6 @@
 {
   "parcel": {
-    "id": "b74d0b38-1b3c-439d-87e9-3093b578293b",
+    "id": "GLS-EX-002",
     "package": {
       "weightGrams": 1200,
       "dimensionsCm": {
@@ -29,13 +29,13 @@
     "recipient": {
       "contact": {
         "name": "Pickup GLS",
-        "phone": "+36301234568",
+        "phone": "+36209615039",
         "email": "pickup@example.hu"
       },
       "delivery": {
         "method": "PICKUP_POINT",
         "pickupPoint": {
-          "id": "6756",
+          "id": "2351-CSOMAGPONT",
           "provider": "gls",
           "name": "GLS Automata Ehrle Automoso Szeged",
           "type": "SHOP",
@@ -47,6 +47,13 @@
             "country": "HU"
           }
         }
+      },
+      "cod": {
+        "amount": {
+          "amount": 2000,
+          "currency": "HUF"
+        },
+        "reference": "COD-REFERENCE"
       }
     },
     "references": {
@@ -59,11 +66,16 @@
     "clientNumberList": [12345],
     "webshopEngine": "shopickup/1.0"
   },
+  "metadata": {},
   "options": {
     "useTestApi": true,
     "country": "HU",
     "gls": {
-      "country": "HU"
+      "country": "HU",
+      "content": "Clothing and accessories",
+      "smsPreadviceSM2": true,
+      "guaranteed24H": true,
+      "shopReturnServiceSRS": false
     }
   }
 }

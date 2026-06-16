@@ -176,12 +176,57 @@ export function convertFromPascalCase(obj: unknown): unknown {
 }
 
 /**
+ * Known GLS acronyms that must remain fully uppercase in PascalCase conversion.
+ * These appear as lowercase prefixes in camelCase keys (e.g., 'psdParameter')
+ * and must be converted to all-caps (e.g., 'PSDParameter') for the GLS API.
+ * 
+ * The GLS API (a .NET service) uses case-sensitive property matching and expects
+ * acronyms like PSD, COD, FDS, etc. to remain uppercase. A naive first-letter
+ * uppercase conversion (e.g., 'PsdParameter') would be rejected by the API.
+ * 
+ * Derived from GLS API spec and PHP reference example:
+ * - Service parameters: PSDParameter, FDSParameter, FSSParameter, etc.
+ * - Parcel fields: CODAmount, CODCurrency, CODReference
+ */
+const GLS_ACRONYMS = [
+  'psd', 'cod', 'adr', 'aos', 'cs1', 'dds', 'dpv', 'fds',
+  'fss', 'ins', 'mmp', 'sds', 'sm1', 'sm2', 'szl',
+];
+
+/**
+ * Converts a single camelCase key to PascalCase, preserving known GLS acronyms.
+ * 
+ * Examples:
+ *   psdParameter  → PSDParameter  (acronym prefix, fully uppercased)
+ *   codAmount     → CODAmount     (acronym prefix, fully uppercased)
+ *   zipCode       → ZipCode       (no known acronym, simple first-letter upcase)
+ *   username      → Username      (single word, simple first-letter upcase)
+ * 
+ * @param key camelCase key (e.g., 'psdParameter')
+ * @returns PascalCase key (e.g., 'PSDParameter')
+ */
+function camelToPascalKey(key: string): string {
+  for (const acronym of GLS_ACRONYMS) {
+    if (key.startsWith(acronym) && key.length > acronym.length) {
+      const nextChar = key[acronym.length];
+      if (nextChar === nextChar.toUpperCase()) {
+        return acronym.toUpperCase() + key.slice(acronym.length);
+      }
+    }
+  }
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+/**
  * Convert camelCase object keys to PascalCase for GLS API requests
  * 
  * The GLS API expects PascalCase keys (Username, Password, ParcelList, etc.)
  * but TypeScript types use camelCase. This helper converts at serialization time.
  * 
- * TESTING: Used to verify if 401 errors are due to key casing.
+ * Also handles known GLS acronyms (PSD, COD, FDS, etc.) that must remain
+ * fully uppercase in PascalCase keys. A naive first-letter-only conversion
+ * would produce 'PsdParameter' which the GLS API rejects with error code 13
+ * ("Invalid service parameter, Service 'PSD'").
  * 
  * @param obj Object with camelCase keys
  * @returns New object with PascalCase keys
@@ -202,8 +247,7 @@ export function convertToPascalCase(obj: Record<string, any>): Record<string, an
   const result: Record<string, any> = {};
   
   for (const [key, value] of Object.entries(obj)) {
-    // Convert first letter to uppercase (camelCase → PascalCase)
-    const pascalKey = key.charAt(0).toUpperCase() + key.slice(1);
+    const pascalKey = camelToPascalKey(key);
     
     // Recursively convert nested objects
     result[pascalKey] = 

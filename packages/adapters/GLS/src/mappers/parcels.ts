@@ -7,6 +7,7 @@
 
 import type { Parcel } from '@shopickup/core';
 import type { GLSParcel, GLSAddress, GLSParcelProperty, GLSService } from '../types/index.js';
+import type { Logger } from '@shopickup/core';
 
 /**
  * GLS-specific carrier options for parcel creation.
@@ -26,47 +27,125 @@ export interface CreateParcelsGLSCarrierOptions {
   services?: GLSService[];
   /** Override parcel contents description. */
   content?: string;
+  /** Enable FDS Flexible Delivery Service (email notification). Requires valid email in recipient.contact.email. */
+  flexDeliveryServiceEmailFDS?: boolean;
+  /** Enable FSS Flexible Delivery SMS Service (SMS notification). Requires valid phone in recipient.contact.phone and flexDeliveryServiceEmailFDS must be true. */
+  flexDeliveryServiceSmsFSS?: boolean;
+  /** Enable guaranteed 24H delivery service. */
+  guaranteed24H?: boolean;
+  /** Enable CS1 Contact Service. Requires valid phone in recipient.contact.phone. */
+  contactServiceCS1?: boolean;
+  /** Enable SMS pre-advice (SM2). Requires valid phone in international format. */
+  smsPreadviceSM2?: boolean;
+  /** Enable ShopReturn Service (SRS). Available only in HU and SI. */
+  shopReturnServiceSRS?: boolean;
+  /** GLS API mode: false=production, true=test. FDS/FSS are disabled in test mode. */
+  useTestApi?: boolean;
 }
 
 /**
  * Extracts house number from street address string.
- * Looks for trailing digits (e.g. "Main St 123" → "123").
- * Returns undefined if no trailing digits found.
+ * Looks for a trailing token starting with a digit
+ * (e.g. "Main St 123" → "123", "Kossuth utca 14/A" → "14/A").
+ * Returns undefined if no trailing digit-starting token found.
  */
 export function extractHouseNumber(street: string): string | undefined {
-  const match = street.trim().match(/\s(\d+[a-zA-Z]*)$/);
+  const match = street.trim().match(/\s(\d+\S*)$/u);
   return match ? match[1] : undefined;
 }
 
 /**
- * Removes trailing house number from street address string.
- * E.g. "Main St 123" → "Main St"
+ * Removes trailing house-number token from street address string.
+ * E.g. "Main St 123" → "Main St", "Kossuth utca 14/A" → "Kossuth utca"
  */
 export function removeHouseNumber(street: string): string {
-  const houseNumber = extractHouseNumber(street);
-  if (!houseNumber) return street;
-  return street.trim().replace(new RegExp(`\\s${houseNumber.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`), '').trim();
+  return street.trim().replace(/\s+\d+\S*$/u, '').trim();
 }
 
 /**
  * Determines parcel content description from parcel metadata, items, or explicit override.
  */
 export function determineContent(
-  parcel: Parcel,
-  override?: string
-): string | undefined {
-  if (override) return override;
-  const meta = parcel.metadata?.glsContent as string | undefined;
-  if (meta) return meta;
-  if (parcel.items && parcel.items.length > 0) {
-    const descriptions = parcel.items
-      .map((item) => item.description)
-      .filter((d): d is string => !!d);
-    if (descriptions.length > 0) {
-      return descriptions.join(', ');
-    }
+   parcel: Parcel,
+   override?: string
+ ): string | undefined {
+   if (override) return override;
+   const meta = parcel.metadata?.glsContent as string | undefined;
+   if (meta) return meta;
+   if (parcel.items && parcel.items.length > 0) {
+     const descriptions = parcel.items
+       .map((item) => item.description)
+       .filter((d): d is string => !!d);
+     if (descriptions.length > 0) {
+       return descriptions.join(', ');
+     }
+   }
+   return undefined;
+ }
+
+/**
+ * Validates email format
+ */
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
+ * Maps ISO 3166-1 alpha-2 country codes to international dialing prefixes.
+ * Covers all countries supported by GLS.
+ */
+const COUNTRY_DIAL_PREFIXES: Record<string, string> = {
+  HU: '+36',
+  AT: '+43',
+  BE: '+32',
+  BG: '+359',
+  CZ: '+420',
+  DE: '+49',
+  DK: '+45',
+  ES: '+34',
+  FI: '+358',
+  FR: '+33',
+  GR: '+30',
+  HR: '+385',
+  IT: '+39',
+  LU: '+352',
+  NL: '+31',
+  PL: '+48',
+  PT: '+351',
+  RO: '+40',
+  SI: '+386',
+  SK: '+421',
+  RS: '+381',
+};
+
+/**
+ * Returns the expected international dialing prefix for a given ISO country code.
+ */
+function getCountryDialPrefix(country: string): string | undefined {
+  return COUNTRY_DIAL_PREFIXES[country.toUpperCase()];
+}
+
+/**
+ * Validates phone number format (international format with +countrycode)
+ * and checks that the country code matches the expected destination country.
+ *
+ * @param phone Phone number in international format (e.g., "+36301234567")
+ * @param country ISO 3166-1 alpha-2 destination country code (e.g., "HU")
+ * @returns Error message if invalid, empty string if valid
+ */
+function validatePhoneNumber(phone: string, country: string): string {
+  const phoneRegex = /^\+[1-9][\d\s]+$/;
+  if (!phoneRegex.test(phone)) {
+    return `Phone number must be in international format starting with +, got: "${phone}"`;
   }
-  return undefined;
+
+  const expectedPrefix = getCountryDialPrefix(country);
+  if (expectedPrefix && !phone.startsWith(expectedPrefix)) {
+    return `Phone number "${phone}" does not match destination country ${country.toUpperCase()}. Expected a ${country.toUpperCase()} phone number (${expectedPrefix}...).`;
+  }
+
+  return '';
 }
 
 /**
@@ -74,17 +153,52 @@ export function determineContent(
  */
 export function buildGLSServiceList(
   parcel: Parcel,
-  options?: CreateParcelsGLSCarrierOptions
+  options?: CreateParcelsGLSCarrierOptions,
+  logger?: Logger
 ): GLSService[] {
   const services: GLSService[] = [];
+  const deliveryCountry = (parcel.recipient.delivery.method === 'PICKUP_POINT'
+    ? parcel.recipient.delivery.pickupPoint?.address?.country
+    : parcel.recipient.delivery.address?.country) || 'HU';
+
+  // Validate service compatibility before building
+  // PSD (Parcel Shop Delivery) is incompatible with home delivery services (FDS, FSS, CS1)
+  // because a parcel cannot be delivered to a pickup point and have home delivery services simultaneously.
+  if (parcel.recipient.delivery.method === 'PICKUP_POINT' && (options?.flexDeliveryServiceEmailFDS || options?.flexDeliveryServiceSmsFSS || options?.contactServiceCS1)) {
+    const conflicting = [
+      options.flexDeliveryServiceEmailFDS && 'FDS (flexDeliveryServiceEmailFDS)',
+      options.flexDeliveryServiceSmsFSS && 'FSS (flexDeliveryServiceSmsFSS)',
+      options.contactServiceCS1 && 'CS1 (contactServiceCS1)',
+    ].filter(Boolean).join(' and ');
+    throw new Error(
+      `GLS: PSD (Parcel Shop Delivery) is incompatible with ${conflicting}. `
+      + 'PSD delivers to a pickup point; these are home delivery services. '
+      + 'Remove the conflicting options or use HOME delivery instead.'
+    );
+  }
 
   // PICKUP_POINT → PSD (Parcel Shop Delivery)
+  // Please note, the PSD service requires additonal attributes to be provided, as mandatory (located in Address class):
+  // - ContactName
+  // - ContactPhone
+  // - ContactEmail
   if (parcel.recipient.delivery.method === 'PICKUP_POINT') {
+    // PSD requires ContactPhone in the delivery address, and it must match the destination country
+    if (!parcel.recipient.contact.phone) {
+      throw new Error('PSD (Parcel Shop Delivery) requires recipient.contact.phone');
+    }
+    const psdPhoneError = validatePhoneNumber(parcel.recipient.contact.phone, deliveryCountry);
+    if (psdPhoneError) {
+      throw new Error(`PSD (Parcel Shop Delivery) - delivery address ContactPhone: ${psdPhoneError}`);
+    }
     const pickupPoint = parcel.recipient.delivery.pickupPoint;
     services.push({
       code: 'PSD',
-      value: pickupPoint.id,
+      psdParameter: {
+        stringValue: pickupPoint.id,
+      },
     });
+    logger?.debug(`GLS: Added PSD service for pickup point: ${pickupPoint.id}`);
   }
 
   // Saturday Delivery
@@ -118,20 +232,96 @@ export function buildGLSServiceList(
     });
   }
 
-  // Email notification → FDS (recipient email)
-  if (parcel.recipient.contact.email) {
-    services.push({
-      code: 'FDS',
-      fdsParameter: { value: parcel.recipient.contact.email },
-    });
+  // Optional email notification → FDS (recipient email)
+  if (options?.flexDeliveryServiceEmailFDS) {
+    if (!parcel.recipient.contact.email) {
+      logger?.warn('GLS: FDS service enabled but recipient.contact.email is missing');
+    } else if (!isValidEmail(parcel.recipient.contact.email)) {
+      logger?.warn(`GLS: FDS service enabled but email is invalid: "${parcel.recipient.contact.email}"`);
+    } else {
+      services.push({
+        code: 'FDS',
+        fdsParameter: { value: parcel.recipient.contact.email },
+      });
+      logger?.debug(`GLS: Added FDS service for email: ${parcel.recipient.contact.email}`);
+    }
   }
 
   // SMS notification → FSS (recipient phone)
-  if (parcel.recipient.contact.phone) {
+  // NOTE: FSS requires FDS (flexDeliveryServiceEmailFDS) as a prerequisite per GLS service matrix
+  if (options?.flexDeliveryServiceSmsFSS) {
+    if (!options.flexDeliveryServiceEmailFDS) {
+      throw new Error(
+        'GLS: FSS (flexDeliveryServiceSmsFSS) requires FDS (flexDeliveryServiceEmailFDS) as a prerequisite. '
+        + 'Enable flexDeliveryServiceEmailFDS or remove flexDeliveryServiceSmsFSS.'
+      );
+    } else if (!parcel.recipient.contact.phone) {
+      throw new Error('FSS (flexDeliveryServiceSmsFSS) requires recipient.contact.phone');
+    } else if (options.flexDeliveryServiceEmailFDS && !parcel.recipient.contact.email) {
+      throw new Error('FSS (flexDeliveryServiceSmsFSS) requires recipient.contact.email when flexDeliveryServiceEmailFDS is enabled');
+    } else if (options.flexDeliveryServiceEmailFDS && !isValidEmail(parcel.recipient.contact.email || '')) {
+      throw new Error('FSS (flexDeliveryServiceSmsFSS) requires valid email in recipient.contact.email');
+    }
+    const phoneError = validatePhoneNumber(parcel.recipient.contact.phone, deliveryCountry);
+    if (phoneError) {
+      throw new Error(`FSS (flexDeliveryServiceSmsFSS): ${phoneError}`);
+    }
     services.push({
       code: 'FSS',
       fssParameter: { value: parcel.recipient.contact.phone },
     });
+    logger?.debug(`GLS: Added FSS service for phone: ${parcel.recipient.contact.phone}`);
+  }
+
+  // Guaranteed 24H service
+  if (options?.guaranteed24H) {
+    services.push({ code: '24H' });
+    logger?.debug('GLS: Added 24H guaranteed delivery service');
+  }
+
+  // CS1 Contact Service
+  if (options?.contactServiceCS1) {
+    if (!parcel.recipient.contact.phone) {
+      throw new Error('CS1 Contact Service requires recipient.contact.phone');
+    }
+    const phoneError = validatePhoneNumber(parcel.recipient.contact.phone, deliveryCountry);
+    if (phoneError) {
+      throw new Error(`CS1 (contactServiceCS1): ${phoneError}`);
+    }
+    services.push({
+      code: 'CS1',
+      cs1Parameter: { value: parcel.recipient.contact.phone },
+    });
+    logger?.debug(`GLS: Added CS1 Contact Service for phone: ${parcel.recipient.contact.phone}`);
+  }
+
+  // SM2 SMS Pre-advice
+  if (options?.smsPreadviceSM2) {
+    if (!parcel.recipient.contact.phone) {
+      throw new Error('SM2 SMS Pre-advice requires recipient.contact.phone');
+    }
+    const phoneError = validatePhoneNumber(parcel.recipient.contact.phone, deliveryCountry);
+    if (phoneError) {
+      throw new Error(`SM2 (smsPreadviceSM2): ${phoneError}`);
+    }
+    services.push({
+      code: 'SM2',
+      sm2Parameter: { value: parcel.recipient.contact.phone },
+    });
+    logger?.debug(`GLS: Added SM2 SMS Pre-advice for phone: ${parcel.recipient.contact.phone}`);
+  }
+
+  // ShopReturn Service (SRS) - Available only in HU and SI
+  if (options?.shopReturnServiceSRS) {
+    const country = (parcel.recipient.delivery.method === 'PICKUP_POINT' 
+      ? parcel.recipient.delivery.pickupPoint?.address?.country 
+      : parcel.recipient.delivery.address.country) || 'HU';
+    if (country.toUpperCase() === 'HU' || country.toUpperCase() === 'SI') {
+      services.push({ code: 'SRS' });
+      logger?.debug(`GLS: Added SRS ShopReturn Service for country: ${country.toUpperCase()}`);
+    } else {
+      logger?.warn(`GLS: SRS ShopReturn Service not available for country: ${country.toUpperCase()} (only HU and SI)`);
+    }
   }
 
   // Merge explicit services (provided by integrator)
@@ -142,10 +332,18 @@ export function buildGLSServiceList(
       if (existing) {
         // Replace with explicit version
         Object.assign(existing, svc);
+        logger?.debug(`GLS: Overrode auto-derived service with explicit: ${svc.code}`);
       } else {
         services.push(svc);
+        logger?.debug(`GLS: Added explicit service: ${svc.code}`);
       }
     }
+  }
+
+  if (services.length > 0) {
+    logger?.debug(`GLS: Final service list: ${services.map((s) => s.code).join(', ')}`);
+  } else {
+    logger?.debug('GLS: No services added');
   }
 
   return services.length > 0 ? services : [];
@@ -160,15 +358,42 @@ export function buildGLSServiceList(
 export function mapAddressToGLSAddress(address: any): GLSAddress {
   const streetRaw = address.street || '';
   const houseNumberExplicit = address.houseNumber || address.houseNr;
-  const houseNumberExtracted = !houseNumberExplicit ? extractHouseNumber(streetRaw) : undefined;
-  const houseNumber = houseNumberExplicit || houseNumberExtracted;
-  const streetClean = houseNumberExtracted ? removeHouseNumber(streetRaw) : streetRaw;
+  const houseNumberInfo = address.houseNumberInfo || address.building || '';
+
+  let streetClean: string;
+  let houseNumberVal: string;
+
+  if (houseNumberExplicit) {
+    streetClean = streetRaw;
+    houseNumberVal = houseNumberExplicit;
+  } else {
+    const extracted = extractHouseNumber(streetRaw);
+    if (extracted) {
+      streetClean = removeHouseNumber(streetRaw);
+      houseNumberVal = extracted;
+    } else if (houseNumberInfo && /^\d/.test(houseNumberInfo)) {
+      // houseNumberInfo starts with a digit (e.g. "14/A"), likely contains
+      // the house number itself — combine with street and re-parse
+      const combined = `${streetRaw} ${houseNumberInfo}`.trim();
+      const extractedFromCombined = extractHouseNumber(combined);
+      if (extractedFromCombined) {
+        streetClean = removeHouseNumber(combined);
+        houseNumberVal = extractedFromCombined;
+      } else {
+        streetClean = combined;
+        houseNumberVal = '';
+      }
+    } else {
+      streetClean = streetRaw;
+      houseNumberVal = '';
+    }
+  }
 
   return {
     name: address.name || '',
-    street: streetClean || address.street || '',
-    houseNumber: houseNumber || '',
-    houseNumberInfo: address.houseNumberInfo || address.building || '',
+    street: streetClean,
+    houseNumber: houseNumberVal,
+    houseNumberInfo,
     city: address.city || '',
     zipCode: address.postalCode || address.zipCode || '',
     countryIsoCode: (address.country || 'HU').toUpperCase(),
@@ -217,6 +442,7 @@ export function mapDimensionsToGLSParcelProperty(
  * @param parcel Canonical parcel
  * @param clientNumber GLS client number
  * @param options GLS carrier options (pickupDate, services, etc.)
+ * @param logger Optional logger for service mapping debug output
  * @returns GLS Parcel ready for API submission
  *
  * @example
@@ -231,7 +457,8 @@ export function mapDimensionsToGLSParcelProperty(
 export function mapCanonicalParcelToGLS(
   parcel: Parcel,
   clientNumber: number,
-  options?: CreateParcelsGLSCarrierOptions
+  options?: CreateParcelsGLSCarrierOptions,
+  logger?: Logger
 ): GLSParcel {
   // Map shipper/sender address
   const pickupAddress = mapAddressToGLSAddress({
@@ -273,7 +500,7 @@ export function mapCanonicalParcelToGLS(
   const deliveryAddress = mapAddressToGLSAddress(deliveryAddressData);
 
   // Build service list (auto-derived + explicit)
-  const serviceList = buildGLSServiceList(parcel, options);
+  const serviceList = buildGLSServiceList(parcel, options, logger);
 
   // COD mapping
   let codAmount: number | undefined;
@@ -309,14 +536,16 @@ export function mapCanonicalParcelToGLS(
  * @param parcels Canonical parcels
  * @param clientNumber GLS client number
  * @param options GLS carrier options
+ * @param logger Optional logger for service mapping debug output
  * @returns Array of GLS Parcel objects
  */
 export function mapCanonicalParcelsToGLS(
   parcels: Parcel[],
   clientNumber: number,
-  options?: CreateParcelsGLSCarrierOptions
+  options?: CreateParcelsGLSCarrierOptions,
+  logger?: Logger
 ): GLSParcel[] {
-  return parcels.map((parcel) => mapCanonicalParcelToGLS(parcel, clientNumber, options));
+  return parcels.map((parcel) => mapCanonicalParcelToGLS(parcel, clientNumber, options, logger));
 }
 
 /**

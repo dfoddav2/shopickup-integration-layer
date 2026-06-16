@@ -5,6 +5,6 @@
     "clientNumberList": [12345],
     "webshopEngine": "shopickup/1.0"
   },
-  "parcelCarrierIds": ["11784027"],
+  "parcelCarrierIds": ["13307216", "13307225"],
   "options": { "useTestApi": true, "gls": { "country": "HU", "printerType": "Thermo" } }
 }

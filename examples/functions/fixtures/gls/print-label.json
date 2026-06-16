@@ -47,13 +47,32 @@
     },
     "references": {
       "orderId": "GLS-PRINT-001"
-    }
+    },
+    "items": [
+      {
+        "sku": "WIDGET-001",
+        "quantity": 2,
+        "description": "Widget"
+      }
+    ]
   },
   "credentials": {
     "username": "GLS_USERNAME",
     "password": "GLS_PASSWORD",
-    "clientNumberList": [12345],
-    "webshopEngine": "shopickup/1.0"
+    "clientNumberList": [12345]
   },
-  "options": { "useTestApi": true, "gls": { "country": "HU", "printerType": "Thermo" } }
+  "options": {
+    "useTestApi": true,
+    "gls": {
+      "country": "HU",
+      "printerType": "Thermo",
+      "content": "Merchandise",
+      "flexDeliveryServiceEmailFDS": true,
+      "flexDeliveryServiceSmsFSS": true,
+      "guaranteed24H": true,
+      "contactServiceCS1": true,
+      "smsPreadviceSM2": true,
+      "shopReturnServiceSRS": true
+    }
+  }
 }

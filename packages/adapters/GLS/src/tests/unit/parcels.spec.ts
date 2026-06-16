@@ -82,6 +82,10 @@ describe('GLS Parcel Mapper', () => {
       expect(extractHouseNumber('Main St 12A')).toBe('12A');
     });
 
+    it('should handle slash notation after digits', () => {
+      expect(extractHouseNumber('Kossuth Lajos utca 14/A')).toBe('14/A');
+    });
+
     it('should return undefined for streets without trailing numbers', () => {
       expect(extractHouseNumber('Main Street')).toBeUndefined();
       expect(extractHouseNumber('Rákóczi út')).toBeUndefined();
@@ -92,6 +96,7 @@ describe('GLS Parcel Mapper', () => {
     it('should remove trailing house number from street', () => {
       expect(removeHouseNumber('Main Street 123')).toBe('Main Street');
       expect(removeHouseNumber('Rákóczi út 42')).toBe('Rákóczi út');
+      expect(removeHouseNumber('Kossuth Lajos utca 14/A')).toBe('Kossuth Lajos utca');
     });
 
     it('should return original if no house number found', () => {
@@ -124,9 +129,9 @@ describe('GLS Parcel Mapper', () => {
       expect(determineContent(parcel as any)).toBe('Blue widget, Red widget');
     });
 
-    it('should return undefined if no content sources available', () => {
-      expect(determineContent(mockParcel as any)).toBeUndefined();
-    });
+it('should return undefined if no content sources available', () => {
+       expect(determineContent(mockParcel as any)).toBeUndefined();
+     });
   });
 
   describe('mapAddressToGLSAddress', () => {
@@ -161,18 +166,36 @@ describe('GLS Parcel Mapper', () => {
       expect(result.houseNumber).toBe('456');
     });
 
-    it('should use houseNumberInfo from building field', () => {
+    it('should combine street and houseNumberInfo when street has no trailing number', () => {
+      const address = {
+        name: 'John',
+        street: 'Kossuth Lajos utca',
+        city: 'Budapest',
+        postalCode: '1011',
+        country: 'HU',
+        houseNumberInfo: '14/A',
+      };
+
+      const result = mapAddressToGLSAddress(address);
+      expect(result.street).toBe('Kossuth Lajos utca');
+      expect(result.houseNumber).toBe('14/A');
+      expect(result.houseNumberInfo).toBe('14/A');
+    });
+
+    it('should use houseNumberInfo directly when it does not start with a digit', () => {
       const address = {
         name: 'John',
         street: 'Main St',
         city: 'Budapest',
         postalCode: '1011',
         country: 'HU',
-        building: 'Floor 3',
+        houseNumberInfo: 'Top 6',
       };
 
       const result = mapAddressToGLSAddress(address);
-      expect(result.houseNumberInfo).toBe('Floor 3');
+      expect(result.street).toBe('Main St');
+      expect(result.houseNumber).toBe('');
+      expect(result.houseNumberInfo).toBe('Top 6');
     });
 
     it('should handle missing optional fields', () => {
@@ -209,15 +232,15 @@ describe('GLS Parcel Mapper', () => {
     it('should map parcel dimensions to GLS format', () => {
       const result = mapDimensionsToGLSParcelProperty(mockParcel as any);
 
-      expect(result).toHaveLength(1);
-      expect(result![0]).toEqual({
-        content: undefined,
-        packageType: 1,
-        height: 15,
-        length: 30,
-        width: 20,
-        weight: 2.5, // 2500 grams / 1000 = 2.5 kg
-      });
+expect(result).toHaveLength(1);
+       expect(result![0]).toEqual({
+         content: undefined,
+         packageType: 1,
+         height: 15,
+         length: 30,
+         width: 20,
+         weight: 2.5, // 2500 grams / 1000 = 2.5 kg
+       });
     });
 
     it('should use content from determineContent', () => {
@@ -255,26 +278,27 @@ describe('GLS Parcel Mapper', () => {
   });
 
   describe('buildGLSServiceList', () => {
-    it('should include PSD for pickup point delivery', () => {
-      const parcel = {
-        ...mockParcel,
-        recipient: {
-          contact: mockParcel.recipient.contact,
-          delivery: {
-            method: 'PICKUP_POINT',
-            pickupPoint: {
-              id: '379-PARCELSHOP',
-              name: 'GLS ParcelShop',
-            },
-          },
-        },
-      };
+it('should include PSD for pickup point delivery', () => {
+       const parcel = {
+         ...mockParcel,
+         recipient: {
+           contact: mockParcel.recipient.contact,
+           delivery: {
+             method: 'PICKUP_POINT',
+             pickupPoint: {
+               id: '379-PARCELSHOP',
+               name: 'GLS ParcelShop',
+             },
+           },
+         },
+       };
 
-      const services = buildGLSServiceList(parcel as any);
-      const psd = services.find((s) => s.code === 'PSD');
-      expect(psd).toBeDefined();
-      expect(psd!.value).toBe('379-PARCELSHOP');
-    });
+       const services = buildGLSServiceList(parcel as any);
+       const psd = services.find((s) => s.code === 'PSD');
+       expect(psd).toBeDefined();
+       expect(psd!.psdParameter?.stringValue).toBe('379-PARCELSHOP');
+       expect(psd!.psdParameter?.integerValue).toBeUndefined();
+     });
 
     it('should include SAT when saturdayDelivery is enabled', () => {
       const services = buildGLSServiceList(mockParcel as any, { saturdayDelivery: true });
@@ -332,14 +356,14 @@ describe('GLS Parcel Mapper', () => {
     });
 
     it('should include FDS when recipient has email', () => {
-      const services = buildGLSServiceList(mockParcel as any);
+      const services = buildGLSServiceList(mockParcel as any, { flexDeliveryServiceEmailFDS: true });
       const fds = services.find((s) => s.code === 'FDS');
       expect(fds).toBeDefined();
       expect(fds!.fdsParameter).toEqual({ value: 'buyer@example.com' });
     });
 
     it('should include FSS when recipient has phone', () => {
-      const services = buildGLSServiceList(mockParcel as any);
+      const services = buildGLSServiceList(mockParcel as any, { flexDeliveryServiceEmailFDS: true, flexDeliveryServiceSmsFSS: true });
       const fss = services.find((s) => s.code === 'FSS');
       expect(fss).toBeDefined();
       expect(fss!.fssParameter).toEqual({ value: '+36 1 222 2222' });
@@ -445,7 +469,7 @@ describe('GLS Parcel Mapper', () => {
           delivery: {
             method: 'PICKUP_POINT',
             pickupPoint: {
-              id: 'GLS-001',
+              id: '6756-PARCELSHOP',
               name: 'GLS ParcelShop Central',
               address: {
                 street: 'Pickup Street',

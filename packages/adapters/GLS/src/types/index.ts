@@ -119,7 +119,7 @@ export interface GLSServiceParameterStringDecimal {
  */
 export interface GLSServiceParameterStringInteger {
   stringValue: string;
-  integerValue: number;
+  integerValue?: number;
 }
 
 /**

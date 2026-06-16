@@ -36,7 +36,7 @@
         "method": "HOME",
         "address": {
           "name": "Horvath Peter",
-          "street": "Kossuth Lajos utca 14",
+          "street": "Kossuth Lajos utca 14/A",
           "city": "Siofok",
           "postalCode": "8600",
           "country": "HU",
@@ -49,5 +49,17 @@
       "orderId": "GLS-EX-001"
     }
   },
-  "options": { "useTestApi": true, "country": "HU" }
+  "options": {
+    "useTestApi": true,
+    "country": "HU",
+    "gls": {
+      "content": "Merchandise",
+      "flexDeliveryServiceEmailFDS": true,
+      "flexDeliveryServiceSmsFSS": true,
+      "guaranteed24H": true,
+      "contactServiceCS1": true,
+      "smsPreadviceSM2": true,
+      "shopReturnServiceSRS": false
+    }
+  }
 }

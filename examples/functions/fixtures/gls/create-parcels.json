@@ -61,7 +61,7 @@
       "package": {
         "weightGrams": 900
       },
-      "service": "express",
+      "service": "standard",
       "shipper": {
         "contact": {
           "name": "Example Shop",

@@ -25,14 +25,25 @@ import {
 
 /**
  * Normalize a Foxpost APM entry to canonical PickupPoint
+ *
+ * ID mapping per carrier documentation:
+ * - `operator_id` is the primary key for all new connections
+ *      ("új kapcsolat esetén ezt a mezőt szükséges használni")
+ * - `place_id` is the fallback/alternative for when `operator_id` is absent
+ *      ("Abban az esetben, ha az operator_id üres, a place_id mezőt kell használni")
+ *
+ * For Packeta-operated machines (variants like `Packeta Z-BOX` or `Packeta Z-Pont`),
+ * `operator_id` is always preferred as the primary identifier.
  */
 function mapFoxpostApmToPickupPoint(apm: FoxpostApmEntry): PickupPoint {
-  // Determine primary ID: operator_id if present and non-empty, otherwise place_id
+  // operator_id is the carrier's preferred primary key for new connections
+   // ("új kapcsolat esetén ezt a mezőt szükséges használni")
   const operatorId = apm.operator_id?.trim();
   const placeId = apm.place_id?.toString().trim();
 
   const id = operatorId || placeId || `fallback-${Math.random().toString(36).slice(2, 9)}`;
-  const providerId = operatorId || placeId || undefined; // providerId is optional and can be same as id if operator_id is missing
+  // place_id is the carrier's fallback/alternative ID (used when operator_id is absent)
+  const providerId = placeId || operatorId || undefined;
 
   // Parse coordinates (Zod already coerced them to numbers in validation)
   let latitude: number | undefined = apm.geolat;

@@ -1,4 +1,9 @@
 {
+  "credentials": {
+    "apiKey": "FOXPOST_API_KEY",
+    "basicUsername": "FOXPOST_BASIC_USERNAME",
+    "basicPassword": "FOXPOST_BASIC_PASSWORD"
+  },
   "parcel": {
     "id": "FOX-EX-001",
     "shipper": {
@@ -26,7 +31,7 @@
       "delivery": {
         "method": "PICKUP_POINT",
         "pickupPoint": {
-          "id": "23676",
+          "id": "1211382",
           "provider": "foxpost",
           "name": "FOXPOST A-BOX Example"
         }

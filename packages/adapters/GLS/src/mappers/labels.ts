@@ -26,7 +26,7 @@ import type {
   GLSErrorInfo,
   GLSParcel,
 } from '../types/index.js';
-import { mapCanonicalParcelToGLS } from './parcels.js';
+import { mapCanonicalParcelToGLS, type CreateParcelsGLSCarrierOptions } from './parcels.js';
 
 function mapGLSErrorCategory(errorCode: number | string | undefined): 'Validation' | 'Auth' | 'Permanent' | 'Transient' | 'NotFound' {
   const code = typeof errorCode === 'string' ? Number(errorCode) : errorCode;
@@ -96,10 +96,11 @@ export function mapCanonicalCreateLabelsToGLSPrintLabels(
   webshopEngine?: string,
   typeOfPrinter?: GLSPrintLabelsRequest['typeOfPrinter'],
   printPosition?: GLSPrintLabelsRequest['printPosition'],
-  showPrintDialog?: boolean
+  showPrintDialog?: boolean,
+  carrierOptions?: CreateParcelsGLSCarrierOptions
 ): GLSPrintLabelsRequest {
   const glsParcels = req.parcels.map((parcel) =>
-    mapCanonicalParcelToGLS(parcel, clientNumber)
+    mapCanonicalParcelToGLS(parcel, clientNumber, carrierOptions)
   );
 
    return {

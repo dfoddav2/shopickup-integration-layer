@@ -771,9 +771,9 @@ export const BATCH_LABEL_RESPONSE_SCHEMA = {
                description: 'Unique identifier (operator_id or place_id)',
                example: 'hu5844'
              },
-             providerId: { 
+             providerId: {
                type: 'string',
-               description: 'Provider native ID (for reference)',
+               description: 'Foxpost place_id (fallback/alternative ID; used when operator_id is absent)',
                example: '1444335'
              },
              name: { 
