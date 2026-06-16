@@ -5,7 +5,15 @@
  */
 
 import { z, type ZodSafeParseResult } from 'zod';
-import type { Parcel } from '@shopickup/core';
+import type {
+  CreateParcelRequest as CoreCreateParcelRequest,
+  CreateParcelsRequest as CoreCreateParcelsRequest,
+  Parcel,
+} from '@shopickup/core';
+import {
+  type GLSCredentials,
+  type GLSCarrierOptions,
+} from './schemas.js';
 
 /**
  * Validates a CreateParcelRequest
@@ -155,53 +163,14 @@ metadata: z.record(z.string(), z.unknown()).optional(),
   return schema.safeParse(req);
 }
 
-export type GLSCreateParcelRequest = {
-  parcel: Parcel;
-  credentials: {
-    username: string;
-    password: string;
-    clientNumberList: number[];
-    webshopEngine?: string;
-  };
+export interface GLSCreateParcelRequest extends CoreCreateParcelRequest {
+  credentials: GLSCredentials;
   options?: {
     country?: string;
     useTestApi?: boolean;
-    gls?: {
-      country?: string;
-      printerType?: string;
-      packageType?: number;
-      pickupDate?: string;
-      saturdayDelivery?: boolean;
-      senderIdentityCardNumber?: string;
-      pickupType?: number;
-      services?: Array<{
-        code: string;
-        value?: string;
-        adrParameter?: { value: string };
-        aosParameter?: { value: string };
-        cs1Parameter?: { value: string };
-        ddsParameter?: { value: string };
-        dpvParameter?: { stringValue: string; decimalValue: number };
-        fdsParameter?: { value: string };
-        fssParameter?: { value: string };
-        insParameter?: { value: number };
-        mmpParameter?: { value: number };
-        sdsParameter?: { startTime: string; endTime: string };
-        sm1Parameter?: { value: string };
-        sm2Parameter?: { value: string };
-        szlParameter?: { value: string };
-      }>;
-content?: string;
-        flexDeliveryServiceEmailFDS?: boolean;
-        flexDeliveryServiceSmsFSS?: boolean;
-       guaranteed24H?: boolean;
-       contactServiceCS1?: boolean;
-       smsPreadviceSM2?: boolean;
-       shopReturnServiceSRS?: boolean;
-       useTestApi?: boolean;
-     };
+    gls?: GLSCarrierOptions;
   };
-};
+}
 
 /**
  * Validates a CreateParcelsRequest (canonical format)
@@ -377,11 +346,14 @@ export function safeValidateCreateParcelsRequest(req: unknown): ZodSafeParseResu
   return schema.safeParse(req);
 }
 
-export type GLSCreateParcelsRequest = {
-  parcels: Parcel[];
-  credentials: GLSCreateParcelRequest['credentials'];
-  options?: GLSCreateParcelRequest['options'];
-};
+export interface GLSCreateParcelsRequest extends CoreCreateParcelsRequest {
+  credentials: GLSCredentials;
+  options?: {
+    country?: string;
+    useTestApi?: boolean;
+    gls?: GLSCarrierOptions;
+  };
+}
 
 /**
  * Validates a single GLS address object

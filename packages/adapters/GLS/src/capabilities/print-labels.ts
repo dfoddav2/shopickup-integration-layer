@@ -169,18 +169,9 @@ export async function printLabels(
     // Get first client number
     const clientNumber = credentials.clientNumberList[0];
 
-    // Build carrier options from validated request (same shape as create-parcel flow)
-    const glsOptions = validated.options?.gls || {} as any;
-    const carrierOptions: Record<string, unknown> = {};
-    const printerKeys = new Set(['printerType', 'printPosition', 'showPrintDialog', 'country']);
-    for (const [key, value] of Object.entries(glsOptions)) {
-      if (!printerKeys.has(key) && value !== undefined) {
-        carrierOptions[key] = value;
-      }
-    }
-
     // Map canonical request to GLS PrintLabels request
-    // Password is now a byte array included in JSON body
+    // Carrier options are not passed through PrintLabels — use the two-step
+    // flow (create-parcel → create-label) when carrier-level overrides are needed.
     const glsRequestCamelCase = mapCanonicalCreateLabelsToGLSPrintLabels(
       validated,
       clientNumber,
@@ -190,7 +181,7 @@ export async function printLabels(
       validated.options?.gls?.printerType,
       validated.options?.gls?.printPosition,
       validated.options?.gls?.showPrintDialog,
-      Object.keys(carrierOptions).length > 0 ? carrierOptions as any : undefined,
+      undefined,
     );
 
     // Convert to PascalCase (matching PHP example)

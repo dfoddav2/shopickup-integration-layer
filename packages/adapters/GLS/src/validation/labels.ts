@@ -6,11 +6,29 @@
  */
 
 import type {
-  CreateLabelsRequest,
+  CreateParcelRequest as CoreCreateParcelRequest,
+  CreateParcelsRequest as CoreCreateParcelsRequest,
+  CreateLabelRequest as CoreCreateLabelRequest,
+  CreateLabelsRequest as CoreCreateLabelsRequest,
   Parcel,
   ParcelValidationError,
 } from '@shopickup/core';
 import { z } from 'zod';
+import {
+  GLSCredentialsSchema,
+  GLSPrinterOptionsSchema,
+  PrinterTypeEnum,
+  type GLSCredentials,
+  type GLSPrinterOptions,
+} from './schemas.js';
+import type {
+  GLSPrintLabelsRequest as GLSPrintLabelsApiRequest,
+  GLSPrintLabelsResponse,
+  GLSGetPrintDataRequest,
+  GLSGetPrintDataResponse,
+  GLSGetPrintedLabelsRequest,
+  GLSGetPrintedLabelsResponse,
+} from '../types/index.js';
 
 const AddressSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -106,85 +124,29 @@ const CanonicalParcelSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-const GLSSpecificOptionsSchema = z.object({
+/**
+ * Printer-only options for the one-step PrintLabels flow.
+ * Carrier options are NOT included here — use the two-step
+ * flow (create-parcel → create-label) to set carrier-specific fields.
+ */
+const GLSPrintLabelsOptionsSchema = z.object({
   useTestApi: z.boolean().optional(),
-  gls: z.object({
-    printerType: z
-      .enum([
-        'A4_2x2',
-        'A4_4x1',
-        'Connect',
-        'Thermo',
-        'ThermoZPL',
-        'ShipItThermoPdf',
-        'ThermoZPL_300DPI',
-      ])
-      .optional(),
-    country: z.string().optional(),
-    printPosition: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
-    showPrintDialog: z.boolean().optional(),
-    // Carrier options — same as create-parcel flow
-    packageType: z.number().int().min(1).max(7).optional(),
-    pickupDate: z.string().datetime().optional(),
-    saturdayDelivery: z.boolean().optional(),
-    senderIdentityCardNumber: z.string().optional(),
-    pickupType: z.number().optional(),
-    services: z.array(z.object({
-      code: z.string().min(1),
-      adrParameter: z.object({ value: z.string() }).optional(),
-      aosParameter: z.object({ value: z.string() }).optional(),
-      cs1Parameter: z.object({ value: z.string() }).optional(),
-      ddsParameter: z.object({ value: z.string() }).optional(),
-      dpvParameter: z.object({ stringValue: z.string(), decimalValue: z.number() }).optional(),
-      fdsParameter: z.object({ value: z.string() }).optional(),
-      fssParameter: z.object({ value: z.string() }).optional(),
-      insParameter: z.object({ value: z.number() }).optional(),
-      mmpParameter: z.object({ value: z.number() }).optional(),
-      sdsParameter: z.object({ startTime: z.string(), endTime: z.string() }).optional(),
-      sm1Parameter: z.object({ value: z.string() }).optional(),
-      sm2Parameter: z.object({ value: z.string() }).optional(),
-      szlParameter: z.object({ value: z.string() }).optional(),
-      value: z.string().optional(),
-    })).optional(),
-    content: z.string().optional(),
-    flexDeliveryServiceEmailFDS: z.boolean().optional(),
-    flexDeliveryServiceSmsFSS: z.boolean().optional(),
-    guaranteed24H: z.boolean().optional(),
-    contactServiceCS1: z.boolean().optional(),
-    smsPreadviceSM2: z.boolean().optional(),
-    shopReturnServiceSRS: z.boolean().optional(),
-  }).optional(),
+  gls: GLSPrinterOptionsSchema.optional(),
 }).optional();
 
 /**
- * Zod schema for GLS create labels request. Mirrors canonical `CreateLabelsRequest`
- * but nests GLS-specific options under `options.gls`.
+ * Zod schema for GLS create labels request (two-step flow).
+ * Mirrors canonical `CreateLabelsRequest` with printer-only options.
  */
 export const GLSCreateLabelsRequestSchema = z.object({
   parcelCarrierIds: z.array(z.string()).min(1),
-  credentials: z.object({
-    username: z.string(),
-    password: z.string(),
-    clientNumberList: z.array(z.number()).min(1),
-    webshopEngine: z.string().optional(),
-  }),
+  credentials: GLSCredentialsSchema,
   options: z
     .object({
       useTestApi: z.boolean().optional(),
       gls: z
         .object({
-          printerType: z
-            .enum([
-              'A4_2x2',
-              'A4_4x1',
-              'Connect',
-              'Thermo',
-              'ThermoZPL',
-              'ShipItThermoPdf',
-              'ThermoZPL_300DPI',
-            ])
-            .optional(),
-          // Carrier-specific country override lives under options.gls.country
+          printerType: PrinterTypeEnum.optional(),
           country: z.string().optional(),
         })
         .optional(),
@@ -193,33 +155,20 @@ export const GLSCreateLabelsRequestSchema = z.object({
 });
 
 export type GLSCreateLabelsRequest = z.infer<typeof GLSCreateLabelsRequestSchema>;
+
 /**
- * Singular create-label request (typed)
+ * Singular create-label request (two-step flow).
+ * Mirrors canonical `CreateLabelRequest` with printer-only options.
  */
 export const GLSCreateLabelRequestSchema = z.object({
   parcelCarrierId: z.string(),
-  credentials: z.object({
-    username: z.string(),
-    password: z.string(),
-    clientNumberList: z.array(z.number()).min(1),
-    webshopEngine: z.string().optional(),
-  }),
+  credentials: GLSCredentialsSchema,
   options: z
     .object({
       useTestApi: z.boolean().optional(),
       gls: z
         .object({
-          printerType: z
-            .enum([
-              'A4_2x2',
-              'A4_4x1',
-              'Connect',
-              'Thermo',
-              'ThermoZPL',
-              'ShipItThermoPdf',
-              'ThermoZPL_300DPI',
-            ])
-            .optional(),
+          printerType: PrinterTypeEnum.optional(),
           country: z.string().optional(),
         })
         .optional(),
@@ -230,58 +179,47 @@ export const GLSCreateLabelRequestSchema = z.object({
 export type GLSCreateLabelRequest = z.infer<typeof GLSCreateLabelRequestSchema>;
 
 /**
- * One-step PrintLabels request (single parcel payload)
+ * One-step PrintLabels request (single parcel payload).
+ * Printer-only options — carrier options live on the parcel or in the two-step flow.
  */
 export const GLSPrintLabelRequestSchema = z.object({
   parcel: CanonicalParcelSchema,
-  credentials: z.object({
-    username: z.string(),
-    password: z.string(),
-    clientNumberList: z.array(z.number()).min(1),
-    webshopEngine: z.string().optional(),
-  }),
-  options: GLSSpecificOptionsSchema,
+  credentials: GLSCredentialsSchema,
+  options: GLSPrintLabelsOptionsSchema,
 });
 
 /**
- * One-step PrintLabels batch request (full parcel payloads)
+ * One-step PrintLabels batch request (full parcel payloads).
+ * Printer-only options — carrier options live on the parcel or in the two-step flow.
  */
 export const GLSPrintLabelsRequestSchema = z.object({
   parcels: z.array(CanonicalParcelSchema).min(1),
-  credentials: z.object({
-    username: z.string(),
-    password: z.string(),
-    clientNumberList: z.array(z.number()).min(1),
-    webshopEngine: z.string().optional(),
-  }),
-  options: GLSSpecificOptionsSchema,
+  credentials: GLSCredentialsSchema,
+  options: GLSPrintLabelsOptionsSchema,
 });
 
-export type GLSPrintLabelRequest = {
-  parcel: Parcel;
-  credentials: {
-    username: string;
-    password: string;
-    clientNumberList: number[];
-    webshopEngine?: string;
+/**
+ * GLS PrintLabel request type extending the core `CreateParcelRequest` contract
+ * so that changes to the core interface are automatically reflected.
+ */
+export interface GLSPrintLabelRequest extends CoreCreateParcelRequest {
+  credentials: GLSCredentials;
+  options?: {
+    useTestApi?: boolean;
+    gls?: GLSPrinterOptions;
   };
-  options?: z.infer<typeof GLSSpecificOptionsSchema>;
-};
+}
 
-export type GLSPrintLabelsRequest = {
-  parcels: Parcel[];
-  credentials: GLSPrintLabelRequest['credentials'];
-  options?: GLSPrintLabelRequest['options'];
-};
-
-import type {
-  GLSPrintLabelsRequest as GLSPrintLabelsApiRequest,
-  GLSPrintLabelsResponse,
-  GLSGetPrintDataRequest,
-  GLSGetPrintDataResponse,
-  GLSGetPrintedLabelsRequest,
-  GLSGetPrintedLabelsResponse,
-} from '../types/index.js';
+/**
+ * GLS PrintLabels batch request type extending the core `CreateParcelsRequest` contract.
+ */
+export interface GLSPrintLabelsRequest extends CoreCreateParcelsRequest {
+  credentials: GLSCredentials;
+  options?: {
+    useTestApi?: boolean;
+    gls?: GLSPrinterOptions;
+  };
+}
 
 export interface ValidationResult<T = any> {
   success: boolean;
