@@ -75,23 +75,23 @@ const ParcelSchema = z.object({
        perishables: z.boolean().optional(),
        batteries: z.enum(['NONE', 'LITHIUM_ION', 'LITHIUM_METAL']).optional(),
      }).optional(),
-     cod: z.object({
-       amount: z.object({
-         value: z.number().nonnegative(),
-         currency: z.string().length(3),
-       }),
-       reference: z.string().optional(),
-     }).optional(),
-     declaredValue: z.object({
-       value: z.number().nonnegative(),
-       currency: z.string().length(3),
-     }).optional(),
-     insurance: z.object({
-       amount: z.object({
-         value: z.number().nonnegative(),
-         currency: z.string().length(3),
-       }),
-     }).optional(),
+      cod: z.object({
+        amount: z.object({
+          amount: z.number().nonnegative(),
+          currency: z.string().length(3),
+        }),
+        reference: z.string().optional(),
+      }).optional(),
+      declaredValue: z.object({
+        amount: z.number().nonnegative(),
+        currency: z.string().length(3),
+      }).optional(),
+      insurance: z.object({
+        amount: z.object({
+          amount: z.number().nonnegative(),
+          currency: z.string().length(3),
+        }),
+      }).optional(),
      references: z.object({
        orderId: z.string().optional(),
        customerReference: z.string().optional(),
@@ -300,19 +300,19 @@ export function safeValidateCreateParcelsRequest(req: unknown): ZodSafeParseResu
     }).optional(),
     cod: z.object({
       amount: z.object({
-        value: z.number().nonnegative(),
-        currency: z.string().length(3),
+          amount: z.number().nonnegative(),
+          currency: z.string().length(3),
       }),
       reference: z.string().optional(),
     }).optional(),
     declaredValue: z.object({
-      value: z.number().nonnegative(),
-      currency: z.string().length(3),
+        amount: z.number().nonnegative(),
+        currency: z.string().length(3),
     }).optional(),
     insurance: z.object({
       amount: z.object({
-        value: z.number().nonnegative(),
-        currency: z.string().length(3),
+          amount: z.number().nonnegative(),
+          currency: z.string().length(3),
       }),
     }).optional(),
     references: z.object({
@@ -366,6 +366,10 @@ export function safeValidateCreateParcelsRequest(req: unknown): ZodSafeParseResu
         content: z.string().optional().describe('Override parcel contents description.'),
         flexDeliveryServiceEmailFDS: z.boolean().optional().describe('Enable FDS Flexible Delivery Service (email notification). Requires valid email in recipient.contact.email.'),
         flexDeliveryServiceSmsFSS: z.boolean().optional().describe('Enable FSS Flexible Delivery SMS Service (SMS notification). Requires valid phone in recipient.contact.phone and flexDeliveryServiceEmailFDS must be true.'),
+        guaranteed24H: z.boolean().optional().describe('Enable guaranteed 24H delivery service.'),
+        contactServiceCS1: z.boolean().optional().describe('Enable CS1 Contact Service. Requires valid phone in recipient.contact.phone.'),
+        smsPreadviceSM2: z.boolean().optional().describe('Enable SMS pre-advice (SM2). Requires valid phone in international format.'),
+        shopReturnServiceSRS: z.boolean().optional().describe('Enable ShopReturn Service (SRS). Available only in HU and SI.'),
       }).optional(),
     }).optional(),
   });
