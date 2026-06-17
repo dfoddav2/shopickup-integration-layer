@@ -184,7 +184,7 @@ export interface TraceDTO {
   statusDate?: string;
 
   /** Status station ID reference on foxpost.hu */
-  statusStatidionId?: string;
+  statusStationId?: string;
 }
 
 /**

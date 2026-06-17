@@ -174,6 +174,8 @@ describe('GLS Tracking Mapper', () => {
       expect(update.events[0].status).toBe('PENDING');
       expect(update.status).toBe('PENDING'); // Current status from latest event
       expect(update.lastUpdate).toEqual(new Date('2024-01-15T08:00:00Z'));
+      expect(update.estimatedDelivery).toBeNull();
+      expect(update.relatedTrackingNumber).toBeNull();
       expect(update.rawCarrierResponse).toBe(glsResponse);
     });
 
@@ -251,6 +253,8 @@ describe('GLS Tracking Mapper', () => {
       expect(update.status).toBe('PENDING');
       expect(update.lastUpdate).toBeNull();
       expect(update.events).toHaveLength(0);
+      expect(update.estimatedDelivery).toBeNull();
+      expect(update.relatedTrackingNumber).toBeNull();
     });
 
     it('should handle missing optional fields', () => {
@@ -317,6 +321,31 @@ describe('GLS Tracking Validation', () => {
     it('should reject empty tracking number', () => {
       const request = {
         trackingNumber: '',
+        credentials: {
+          username: 'testuser',
+          password: 'testpass',
+          clientNumberList: [1001],
+        },
+      };
+
+      const result = safeValidateTrackingRequest(request);
+
+      expect(result.success).toBe(false);
+    });
+
+    it('should require credentials', () => {
+      const request = {
+        trackingNumber: '123456789',
+      };
+
+      const result = safeValidateTrackingRequest(request);
+
+      expect(result.success).toBe(false);
+    });
+
+    it('should require valid credentials shape', () => {
+      const request = {
+        trackingNumber: '123456789',
         credentials: {},
       };
 
@@ -325,19 +354,14 @@ describe('GLS Tracking Validation', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should allow optional credentials', () => {
-      const request = {
-        trackingNumber: '123456789',
-      };
-
-      const result = safeValidateTrackingRequest(request);
-
-      expect(result.success).toBe(true);
-    });
-
     it('should allow optional options', () => {
       const request = {
         trackingNumber: '123456789',
+        credentials: {
+          username: 'testuser',
+          password: 'testpass',
+          clientNumberList: [1001],
+        },
         options: {
           useTestApi: true,
         },
@@ -346,6 +370,30 @@ describe('GLS Tracking Validation', () => {
       const result = safeValidateTrackingRequest(request);
 
       expect(result.success).toBe(true);
+    });
+
+    it('should accept GLS-specific options', () => {
+      const request = {
+        trackingNumber: '123456789',
+        credentials: {
+          username: 'testuser',
+          password: 'testpass',
+          clientNumberList: [1001],
+        },
+        options: {
+          useTestApi: true,
+          returnPOD: true,
+          languageIsoCode: 'HU',
+          country: 'HU',
+        },
+      };
+
+      const result = safeValidateTrackingRequest(request);
+
+      expect(result.success).toBe(true);
+      expect(result.data.options?.returnPOD).toBe(true);
+      expect(result.data.options?.languageIsoCode).toBe('HU');
+      expect(result.data.options?.country).toBe('HU');
     });
   });
 

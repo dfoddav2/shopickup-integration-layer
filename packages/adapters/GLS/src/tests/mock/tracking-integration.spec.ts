@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { AdapterContext, TrackingRequest, HttpClient, HttpResponse, HttpClientConfig } from '@shopickup/core';
+import type { AdapterContext, HttpClient, HttpResponse, HttpClientConfig } from '@shopickup/core';
 import { CarrierError } from '@shopickup/core';
 import { track } from '../../capabilities/tracking.js';
 
@@ -143,7 +143,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '123456789',
         credentials: {
           username: 'test@example.com',
@@ -196,7 +196,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '987654321',
         credentials: {
           username: 'test@example.com',
@@ -236,7 +236,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '555666777',
         credentials: {
           username: 'test@example.com',
@@ -275,7 +275,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '111222333',
         credentials: {
           username: 'test@example.com',
@@ -313,7 +313,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '444555666',
         credentials: {
           username: 'test@example.com',
@@ -351,7 +351,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '777888999',
         credentials: {
           username: 'test@example.com',
@@ -386,7 +386,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '333444555',
         credentials: {
           username: 'test@example.com',
@@ -418,7 +418,7 @@ describe('GLS Tracking Integration Tests', () => {
 
        mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '666777888',
         credentials: {
           username: 'test@example.com',
@@ -453,7 +453,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '888999000',
         credentials: {
           username: 'test@example.com',
@@ -485,7 +485,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '111222333',
         credentials: {
           username: 'test@example.com',
@@ -502,7 +502,7 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should support Czech language code', async () => {
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '999888777',
         credentials: {
           username: 'test@example.com',
@@ -535,7 +535,7 @@ describe('GLS Tracking Integration Tests', () => {
 
   describe('Error Scenarios', () => {
     it('should throw CarrierError for invalid tracking number (non-numeric)', async () => {
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: 'INVALID-NUMBER',
         credentials: {
           username: 'test@example.com',
@@ -549,7 +549,7 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should throw CarrierError for negative tracking number', async () => {
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '-12345',
         credentials: {
           username: 'test@example.com',
@@ -563,7 +563,7 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should throw CarrierError for zero tracking number', async () => {
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '0',
         credentials: {
           username: 'test@example.com',
@@ -577,7 +577,7 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should throw CarrierError when credentials are missing', async () => {
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '123456789',
         credentials: undefined,
         options: { useTestApi: true },
@@ -587,7 +587,7 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should throw CarrierError when username is missing', async () => {
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '123456789',
         credentials: {
           password: 'testpass123',
@@ -600,7 +600,7 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should throw CarrierError when password is missing', async () => {
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '123456789',
         credentials: {
           username: 'test@example.com',
@@ -613,7 +613,7 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should throw CarrierError when clientNumberList is missing', async () => {
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '123456789',
         credentials: {
           username: 'test@example.com',
@@ -626,7 +626,7 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should throw CarrierError when clientNumberList is empty', async () => {
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '123456789',
         credentials: {
           username: 'test@example.com',
@@ -642,7 +642,7 @@ describe('GLS Tracking Integration Tests', () => {
     it('should throw CarrierError on HTTP request failure', async () => {
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', new Error('Network error'));
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '123456789',
         credentials: {
           username: 'test@example.com',
@@ -663,7 +663,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '123456789',
         credentials: {
           username: 'wrong@example.com',
@@ -684,7 +684,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '999999999',
         credentials: {
           username: 'test@example.com',
@@ -715,7 +715,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '123123123',
         credentials: {
           username: 'test@example.com',
@@ -750,7 +750,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '222222222',
         credentials: {
           username: 'test@example.com',
@@ -784,7 +784,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '333333333',
         credentials: {
           username: 'test@example.com',
@@ -818,7 +818,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: largeNumber,
         credentials: {
           username: 'test@example.com',
@@ -851,7 +851,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '444444444',
         credentials: {
           username: 'test@example.com',
@@ -883,7 +883,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '555555555',
         credentials: {
           username: 'test@example.com',
@@ -903,7 +903,7 @@ describe('GLS Tracking Integration Tests', () => {
 
   describe('Request Validation in Integration Context', () => {
     it('should validate empty tracking number', async () => {
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '',
         credentials: {
           username: 'test@example.com',
@@ -917,7 +917,7 @@ describe('GLS Tracking Integration Tests', () => {
     });
 
     it('should validate tracking number with spaces', async () => {
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '  123456789  ',
         credentials: {
           username: 'test@example.com',
@@ -947,7 +947,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '666666666',
         credentials: {
           username: 'test@example.com',
@@ -990,7 +990,7 @@ describe('GLS Tracking Integration Tests', () => {
 
         mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-        const request: TrackingRequest = {
+        const request: any = {
           trackingNumber: String(777777777 + parseInt(code)),
           credentials: {
             username: 'test@example.com',
@@ -1029,7 +1029,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '999999999',
         credentials: {
           username: 'test@example.com',
@@ -1070,7 +1070,7 @@ describe('GLS Tracking Integration Tests', () => {
 
       mockHttpClient.setResponse('/ParcelService.svc/json/GetParcelStatuses', mockResponse);
 
-      const request: TrackingRequest = {
+      const request: any = {
         trackingNumber: '123456789',
         credentials: {
           username: 'test@example.com',

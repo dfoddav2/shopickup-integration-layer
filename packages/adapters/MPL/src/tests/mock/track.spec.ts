@@ -141,9 +141,12 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
           trackAndTrace: [
             {
               c1: trackingNumber,
-              c9: 'DELIVERED',
-              c10: '2025-01-27 14:30:00',
-              c12: 'Delivered to recipient',
+              c43: '5',
+              c9: 'Sikeresen kézbesítve háznál',
+              c10: 'Kézbesített',
+              c11: '20250127',
+              c12: '14:30:00',
+              c13: 'Budapesti Logisztikai Üzem',
             },
           ],
         },
@@ -171,7 +174,9 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
       expect(result.trackingNumber).toBe(trackingNumber);
       expect(result.status).toBe('DELIVERED');
       expect(result.events).toHaveLength(1);
-      expect(result.events[0].description).toBe('Delivered to recipient');
+      expect(result.events[0].description).toBe('Sikeresen kézbesítve háznál');
+      expect(result.events[0].descriptionLocalLanguage).toBe('Kézbesített');
+      expect(result.events[0].location?.facility).toBe('Budapesti Logisztikai Üzem');
       expect(result.lastUpdate).toBeTruthy();
     });
 
@@ -184,10 +189,12 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
           trackAndTrace: [
             {
               c1: trackingNumber,
-              c9: 'SZÁLLÍTÁS',
-              c10: '2025-01-27 10:00:00',
-              c8: 'Budapest',
-              c12: 'In transit',
+              c43: '3',
+              c9: 'Szállítás alatt',
+              c10: 'Szállítás',
+              c11: '20250127',
+              c12: '10:00:00',
+              c13: 'Budapesti Logisztikai Üzem',
             },
           ],
         },
@@ -211,7 +218,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
 
       expect(result.trackingNumber).toBe(trackingNumber);
       expect(result.status).toBe('IN_TRANSIT');
-      expect(result.events[0].location?.city).toBe('Budapest');
+      expect(result.events[0].location?.facility).toBe('Budapesti Logisztikai Üzem');
     });
 
     it('should handle EXCEPTION status', async () => {
@@ -223,9 +230,11 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
           trackAndTrace: [
             {
               c1: trackingNumber,
-              c9: 'HIBA',
-              c10: '2025-01-27 09:00:00',
-              c12: 'Delivery failed - address issue',
+              c43: '3',
+              c9: 'Sérülés miatt nem kézbesíthető',
+              c10: 'Szállítás',
+              c11: '20250127',
+              c12: '09:00:00',
             },
           ],
         },
@@ -249,7 +258,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
       const result = await adapter.track(request, ctx);
 
       expect(result.status).toBe('EXCEPTION');
-      expect(result.events[0].description).toBe('Delivery failed - address issue');
+      expect(result.events[0].description).toBe('Sérülés miatt nem kézbesíthető');
     });
 
     it('should throw CarrierError when tracking not found (empty response)', async () => {
@@ -377,9 +386,11 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
           trackAndTrace: [
             {
               c1: trackingNumber,
-              c9: 'BEÉRKEZETT',
-              c10: '2025-01-27 08:00:00',
-              c12: 'Parcel received',
+              c43: '1',
+              c9: 'A csomag beérkezett',
+              c10: 'Felvétel',
+              c11: '20250127',
+              c12: '08:00:00',
             },
           ],
         },
@@ -414,9 +425,11 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
           trackAndTrace: [
             {
               c1: trackingNumber,
-              c9: 'VISSZAKÜLDVE',
-              c10: '2025-01-27 07:00:00',
-              c12: 'Returned to sender',
+              c43: '3',
+              c9: 'Visszaküldve a feladónak',
+              c10: 'Szállítás',
+              c11: '20250127',
+              c12: '07:00:00',
             },
           ],
         },
@@ -451,9 +464,11 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
           trackAndTrace: [
             {
               c1: trackingNumber,
-              c9: 'IN_DELIVERY',
-              c10: '2025-01-27 09:30:00',
-              c12: 'Out for delivery',
+              c43: '4',
+              c9: 'Kézbesítés alatt',
+              c10: 'Kézbesítés',
+              c11: '20250127',
+              c12: '09:30:00',
             },
           ],
         },
@@ -476,7 +491,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
 
       const result = await adapter.track(request, ctx);
 
-      expect(result.events[0].carrierStatusCode).toBe('IN_DELIVERY');
+      expect(result.events[0].carrierStatusCode).toBe('Kézbesítés alatt');
     });
 
     it('should handle missing optional fields gracefully', async () => {
@@ -512,8 +527,8 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
       const result = await adapter.track(request, ctx);
 
       expect(result.trackingNumber).toBe(trackingNumber);
-      expect(result.status).toBe('PENDING'); // Default when c9 is missing
-      expect(result.events[0].description).toBe('No description'); // Fallback when c12 missing
+      expect(result.status).toBe('PENDING'); // Default when c43 is missing
+      expect(result.events[0].description).toBe('No description'); // Fallback when c9 missing
     });
 
     it('should respect useTestApi option', async () => {
@@ -525,8 +540,11 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
           trackAndTrace: [
             {
               c1: trackingNumber,
-              c9: 'DELIVERED',
-              c10: '2025-01-27 14:30:00',
+              c43: '5',
+              c9: 'Kézbesítve',
+              c10: 'Kézbesített',
+              c11: '20250127',
+              c12: '14:30:00',
             },
           ],
         },
@@ -560,7 +578,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
   });
 
   describe('Tracking mapper edge cases', () => {
-    it('should map English status codes correctly', async () => {
+    it('should map DELIVERED from c43=5', async () => {
       const trackingNumber = 'CLENG123456';
       const mockResponse: HttpResponse<any> = {
         status: 200,
@@ -569,8 +587,11 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
           trackAndTrace: [
             {
               c1: trackingNumber,
-              c9: 'DELIVERED',
-              c10: '2025-01-27 14:30:00',
+              c43: '5',
+              c9: 'Kézbesítve',
+              c10: 'Kézbesített',
+              c11: '20250127',
+              c12: '14:30:00',
             },
           ],
         },
@@ -595,7 +616,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
       expect(result.status).toBe('DELIVERED');
     });
 
-    it('should handle German status codes', async () => {
+    it('should map OUT_FOR_DELIVERY from c43=4', async () => {
       const trackingNumber = 'CLDE123456';
       const mockResponse: HttpResponse<any> = {
         status: 200,
@@ -604,8 +625,11 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
           trackAndTrace: [
             {
               c1: trackingNumber,
-              c9: 'GELIEFERT',
-              c10: '2025-01-27 14:30:00',
+              c43: '4',
+              c9: 'Kézbesítés alatt',
+              c10: 'Kézbesítés',
+              c11: '20250127',
+              c12: '14:30:00',
             },
           ],
         },
@@ -627,7 +651,7 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
       };
 
       const result = await adapter.track(request, ctx);
-      expect(result.status).toBe('DELIVERED');
+      expect(result.status).toBe('OUT_FOR_DELIVERY');
     });
   });
 
@@ -786,14 +810,16 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
           trackAndTrace: [
             {
               c1: trackingNumber,
-              c2: 'A_175_UZL',  // Service code (registered only)
-              c5: '2.5',          // Weight in kg (registered only)
-              c9: 'DELIVERED',
-              c10: '2025-01-27 14:30:00',
-              c41: '20',          // Length (registered only)
-              c42: '15',          // Width (registered only)
-              c43: '10',          // Height
-              c58: '50000',       // Declared value in HUF (registered only)
+              c2: 'Üzleti csomag',   // Basic service name
+              c5: '50000',            // Declared value amount (HUF)
+              c9: 'Sikeresen kézbesítve háznál',
+              c10: 'Kézbesített',
+              c11: '20250127',
+              c12: '14:30:00',
+              c41: '1250',            // Weight in grams
+              c42: 'M',               // Size category
+              c43: '5',               // Event category code (Delivered)
+              c58: 'HUF',             // Declared value currency
             },
           ],
         },
@@ -814,8 +840,11 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
           apiSecret: 'test-secret',
           accountingCode: 'TEST001',
         },
-        state: 'last' as const,
-        useRegisteredEndpoint: false,
+        options: {
+          mpl: {
+            state: 'last',
+          },
+        },
       };
 
       const result = await trackRegistered(request, ctx, (opts) => 'https://api.test');
@@ -825,9 +854,13 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
       expect(result[0].trackingNumber).toBe(trackingNumber);
       expect(result[0].status).toBe('DELIVERED');
       // Check that financial data is included in raw response
-      expect((result[0].rawCarrierResponse as any)?.record?.c2).toBe('A_175_UZL');
-      expect((result[0].rawCarrierResponse as any)?.record?.c5).toBe('2.5');
-      expect((result[0].rawCarrierResponse as any)?.record?.c41).toBe('20');
+      expect(result[0].rawCarrierResponse!.record.c2).toBe('Üzleti csomag');
+      expect(result[0].rawCarrierResponse!.record.c5).toBe('50000');
+      expect(result[0].rawCarrierResponse!.record.c41).toBe('1250');
+      expect(result[0].rawCarrierResponse!.declaredValueAmount).toBe('50000');
+      expect(result[0].rawCarrierResponse!.weight).toBe('1250');
+      expect(result[0].rawCarrierResponse!.size).toBe('M');
+      expect(result[0].rawCarrierResponse!.declaredValueCurrency).toBe('HUF');
     });
 
     it('should use registered endpoint URL', async () => {
@@ -861,8 +894,11 @@ describe('MPL Adapter - Tracking (TRACK capability)', () => {
           apiSecret: 'test-secret',
           accountingCode: 'TEST001',
         },
-        state: 'last' as const,
-        useRegisteredEndpoint: false,
+        options: {
+          mpl: {
+            state: 'last',
+          },
+        },
       };
 
       const result = await trackRegistered(request, ctx, (opts) => 'https://api.test');

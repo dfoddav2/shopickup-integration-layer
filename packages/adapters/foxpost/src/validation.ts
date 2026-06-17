@@ -4,6 +4,7 @@ import type {
   CreateParcelsRequest as CoreCreateParcelsRequest,
   CreateLabelRequest as CoreCreateLabelRequest,
   CreateLabelsRequest as CoreCreateLabelsRequest,
+  TrackingRequest,
 } from '@shopickup/core';
 import type { Parcel, RequestOptions } from '@shopickup/core';
 
@@ -366,13 +367,10 @@ export const CreateLabelsRequestFoxpostSchema = z.object({
 
 /**
  * Foxpost-specific TrackingRequest (narrowed credentials)
+ * Extends core TrackingRequest for contract compatibility.
  */
-export interface TrackingRequestFoxpost {
-  trackingNumber: string;
+export interface TrackingRequestFoxpost extends TrackingRequest {
   credentials: FoxpostCredentials;
-  options?: {
-    useTestApi?: boolean;
-  };
 }
 
 /**
@@ -1148,4 +1146,26 @@ export type BatchTrackingRequestFoxpost = z.infer<typeof BatchTrackingRequestFox
 
 export function safeValidateBatchTrackingRequest(req: unknown) {
   return BatchTrackingRequestFoxpostSchema.safeParse(req);
+}
+
+// ============================================================================
+// Batch Tracking Response Schemas
+// ============================================================================
+
+const FoxpostBatchStatusesSchema = z.object({
+  barcode: z.string().optional(),
+  createdAt: z.string().optional(),
+  statuses: z.array(TrackDTOSchema).optional(),
+});
+
+export const FoxpostBatchTrackingResponseSchema = z.array(FoxpostBatchStatusesSchema);
+
+export type FoxpostBatchTrackingResponse = z.infer<typeof FoxpostBatchTrackingResponseSchema>;
+
+/**
+ * Helper to safely validate a batch tracking response without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateBatchTrackingResponse(res: unknown) {
+  return FoxpostBatchTrackingResponseSchema.safeParse(res);
 }

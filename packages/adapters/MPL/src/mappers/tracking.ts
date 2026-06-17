@@ -1,184 +1,131 @@
-/**
- * MPL Tracking Mapper
- * Converts MPL C-code tracking records to canonical TrackingUpdate format
- */
+import type { TrackingEvent, TrackingUpdate, TrackingStatus } from '@shopickup/core';
 
-import type { TrackingEvent, TrackingUpdate } from '@shopickup/core';
-
-/**
- * MPL C-Code Tracking Record Interface
- * Represents a single tracking record with C0-C63 fields from MPL API
- */
 export interface MPLTrackingRecord {
-  c0?: string;   // System ID
-  c1?: string;   // Consignment ID (Tracking number)
-  c2?: string;   // Service Code
-  c4?: string;   // Delivery Mode
-  c5?: string;   // Weight (Registered only)
-  c6?: string;   // Service Description
-  c8?: string;   // Location
-  c9?: string;   // Last Event Status (CRITICAL)
-  c10?: string;  // Timestamp
-  c11?: string;  // Location Details
-  c12?: string;  // Event Description
-  c13?: string;  // Event Notes
-  c38?: string;  // Service Name
-  c39?: string;  // Service Details
-  c41?: string;  // Size Length (Registered only)
-  c42?: string;  // Size Width (Registered only)
-  c43?: string;  // Size Height
-  c49?: string;  // Destination
-  c53?: string;  // Signature/Receiver
-  c55?: string;  // Insurance flag
-  c56?: string;  // COD flag
-  c57?: string;  // Signature required flag
-  c59?: string;  // Additional flag 1
-  c60?: string;  // Additional flag 2
-  c61?: string;  // Additional flag 3
-  c63?: string;  // Custom/Reference data
+  c0?: string;   // Backend system name (EÉRT, BPU) or parcel type (IKRL=letter, IKRCS=parcel)
+  c1?: string;   // Consignment ID (tracking number)
+  c2?: string;   // Basic service name (e.g. "Üzleti csomag")
+  c4?: string;   // Delivery mode (e.g. "Csomagautomatára kézbesítés")
+  c5?: string;   // Declared value amount (HUF) — Registered only
+  c6?: string;   // COD amount
+  c8?: string;   // Retention period (storage days)
+  c9?: string;   // Event description / status text (e.g. "Sikeresen kézbesítve háznál")
+  c10?: string;  // Event category description (e.g. "Felvétel", "Kézbesítés")
+  c11?: string;  // Event date (YYYYMMDD format, e.g. "20190607")
+  c12?: string;  // Event time (HH:MM:SS format, e.g. "01:30:59")
+  c13?: string;  // Receiving post office / facility name
+  c38?: string;  // Recipient country code
+  c39?: string;  // Recipient country name
+  c41?: string;  // Weight (grams) — Registered only
+  c42?: string;  // Size category (S, M, L, "-") — Registered only
+  c43?: string;  // Event category code (0-5): 0=Unclassified, 1=Receipt, 2=Processing, 3=Transport, 4=Delivery, 5=Delivered
+  c49?: string;  // Sender country code
+  c53?: string;  // Replacement parcel tracking ID
+  c55?: string;  // Failed delivery reason
+  c56?: string;  // Recipient's title/role (e.g. "Címzett")
+  c57?: string;  // COD currency (e.g. "HUF")
+  c58?: string;  // Declared value currency (e.g. "HUF") — Registered only
+  c59?: string;  // Related/linked identifier
+  c60?: string;  // Retention deadline / expiry date
+  c61?: string;  // Max transaction category reached during parcel journey (0-5)
+  c63?: string;  // Sender country name
   [key: string]: any;
 }
 
-/**
- * Map MPL tracking status codes (C9) to canonical TrackingStatus
- * 
- * C9 contains the tracking status code in Hungarian.
- * Common values (from carrier documentation):
- * - BEÉRKEZETT / RECEIVED / etc.
- */
-function mapStatusCode(c9: string | undefined): 'PENDING' | 'IN_TRANSIT' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'EXCEPTION' | 'RETURNED' | 'CANCELLED' {
-  if (!c9) return 'PENDING';
+function mapC43ToStatus(c43: string | undefined, c9: string | undefined): TrackingStatus {
+  if (!c43) return 'PENDING';
 
-  const statusMap: Record<string, 'PENDING' | 'IN_TRANSIT' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'EXCEPTION' | 'RETURNED' | 'CANCELLED'> = {
-    // Hungarian versions
-    'BEÉRKEZETT': 'PENDING',
-    'FELDOLGOZÁS': 'PENDING',
-    'SZÁLLÍTÁS': 'IN_TRANSIT',
-    'KÉZBESÍTÉS_ALATT': 'OUT_FOR_DELIVERY',
-    'KÉZBESÍTVE': 'DELIVERED',
-    'VISSZAKÜLDVE': 'RETURNED',
-    'HIBA': 'EXCEPTION',
-    'FELDOLGOZÁS ALATT': 'PENDING',
-    'CSOMAG FELDOLGOZÁSA ALATT': 'PENDING',
-    
-    // English versions
-    'RECEIVED': 'PENDING',
-    'PROCESSING': 'PENDING',
-    'IN_TRANSIT': 'IN_TRANSIT',
-    'IN_DELIVERY': 'OUT_FOR_DELIVERY',
-    'OUT_FOR_DELIVERY': 'OUT_FOR_DELIVERY',
-    'DELIVERED': 'DELIVERED',
-    'RETURNED': 'RETURNED',
-    'ERROR': 'EXCEPTION',
-    'EXCEPTION': 'EXCEPTION',
-    'PENDING': 'PENDING',
-    
-    // German versions
-    'EMPFANGEN': 'PENDING',
-    'VERARBEITUNG': 'PENDING',
-    'TRANSPORT': 'IN_TRANSIT',
-    'AUSLIEFERUNG': 'OUT_FOR_DELIVERY',
-    'GELIEFERT': 'DELIVERED',
-    'ZURÜCKGEGEBEN': 'RETURNED',
-    'FEHLER': 'EXCEPTION',
-  };
+  const categoryCode = parseInt(c43, 10);
+  const c9Lower = (c9 || '').toLowerCase();
 
-  return statusMap[c9.toUpperCase().trim()] || 'PENDING';
+  switch (categoryCode) {
+    case 5:
+      return 'DELIVERED';
+    case 4:
+      return 'OUT_FOR_DELIVERY';
+    case 3:
+      if (
+        c9Lower.includes('visszaküld') ||
+        c9Lower.includes('visszakérte') ||
+        c9Lower.includes('megtagadta')
+      ) {
+        return 'RETURNED';
+      }
+      if (
+        c9Lower.includes('sérülés') ||
+        c9Lower.includes('ismeretlen') ||
+        c9Lower.includes('megszűnt') ||
+        c9Lower.includes('akadályozott')
+      ) {
+        return 'EXCEPTION';
+      }
+      return 'IN_TRANSIT';
+    case 2:
+      return 'PENDING';
+    case 1:
+      return 'PENDING';
+    case 0:
+    default:
+      return 'PENDING';
+  }
 }
 
-/**
- * Parse date/time from MPL format
- * Expects format like: "2025-01-27 14:30:00" or similar
- */
-function parseTimestamp(timestamp: string | undefined): Date | null {
-  if (!timestamp) return null;
-  
+function parseTimestamp(dateStr: string | undefined, timeStr: string | undefined): Date | null {
+  if (!dateStr || !timeStr) return null;
+
   try {
-    const parsed = new Date(timestamp);
+    const combined = `${dateStr} ${timeStr}`;
+    const parsed = new Date(combined);
     if (!isNaN(parsed.getTime())) {
       return parsed;
     }
   } catch {
     return null;
   }
-  
+
   return null;
 }
 
-/**
- * Parse weight from string (C5)
- * Expects format like "1.5 kg" or "1500" (grams)
- */
-function parseWeight(weightStr: string | undefined): number | undefined {
-  if (!weightStr) return undefined;
-  
-  try {
-    // Remove units (kg, g, etc.)
-    const numStr = weightStr.replace(/[^\d.,]/g, '').replace(',', '.');
-    const weight = parseFloat(numStr);
-    return isNaN(weight) ? undefined : weight;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Build event history from a single C-code record
- * For 'last' state, returns single event from latest status
- * For 'all' state, caller is responsible for handling multiple records
- */
 function buildTrackingEvent(record: MPLTrackingRecord): TrackingEvent {
-  const timestamp = parseTimestamp(record.c10) || new Date();
-  const status = mapStatusCode(record.c9);
-  
-  // Build location object from C-codes
-  const location = (record.c8 || record.c11) ? {
-    city: record.c11 || record.c8,
-  } : undefined;
+  const timestamp = parseTimestamp(record.c11, record.c12) || new Date();
+  const status = mapC43ToStatus(record.c43, record.c9);
+
+  const location = record.c13
+    ? { facility: record.c13 }
+    : undefined;
 
   return {
     timestamp,
     status,
     location,
-    description: record.c12 || record.c6 || 'No description',
+    description: record.c9 || 'No description',
+    descriptionLocalLanguage: record.c10 || undefined,
     carrierStatusCode: record.c9,
     raw: record,
   };
 }
 
-/**
- * Convert MPL C-code tracking record to canonical TrackingUpdate
- * 
- * @param record - MPL tracking record with C-codes
- * @param includeFinancialData - If true, include weight/size/value (Registered endpoint)
- * @returns Canonical TrackingUpdate
- */
 export function mapMPLTrackingToCanonical(
   record: MPLTrackingRecord,
   includeFinancialData: boolean = false
 ): TrackingUpdate {
-  // Validate critical field
   if (!record.c1) {
     throw new Error('Invalid tracking record: missing c1 (Consignment ID)');
   }
 
-  // Build base tracking update
+  const events = [buildTrackingEvent(record)];
+
   const trackingUpdate: TrackingUpdate = {
     trackingNumber: record.c1,
-    status: mapStatusCode(record.c9),
-    lastUpdate: parseTimestamp(record.c10) || null,
-    events: [buildTrackingEvent(record)],
+    status: mapC43ToStatus(record.c43, record.c9),
+    lastUpdate: events[0].timestamp,
+    events,
     rawCarrierResponse: {
       record,
-      // Include financial data in response if available
       ...(includeFinancialData && {
-        weight: record.c5,
-        dimensions: {
-          length: record.c41,
-          width: record.c42,
-          height: record.c43,
-        },
-        value: (record as any).c58,
+        declaredValueAmount: record.c5,
+        weight: record.c41,
+        size: record.c42,
+        declaredValueCurrency: record.c58,
       }),
     },
   };
@@ -186,13 +133,6 @@ export function mapMPLTrackingToCanonical(
   return trackingUpdate;
 }
 
-/**
- * Build multiple events from complete tracking history
- * Used when state='all' is requested
- * 
- * Note: MPL API appears to return multiple records in trackAndTrace array
- * when state='all'. Each record represents an event in the history.
- */
 export function mapMPLTrackingHistoryToCanonical(
   records: MPLTrackingRecord[],
   includeFinancialData: boolean = false
@@ -201,7 +141,6 @@ export function mapMPLTrackingHistoryToCanonical(
     throw new Error('No tracking records provided');
   }
 
-  // Get base info from first/main record (usually latest)
   const mainRecord = records[0];
   const trackingNumber = mainRecord.c1;
 
@@ -209,29 +148,22 @@ export function mapMPLTrackingHistoryToCanonical(
     throw new Error('Invalid tracking records: missing c1 (Consignment ID)');
   }
 
-  // Build event history from all records
   const events: TrackingEvent[] = records.map(record => buildTrackingEvent(record));
 
-  // Get latest status from first record (most recent)
-  const latestStatus = mapStatusCode(mainRecord.c9);
-  const lastUpdate = parseTimestamp(mainRecord.c10) || null;
+  const latestStatus = mapC43ToStatus(mainRecord.c43, mainRecord.c9);
 
   const trackingUpdate: TrackingUpdate = {
     trackingNumber,
     status: latestStatus,
-    lastUpdate,
+    lastUpdate: events.length > 0 ? events[events.length - 1].timestamp : null,
     events,
     rawCarrierResponse: {
       records,
-      // Include financial data in response if available
       ...(includeFinancialData && {
-        weight: mainRecord.c5,
-        dimensions: {
-          length: mainRecord.c41,
-          width: mainRecord.c42,
-          height: mainRecord.c43,
-        },
-        value: (mainRecord as any).c58,
+        declaredValueAmount: mainRecord.c5,
+        weight: mainRecord.c41,
+        size: mainRecord.c42,
+        declaredValueCurrency: mainRecord.c58,
       }),
     },
   };
@@ -239,10 +171,6 @@ export function mapMPLTrackingHistoryToCanonical(
   return trackingUpdate;
 }
 
-/**
- * Determine if record has financial data (Registered vs Guest)
- * Registered includes C5 (weight), Guest excludes it
- */
 export function isRegisteredRecord(record: MPLTrackingRecord): boolean {
   return !!(record.c5 || record.c41 || record.c42 || record.c58);
 }

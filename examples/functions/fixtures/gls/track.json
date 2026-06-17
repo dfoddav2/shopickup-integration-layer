@@ -1,9 +1,14 @@
 {
-  "trackingNumber": "3244263084",
+  "trackingNumber": "3244362969",
   "credentials": {
     "username": "GLS_USERNAME",
     "password": "GLS_PASSWORD",
     "clientNumberList": [12345]
   },
-  "options": { "useTestApi": true }
+  "options": {
+    "useTestApi": true,
+    "returnPOD": false,
+    "languageIsoCode": "HU",
+    "country": "HU"
+  }
 }

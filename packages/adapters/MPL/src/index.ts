@@ -6,7 +6,7 @@ import { track as trackImpl } from './capabilities/track.js';
 import { exchangeAuthToken as exchangeAuthTokenImpl } from './capabilities/auth.js';
 import { createParcel as createParcelImpl, createParcels as createParcelsImpl } from './capabilities/parcels.js';
 import { createLabel as createLabelImpl, createLabels as createLabelsImpl } from './capabilities/label.js';
-import type { CreateParcelMPLRequest, CreateParcelsMPLRequest, CreateLabelMPLRequest, CreateLabelsMPLRequest, ExchangeAuthTokenRequest, ExchangeAuthTokenResponse, FetchPickupPointsRequestMPL, CloseShipmentsMPLRequest } from './validation.js';
+import type { CreateParcelMPLRequest, CreateParcelsMPLRequest, CreateLabelMPLRequest, CreateLabelsMPLRequest, ExchangeAuthTokenRequest, ExchangeAuthTokenResponse, FetchPickupPointsRequestMPL, CloseShipmentsMPLRequest, TrackingRequestMPL } from './validation.js';
 
 /**
  * MPLAdapter
@@ -149,15 +149,14 @@ export class MPLAdapter implements CarrierAdapter {
     ): Promise<TrackingUpdate> {
         // MPL supports batch tracking, but core interface expects single TrackingUpdate
         // Convert single TrackingRequest to internal batch format and return first result
-        const batchRequest = {
+        // MPL-specific options (state, language, useRegisteredEndpoint) flow through req.options.mpl
+        const batchRequest: TrackingRequestMPL = {
             trackingNumbers: [req.trackingNumber],
             credentials: (req.credentials || {}) as any,
-            state: 'last' as const,
-            useRegisteredEndpoint: false,
-            options: req.options,
+            options: req.options as TrackingRequestMPL['options'],
         };
         
-        const results = await trackImpl(batchRequest, ctx, this.resolveTrackingUrl);
+        const results = await trackImpl(batchRequest, ctx, this.resolveTrackingUrl, this.resolveOAuthUrl);
         
         if (results.length === 0) {
             throw new CarrierError(

@@ -134,6 +134,8 @@ export async function track(
       events,
       status: currentStatus,
       lastUpdate: events.length > 0 ? events[events.length - 1].timestamp : null,
+      estimatedDelivery: validatedResponse.estimatedDelivery ?? null,
+      relatedTrackingNumber: validatedResponse.relatedParcel ?? null,
       rawCarrierResponse: validatedResponse,
     };
   } catch (error) {

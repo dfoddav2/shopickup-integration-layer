@@ -196,6 +196,8 @@ export function mapGLSTrackingResponseToCanonical(
     events,
     status: currentStatus,
     lastUpdate,
+    estimatedDelivery: null,
+    relatedTrackingNumber: null,
     rawCarrierResponse: glsResponse,
   };
 }

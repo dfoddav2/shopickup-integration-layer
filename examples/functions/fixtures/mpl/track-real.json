@@ -8,6 +8,6 @@
     "useTestApi": true,
     "state": "all",
     "language": "hu",
-    "useRegisteredEndpoint": true
+    "useRegisteredEndpoint": false
   }
 }

@@ -14,12 +14,13 @@ import type {
   BatchTrackingResult,
 } from "@shopickup/core";
 import { CarrierError, errorToLog, serializeForLog } from "@shopickup/core";
-import { mapFoxpostTrackToCanonical } from '../mappers/index.js';
+import { mapFoxpostTraceToCanonical } from '../mappers/index.js';
 import { translateFoxpostError, sanitizeResponseForLog } from '../errors.js';
 import { buildFoxpostHeaders } from '../utils/httpUtils.js';
 import type { ResolveBaseUrl } from '../utils/resolveBaseUrl.js';
 import {
   safeValidateBatchTrackingRequest,
+  safeValidateBatchTrackingResponse,
   safeValidateFoxpostApiError,
 } from '../validation.js';
 
@@ -85,14 +86,20 @@ export async function batchTrack(
 
     const carrierRespBody = httpResponse.body;
 
-    if (!carrierRespBody || !Array.isArray(carrierRespBody)) {
-      throw new CarrierError("Invalid response from Foxpost", "Transient", {
-        raw: serializeForLog(sanitizeResponseForLog(httpResponse)) as any,
-      });
+    // Validate response shape with Zod
+    const responseValidation = safeValidateBatchTrackingResponse(carrierRespBody);
+    if (!responseValidation.success) {
+      throw new CarrierError(
+        `Invalid batch tracking response: ${responseValidation.error.message}`,
+        "Transient",
+        { raw: serializeForLog(sanitizeResponseForLog(httpResponse)) as any }
+      );
     }
 
+    const validatedBody = responseValidation.data;
+
     // Map each Statuses item to BatchTrackingResult
-    const results: BatchTrackingResult[] = carrierRespBody.map((item: any) => {
+    const results: BatchTrackingResult[] = validatedBody.map((item: any) => {
       const barcode = item.barcode;
 
       if (!barcode) {
@@ -118,10 +125,10 @@ export async function batchTrack(
 
       // Map TrackDTOs to TrackingEvents (chronological order)
       const events = statuses
-        .map((track: any) => mapFoxpostTrackToCanonical({
-          trackId: track.trackId,
+        .map((track: any) => mapFoxpostTraceToCanonical({
           status: track.status,
           statusDate: track.statusDate,
+          longName: track.longName,
         }))
         .reverse(); // Reverse to chronological order
 

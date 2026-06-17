@@ -79,6 +79,12 @@ export interface TrackingUpdate {
   /** Last update timestamp (null if no tracking events available) */
   lastUpdate: Date | null;
 
+  /** Estimated delivery date (carrier-provided, may be null) */
+  estimatedDelivery?: string | null;
+
+  /** Related tracking number (e.g., original parcel for returns/redirects) */
+  relatedTrackingNumber?: string | null;
+
   /** Raw carrier response for debugging */
   rawCarrierResponse?: unknown;
 }

@@ -271,9 +271,8 @@ export class GLSAdapter implements CarrierAdapter {
      * @param ctx Adapter context with HTTP client
      * @returns TrackingUpdate with events timeline and current status
      */
-  async track(req: GLSTrackingRequest, ctx: AdapterContext): Promise<TrackingUpdate>;
   async track(req: TrackingRequest, ctx: AdapterContext): Promise<TrackingUpdate> {
-    return trackImpl(req as GLSTrackingRequest, ctx);
+    return trackImpl(req as unknown as GLSTrackingRequest, ctx);
   }
 
   async requestPickup(_req: any, _ctx: AdapterContext): Promise<CarrierResource> {

@@ -25,7 +25,6 @@ import {
 import {
   hashPasswordSHA512,
   resolveGLSBaseUrl,
-  validateGLSCredentials,
   convertToPascalCase,
   convertFromPascalCase,
 } from '../utils/authentication.js';
@@ -37,7 +36,7 @@ import {
 /**
  * Track a parcel using GLS GetParcelStatuses endpoint
  * 
- * @param req Canonical tracking request
+ * @param req Canonical tracking request (internally validated against narrowed GLS schema)
  * @param ctx Adapter context (logger, HTTP client)
  * @returns TrackingUpdate with events timeline
  * @throws CarrierError if authentication fails or API errors occur
@@ -47,7 +46,7 @@ export async function track(
   ctx: AdapterContext
 ): Promise<TrackingUpdate> {
   try {
-    // Validate canonical request
+    // Single-step validation against narrowed GLSTrackingRequestSchema
     const validationResult = safeValidateTrackingRequest(req);
     if (!validationResult.success) {
       throw new CarrierError(
@@ -57,187 +56,148 @@ export async function track(
       );
     }
 
+    const data = validationResult.data;
+
     // For GLS, tracking number is the parcel number
-    const parcelNumber = parseInt(req.trackingNumber, 10);
+    const parcelNumber = parseInt(data.trackingNumber, 10);
     if (Number.isNaN(parcelNumber) || parcelNumber <= 0) {
       throw new CarrierError(
-        `Invalid parcel number: must be a positive integer, got "${req.trackingNumber}"`,
+        `Invalid parcel number: must be a positive integer, got "${data.trackingNumber}"`,
         'Permanent'
       );
     }
 
-    // Validate and extract credentials
-    if (!req.credentials) {
-      throw new CarrierError(
-        'GLS tracking requires credentials (username, password, clientNumberList)',
-        'Permanent'
-      );
-    }
+    const credentials = data.credentials;
+    const options = data.options;
+    const useTestApi = options?.useTestApi || false;
+    const country = options?.country || 'HU';
+    const returnPOD = options?.returnPOD || false;
+    const languageIsoCode = options?.languageIsoCode || 'EN';
+    const baseUrl = resolveGLSBaseUrl(country, useTestApi);
 
-    // Type-cast credentials and validate
-    const creds = req.credentials as Record<string, unknown>;
-    try {
-      validateGLSCredentials({
-        username: creds.username as string,
-        password: creds.password as string,
-        clientNumberList: creds.clientNumberList as number[],
-      });
-    } catch (err) {
-      throw new CarrierError(
-        `Invalid GLS credentials: ${err instanceof Error ? err.message : String(err)}`,
-        'Permanent'
-      );
-    }
+    // Hash password for authentication (as byte array)
+    const hashedPassword = hashPasswordSHA512(credentials.password);
 
-      const useTestApi = req.options?.useTestApi || false;
-      const country = (req.options?.country as string) || 'HU';  // Default to Hungary
-      const returnPOD = req.options?.returnPOD || false; // Request POD if needed
-      const languageIsoCode = (req.options?.languageIsoCode as string) || 'EN'; // Language code
-      const baseUrl = resolveGLSBaseUrl(country, useTestApi);
-
-     // Hash password for authentication (as byte array)
-     const hashedPassword = hashPasswordSHA512(creds.password as string);
-
-     // Get first client number for request context
-     // Even though not explicitly in spec, error "with current settings" suggests it's needed
-     // for client/account authorization context
-     const clientNumber = (creds.clientNumberList as number[])[0];
-
-      safeLog(
-        ctx.logger,
-        'info',
-        'GLS: Starting parcel tracking',
-        {
-          parcelNumber,
-          clientNumber,
-          country,
-          testMode: useTestApi,
-        },
-        ctx,
-        ['track']
-      );
-
-     // Call GLS GetParcelStatuses endpoint
-     if (!ctx.http) {
-       throw new CarrierError(
-         'HTTP client not provided in context',
-         'Permanent'
-       );
-     }
-
-       // Build request body with auth and tracking info (per GLS API spec)
-       // GetParcelStatusesRequest spec shows: Username, Password, ParcelNumber, ReturnPOD, LanguageIsoCode
-       // But error "with current settings" suggests ClientNumber needed for account context
-       // Password is sent as byte array in JSON body, no HTTP Basic Auth
-       const trackingRequestCamelCase = {
-         username: creds.username as string,
-         password: hashedPassword,
-         parcelNumber,
-         clientNumber,
-         returnPOD,
-         languageIsoCode,
-       };
-
-     // Convert to PascalCase (matching PHP example)
-     const trackingRequest = convertToPascalCase(trackingRequestCamelCase);
-
-     safeLog(
-       ctx.logger,
-       'debug',
-        'GLS: Tracking request',
-        {
-          url: `${baseUrl}/json/GetParcelStatuses`,
-          requestKeys: Object.keys(trackingRequest),
-          hasPassword: Array.isArray(trackingRequest.Password),
-          parcelNumber: trackingRequest.ParcelNumber,
-          returnPOD: trackingRequest.ReturnPOD,
-          languageCode: trackingRequest.LanguageIsoCode,
-        },
-       ctx,
-       ['track', 'debug']
-     );
-
-     const httpResponse = await ctx.http.post<any>(
-       `${baseUrl}/json/GetParcelStatuses`,
-       trackingRequest
-     );
-
-      safeLog(
-        ctx.logger,
-        'debug',
-        'GLS: Tracking response received',
-        {
-          statusCode: (httpResponse as any).statusCode || 'unknown',
-          hasBody: !!httpResponse.body,
-        },
-        ctx,
-        ['track', 'debug']
-      );
-
-      const carrierRespBody = httpResponse.body as any;
-      
-       // Convert GLS API response from PascalCase to camelCase
-       const normalizedResponse = convertFromPascalCase(carrierRespBody) as any;
-
-      // Validate GLS response
-      const responseValidation = safeValidateGLSTrackingResponse(normalizedResponse);
-     if (!responseValidation.success) {
-       throw new CarrierError(
-         `Invalid GLS tracking response: ${responseValidation.error.message}`,
-         'Transient',
-         { raw: { ...responseValidation.error, rawCarrierResponse: carrierRespBody } }
-       );
-     }
-
-      // Check for errors in response
-      // After normalization, all keys should be camelCase
-      const trackingErrorList = normalizedResponse.getParcelStatusErrors as any[];
-      if (trackingErrorList && trackingErrorList.length > 0) {
-        const firstError = trackingErrorList[0];
-        const errorCode = firstError.errorCode;
-        const errorDescription = firstError.errorDescription;
-        
-        // Determine error category based on error code
-        let category: 'Auth' | 'NotFound' | 'Validation' | 'Permanent' | 'Transient' = 'Transient';
-        if (errorCode === -1) {
-          category = 'Auth';
-        } else if (errorCode === 4 || errorCode === 9 || errorCode === 26) {
-          // Parcel not found / not found with current settings
-          category = 'NotFound';
-        } else if (errorCode === '01' || errorCode === 14 || errorCode === 15 || errorCode === 27) {
-          category = 'Permanent';
-        }
-        
-        throw new CarrierError(
-          `GLS API error: ${errorDescription} (code: ${errorCode})`,
-          category,
-          {
-            carrierCode: errorCode.toString(),
-            raw: { error: serializeForLog(firstError), rawCarrierResponse: carrierRespBody },
-          }
-        );
-     }
-
-     // Map response to canonical format
-     const trackingUpdate = mapGLSTrackingResponseToCanonical(normalizedResponse);
-     
-     // Keep original API response for reference
-     trackingUpdate.rawCarrierResponse = carrierRespBody;
+    // Get first client number for request context
+    const clientNumber = credentials.clientNumberList[0];
 
     safeLog(
-       ctx.logger,
-       'info',
-       'GLS: Parcel tracking finished',
-       {
-         parcelNumber,
-         status: trackingUpdate.status,
-         eventCount: trackingUpdate.events.length,
-         hasPOD: (trackingUpdate.rawCarrierResponse as any)?.pod ? 'yes' : 'no',
-         testMode: useTestApi,
-       },
-       ctx,
-       ['track']
-     );
+      ctx.logger,
+      'info',
+      'GLS: Starting parcel tracking',
+      { parcelNumber, clientNumber, country, testMode: useTestApi },
+      ctx,
+      ['track']
+    );
+
+    if (!ctx.http) {
+      throw new CarrierError(
+        'HTTP client not provided in context',
+        'Permanent'
+      );
+    }
+
+    const trackingRequestCamelCase = {
+      username: credentials.username,
+      password: hashedPassword,
+      parcelNumber,
+      clientNumber,
+      returnPOD,
+      languageIsoCode,
+    };
+
+    const trackingRequest = convertToPascalCase(trackingRequestCamelCase);
+
+    safeLog(
+      ctx.logger,
+      'debug',
+      'GLS: Tracking request',
+      {
+        url: `${baseUrl}/json/GetParcelStatuses`,
+        requestKeys: Object.keys(trackingRequest),
+        hasPassword: Array.isArray(trackingRequest.Password),
+        parcelNumber: trackingRequest.ParcelNumber,
+        returnPOD: trackingRequest.ReturnPOD,
+        languageCode: trackingRequest.LanguageIsoCode,
+      },
+      ctx,
+      ['track', 'debug']
+    );
+
+    const httpResponse = await ctx.http.post<any>(
+      `${baseUrl}/json/GetParcelStatuses`,
+      trackingRequest
+    );
+
+    safeLog(
+      ctx.logger,
+      'debug',
+      'GLS: Tracking response received',
+      {
+        statusCode: (httpResponse as any).statusCode || 'unknown',
+        hasBody: !!httpResponse.body,
+      },
+      ctx,
+      ['track', 'debug']
+    );
+
+    const carrierRespBody = httpResponse.body as any;
+
+    // Convert GLS API response from PascalCase to camelCase
+    const normalizedResponse = convertFromPascalCase(carrierRespBody) as any;
+
+    // Validate GLS response
+    const responseValidation = safeValidateGLSTrackingResponse(normalizedResponse);
+    if (!responseValidation.success) {
+      throw new CarrierError(
+        `Invalid GLS tracking response: ${responseValidation.error.message}`,
+        'Transient',
+        { raw: { ...responseValidation.error, rawCarrierResponse: carrierRespBody } }
+      );
+    }
+
+    // Check for errors in response
+    const trackingErrorList = normalizedResponse.getParcelStatusErrors as any[];
+    if (trackingErrorList && trackingErrorList.length > 0) {
+      const firstError = trackingErrorList[0];
+      const errorCode = firstError.errorCode;
+      const errorDescription = firstError.errorDescription;
+
+      let category: 'Auth' | 'NotFound' | 'Validation' | 'Permanent' | 'Transient' = 'Transient';
+      if (errorCode === -1) {
+        category = 'Auth';
+      } else if (errorCode === 4 || errorCode === 9 || errorCode === 26) {
+        category = 'NotFound';
+      } else if (errorCode === '01' || errorCode === 14 || errorCode === 15 || errorCode === 27) {
+        category = 'Permanent';
+      }
+
+      throw new CarrierError(
+        `GLS API error: ${errorDescription} (code: ${errorCode})`,
+        category,
+        {
+          carrierCode: errorCode.toString(),
+          raw: { error: serializeForLog(firstError), rawCarrierResponse: carrierRespBody },
+        }
+      );
+    }
+
+    // Map response to canonical format (rawCarrierResponse keeps typed normalized data)
+    const trackingUpdate = mapGLSTrackingResponseToCanonical(normalizedResponse);
+
+    safeLog(
+      ctx.logger,
+      'info',
+      'GLS: Parcel tracking finished',
+      {
+        parcelNumber,
+        status: trackingUpdate.status,
+        eventCount: trackingUpdate.events.length,
+        testMode: useTestApi,
+      },
+      ctx,
+      ['track']
+    );
 
     return trackingUpdate;
   } catch (error) {
@@ -245,9 +205,7 @@ export async function track(
       ctx.logger,
       'error',
       'GLS: Error tracking parcel',
-      {
-        error: errorToLog(error),
-      },
+      { error: errorToLog(error) },
       ctx,
       ['track']
     );
@@ -256,7 +214,6 @@ export async function track(
       throw error;
     }
 
-    // Translate HTTP errors
     if ((error as any).response?.status === 401 || (error as any).response?.status === 403) {
       throw new CarrierError('GLS authentication failed', 'Auth', { raw: error });
     }

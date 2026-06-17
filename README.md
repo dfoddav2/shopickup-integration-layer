@@ -630,3 +630,64 @@ pnpm run dev  # Runs tsx for hot reload (development only)
 - **Security:** Credentials never stored in adapters; always passed at runtime.
 
 For contribution workflow and adapter testing guidance, see `docs/contributing.md` and `docs/adapter-development.md`.
+
+## 9. Foxpost Tracking Reference
+
+### Endpoints Used
+
+| Capability | Method | Path | Description |
+|-----------|--------|------|-------------|
+| `TRACK` | `GET` | `/api/tracking/{barcode}` | Single parcel tracking — returns rich `Tracking` object with `traces`, `estimatedDelivery`, `parcelType`, `sendType`, `relatedParcel` |
+| `BATCH_TRACK` | `POST` | `/api/tracking/tracks` | Batch tracking — accepts `string[]` of barcodes, returns `Statuses[]` with per-parcel `TrackDTO[]` |
+
+### Canonical Status Map
+
+Foxpost defines 36 status codes. Each maps to a canonical `TrackingStatus` and includes bilingual (English + Hungarian) descriptions:
+
+| Foxpost Code | Canonical | English | Hungarian |
+|-------------|-----------|---------|-----------|
+| `CREATE` | `PENDING` | Order created | Rendelés létrehozva |
+| `OPERIN` | `IN_TRANSIT` | Arrived at locker | Automatában megérkezett |
+| `OPEROUT` | `IN_TRANSIT` | Removed from locker / Out for delivery | Automatából kivéve / Kiszállítás |
+| `RECEIVE` | `DELIVERED` | Delivered to recipient | Átvéve |
+| `RETURN` | `RETURNED` | Returned to sender | Visszaküldésre került |
+| `HDSENT` | `OUT_FOR_DELIVERY` | Home delivery sent | Házhozszállítás küldve |
+| `HDINTRANSIT` | `OUT_FOR_DELIVERY` | Out for home delivery | Házhoz szállítás alatt |
+| `HDRECEIVE` | `DELIVERED` | Delivered by home delivery | Házhoz szállítva |
+| `HDUNDELIVERABLE` | `EXCEPTION` | Undeliverable (home delivery failed) | Nem szállítható |
+| `MISSORT` | `EXCEPTION` | Missorted - rerouted | Hibásan rendezett - átirányított |
+
+All 36 codes are mapped in `packages/adapters/foxpost/src/mappers/trackStatus.ts`. Unknown codes fall back to `PENDING` with a `Foxpost: <code>` description.
+
+### Event Structure
+
+Each tracking event (`TrackingEvent`) includes:
+
+- **`timestamp`** — Date object from `statusDate` field
+- **`status`** — Canonical `TrackingStatus` (PENDING, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, EXCEPTION, RETURNED)
+- **`carrierStatusCode`** — Original Foxpost code (e.g., `"RECEIVE"`, `"HDINTRANSIT"`)
+- **`description`** — Mapped English human-readable text (preferred over raw API `longName`)
+- **`descriptionLocalLanguage`** — Hungarian description where available
+- **`location`** — Populated from `statusStationId` → `{ facility: string }` when present
+- **`raw`** — Original carrier response object for debugging
+
+### `TrackingUpdate` Response
+
+Includes all standard fields plus:
+
+- **`estimatedDelivery`** — Carrier-provided estimated delivery date (`string | null`)
+- **`relatedTrackingNumber`** — Original parcel barcode for returns/redirects (`string | null`)
+
+### Testing
+
+Run all Foxpost tests:
+```bash
+pnpm --filter @shopickup/adapters-foxpost run test
+```
+
+Tracking-specific test files:
+- `src/tests/unit/track-status-map.spec.ts` — Status map coverage (239 lines, 37 codes)
+- `src/tests/mock/track.spec.ts` — Single track mock integration (17 tests)
+- `src/tests/mock/batch-track.spec.ts` — Batch track mock integration (5 tests)
+- `src/tests/unit/batch-track.spec.ts` — Batch track unit tests (7 tests)
+- `src/tests/live/batch-track.live.spec.ts` — Live E2E batch track against sandbox (2 tests)

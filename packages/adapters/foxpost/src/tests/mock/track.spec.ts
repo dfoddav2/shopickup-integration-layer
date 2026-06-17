@@ -26,28 +26,28 @@ class MockHttpClientTrack {
             shortName: "RECEIVE",
             longName: "Delivered to recipient",
             statusDate: "2024-01-18T10:00:00Z",
-            statusStatidionId: "bp-main",
+            statusStationId: "bp-main",
           },
           {
             status: "HDINTRANSIT",
             shortName: "INTRAN",
             longName: "Out for delivery",
             statusDate: "2024-01-17T15:00:00Z",
-            statusStatidionId: "bp-courier",
+            statusStationId: "bp-courier",
           },
           {
             status: "HDSENT",
             shortName: "SENT",
             longName: "Handed to courier",
             statusDate: "2024-01-17T08:00:00Z",
-            statusStatidionId: "bp-facility",
+            statusStationId: "bp-facility",
           },
           {
             status: "CREATE",
             shortName: "CREATE",
             longName: "Parcel created",
             statusDate: "2024-01-16T10:00:00Z",
-            statusStatidionId: "bp-main",
+            statusStationId: "bp-main",
           },
         ],
       };
@@ -141,6 +141,24 @@ describe('FoxpostAdapter track', () => {
     expect(rawResponse.sendType).toBe('HD');
   });
 
+  it('surfaces estimatedDelivery from carrier response', async () => {
+    const req: TrackingRequest = {
+      trackingNumber: 'CLFOX0000000001',
+      credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+    };
+    const result = await adapter.track!(req, ctx);
+    expect(result.estimatedDelivery).toBe('2024-01-20');
+  });
+
+  it('surfaces relatedTrackingNumber from carrier response', async () => {
+    const req: TrackingRequest = {
+      trackingNumber: 'CLFOX0000000001',
+      credentials: { apiKey: 'test-key', basicUsername: 'user', basicPassword: 'pass' },
+    };
+    const result = await adapter.track!(req, ctx);
+    expect(result.relatedTrackingNumber).toBeNull();
+  });
+
     it('maps all trace fields to TrackingEvent', async () => {
       const req: TrackingRequest = {
         trackingNumber: 'CLFOX0000000001',
@@ -159,6 +177,9 @@ describe('FoxpostAdapter track', () => {
       expect(lastEvent.carrierStatusCode).toBe('RECEIVE');
       // Verify Hungarian description is included
       expect(lastEvent.descriptionLocalLanguage).toBe('Átvéve');
+      // Verify location.facility is populated from statusStationId
+      expect(lastEvent.location).toBeDefined();
+      expect(lastEvent.location!.facility).toBe('bp-main');
     });
 
    it('uses test API when useTestApi option is true', async () => {

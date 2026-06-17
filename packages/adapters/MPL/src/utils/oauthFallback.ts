@@ -86,7 +86,7 @@ export function withOAuthFallback(
       logger?.info('[OAuth Fallback] Basic auth disabled detected, attempting to exchange credentials', { 
         url, 
         method,
-        accountingCode: accountingCode.substring(0, 4) + '****' // mask for logging
+        accountingCode: accountingCode ? accountingCode.substring(0, 4) + '****' : '(none)' // mask for logging
       });
 
       // Exchange credentials for OAuth token (or use cached token)

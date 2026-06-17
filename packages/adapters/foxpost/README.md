@@ -7,7 +7,7 @@ Foxpost adapter for Shopickup.
 
 ## Metadata
 
-- Last updated: 2026-05-22T10:48:46Z
+- Last updated: 2026-06-17T00:00:00Z
 - Carrier API version: 1.2.14
 
 ## What it does
@@ -272,9 +272,292 @@ const result = await adapter.createReturns!(
 
 ---
 
-## Batch Track
+## Tracking
 
-Track multiple parcels in a single API call:
+Foxpost provides **two tracking APIs** accessed through two adapter functions:
+
+| Function | API | Type | Description |
+|---|---|---|---|
+| `track()` | `GET /api/tracking/{barcode}` | Synchronous | Track a single parcel by barcode |
+| `batchTrack()` | `POST /api/tracking/tracks` | Synchronous | Batch-track up to 100 parcels |
+
+> **Note:** Weight is not sent to Foxpost during parcel creation.
+
+---
+
+### Single Tracking (TRACK)
+
+Used for synchronous tracking of a single parcel. The API returns all available traces
+in reverse chronological order (latest first). The adapter reverses them to chronological order.
+
+#### Endpoint
+
+| Endpoint | Auth Required |
+|---|---|
+| `GET /api/tracking/{barcode}` | Basic auth |
+
+#### Request Shape
+
+```ts
+interface TrackingRequestFoxpost extends TrackingRequest {
+  trackingNumber: string;            // clFoxId or uniqueBarcode
+  credentials: FoxpostCredentials;   // apiKey + apiSecret
+  options?: {
+    useTestApi?: boolean;
+  };
+}
+```
+
+| Request Field | Description |
+|---|---|
+| `trackingNumber` | Parcel barcode (e.g. `CLFOX...`) or `clFox` ID assigned at creation |
+| `options.useTestApi` | `true` routes to sandbox environment |
+
+#### Response Shape
+
+```ts
+interface FoxpostTrackingResponse {
+  clFox?: string;                     // Internal Foxpost ID
+  parcelType?: string;                // Parcel type code
+  sendType?: string;                  // Send type description
+  estimatedDelivery?: string;         // ISO date string of estimated delivery
+  relatedParcel?: string;             // Related/return tracking number
+  traces: FoxpostTrace[];             // Reverse chronological event array
+}
+```
+
+Each `FoxpostTrace` represents one tracking event:
+
+| Trace Field | Type | Description |
+|---|---|---|
+| `status` | `string` | Foxpost status code (e.g. `OPERIN`, `HDRECEIVE`) |
+| `statusDate` | `string` | ISO date string of the event |
+| `longName` | `string?` | Human-readable status description |
+| `statusStationId` | `string?` | Station/facility identifier |
+| `statusStationName` | `string?` | Station/facility name |
+
+#### Canonical Response Shape
+
+```ts
+interface TrackingUpdate {
+  trackingNumber: string;              // From request
+  status: TrackingStatus;              // Mapped canonical status
+  lastUpdate: Date | null;             // Timestamp of latest event
+  events: TrackingEvent[];             // Chronological event array
+  estimatedDelivery: Date | null;      // From response.estimatedDelivery
+  relatedTrackingNumber: string | null;// From response.relatedParcel (e.g. return tracking ID)
+  rawCarrierResponse: FoxpostTrackingResponse;
+}
+```
+
+Each `TrackingEvent` is built as follows:
+
+| TrackingEvent Field | Source | Notes |
+|---|---|---|
+| `timestamp` | `statusDate` | Parsed ISO date string |
+| `status` | `status` | Mapped through the Foxpost status code table |
+| `carrierStatusCode` | `status` | Original Foxpost status code (e.g. `OPERIN`) |
+| `location.facility` | `statusStationName` | Station/facility name |
+| `description` | `longName` or `status` | Human-readable description; falls back to the status code |
+| `descriptionLocalLanguage` | Mapped Hungarian description | From `FOXPOST_STATUS_MAP` (see below) |
+| `raw` | Full trace object | Original Foxpost trace for debugging |
+
+---
+
+### Status Code Mapping
+
+Foxpost uses 37+ operational status codes mapped to 7 canonical statuses.
+Each code also has English and Hungarian human-readable descriptions.
+
+**Canonical status groups:**
+
+| Canonical Status | Foxpost Codes |
+|---|---|
+| `PENDING` | `CREATE` |
+| `IN_TRANSIT` | `OPERIN`, `OPEROOT`, `REDIRECT`, `RESENT`, `SORTIN`, `SORTOUT`, `MPSIN`, `C2CIN`, `C2BIN`, `INWAREHOUSE`, `HDDEPO`, `HDHUBIN`, `COLLECTSENT`, `SLOTCHANGE`, `WBXREDIRECT`, `PREREDIRECT`, `PREPAREDFORPD` |
+| `OUT_FOR_DELIVERY` | `HDSENT`, `HDINTRANSIT`, `HDCOURIER`, `HDHUBOUT` |
+| `DELIVERED` | `RECEIVE`, `HDRECEIVE`, `COLLECTED`, `RETURNED` |
+| `RETURNED` | `RETURN`, `BACKTOSENDER`, `HDRETURN` |
+| `EXCEPTION` | `OVERTIMEOUT`, `OVERTIMED`, `HDUNDELIVERABLE`, `MISSORT`, `EMPTYSLOT`, `BACKLOGINFULL`, `BACKLOGINFAIL` |
+| `UNKNOWN` | Any unmapped code (falls back to `PENDING`) |
+
+**Full status code reference** (from `packages/adapters/foxpost/src/mappers/trackStatus.ts`):
+
+| Code | Canonical | EN Description | HU Description | Type |
+|---|---|---|---|---|
+| `CREATE` | `PENDING` | Order created | Rendelés létrehozva | locker |
+| `OPERIN` | `IN_TRANSIT` | Arrived at locker | Automatában megérkezett | locker |
+| `OPEROOT` | `IN_TRANSIT` | Removed from locker / Out for delivery | Automatából kivéve / Kiszállítás | locker |
+| `RECEIVE` | `DELIVERED` | Delivered to recipient | Átvéve | locker |
+| `RETURN` | `RETURNED` | Returned to sender | Visszaküldésre került | facility |
+| `REDIRECT` | `IN_TRANSIT` | Redirected to new destination | Átirányítva új célhelyre | facility |
+| `BACKTOSENDER` | `RETURNED` | Returned to sender | Szállító felé visszaküldve | facility |
+| `RESENT` | `IN_TRANSIT` | Resent to new destination | Újra küldve új célhelyre | facility |
+| `SORTIN` | `IN_TRANSIT` | Arrived at sorting facility | Rendezőközpontba megérkezett | facility |
+| `SORTOUT` | `IN_TRANSIT` | Left sorting facility | Rendezőközpontból elküldve | facility |
+| `MPSIN` | `IN_TRANSIT` | Arrived at parcel hub | Csomagközpontba megérkezett | facility |
+| `C2CIN` | `IN_TRANSIT` | Arrived at customer collection point | Ügyfél felvevőpontba megérkezett | facility |
+| `C2BIN` | `IN_TRANSIT` | Arrived at business collection point | Üzleti felvevőpontba megérkezett | facility |
+| `INWAREHOUSE` | `IN_TRANSIT` | In warehouse | Raktárban van | facility |
+| `HDSENT` | `OUT_FOR_DELIVERY` | Home delivery sent | Házhozszállítás küldve | courier |
+| `HDINTRANSIT` | `OUT_FOR_DELIVERY` | Out for home delivery | Házhoz szállítás alatt | courier |
+| `HDDEPO` | `IN_TRANSIT` | At home delivery depot | Kiszállítási depoban | facility |
+| `HDCOURIER` | `OUT_FOR_DELIVERY` | With courier for delivery | Futárnál szállításra | courier |
+| `HDHUBIN` | `IN_TRANSIT` | Arrived at delivery hub | Szállítási csomópontra megérkezett | facility |
+| `HDHUBOUT` | `OUT_FOR_DELIVERY` | Left delivery hub | Szállítási csomópontból elküldve | facility |
+| `HDRECEIVE` | `DELIVERED` | Delivered by home delivery | Házhoz szállítva | courier |
+| `HDRETURN` | `RETURNED` | Returned from home delivery | Házhoz szállítás visszatérült | courier |
+| `OVERTIMEOUT` | `EXCEPTION` | Overtime out (delivery exceeded time limit) | Túlóra lejárt | technical |
+| `OVERTIMED` | `EXCEPTION` | Overtime (delivery delayed) | Túlóra (késedelem) | technical |
+| `HDUNDELIVERABLE` | `EXCEPTION` | Undeliverable (home delivery failed) | Nem szállítható (házhoz szállítás sikertelen) | courier |
+| `MISSORT` | `EXCEPTION` | Missorted — rerouted | Hibásan rendezett — átirányított | technical |
+| `EMPTYSLOT` | `EXCEPTION` | No locker slot available | Nincs szabad automatahely | locker |
+| `BACKLOGINFULL` | `EXCEPTION` | Backlog — facility at capacity | Feldolgozási várakozási sor teljes | facility |
+| `BACKLOGINFAIL` | `EXCEPTION` | Backlog failed — retry needed | Feldolgozási sor sikertelen | technical |
+| `COLLECTSENT` | `IN_TRANSIT` | Collect shipment sent | Gyűjtőszállítmány küldve | facility |
+| `COLLECTED` | `DELIVERED` | Collected from sender | Feladótól összeszedve | facility |
+| `SLOTCHANGE` | `IN_TRANSIT` | Locker slot changed | Automatahely módosult | technical |
+| `WBXREDIRECT` | `IN_TRANSIT` | Redirected via WBX | WBX-en keresztül átirányított | facility |
+| `PREREDIRECT` | `IN_TRANSIT` | Pre-redirect (staged for redirection) | Előátirányítás (átirányításra előkészítve) | technical |
+| `RETURNED` | `DELIVERED` | Returned (delivered back to sender) | Visszaküldve (feladónak szállítva) | facility |
+| `PREPAREDFORPD` | `IN_TRANSIT` | Prepared for home delivery | Házhoz szállításra előkészítve | technical |
+
+---
+
+### Batch Tracking (BATCH_TRACK)
+
+Track multiple parcels in a single API call. Accepts up to **100 tracking numbers** per request.
+
+#### Endpoint
+
+| Endpoint | Auth Required |
+|---|---|
+| `POST /api/tracking/tracks` | Basic auth |
+
+#### Request Shape
+
+```ts
+interface BatchTrackingRequestFoxpost extends BatchTrackingRequest {
+  trackingNumbers: string[];         // 1–100 barcodes
+  credentials: FoxpostCredentials;
+  options?: {
+    useTestApi?: boolean;
+  };
+}
+```
+
+#### Response Shape
+
+The raw API returns an array of `Statuses` objects:
+
+```ts
+interface FoxpostStatuses {
+  barcode: string;                    // Tracking barcode
+  statuses: FoxpostTrackDTO[];        // Chronological tracking events
+}
+```
+
+Each `FoxpostTrackDTO` is:
+
+```ts
+interface FoxpostTrackDTO {
+  status: string;                     // Foxpost status code
+  statusDate: string;                 // ISO date string
+  longName?: string;                  // Human-readable description
+}
+```
+
+#### Canonical Response Shape
+
+```ts
+interface BatchTrackingResponse {
+  results: BatchTrackingResult[];     // Per-barcode results
+  successCount: number;
+  failureCount: number;
+  totalCount: number;
+  allSucceeded: boolean;
+  allFailed: boolean;
+  someFailed: boolean;
+  summary: string;
+  rawCarrierResponse?: string;        // Serialised log of the HTTP response
+}
+```
+
+Each `BatchTrackingResult`:
+
+```ts
+interface BatchTrackingResult {
+  trackingNumber: string;
+  status: 'found' | 'not_found' | 'failed';
+  update?: {                          // Present when status === 'found'
+    trackingNumber: string;
+    events: TrackingEvent[];          // Chronological event array
+    status: TrackingStatus;           // Mapped canonical status
+    lastUpdate: Date;
+    rawCarrierResponse: FoxpostStatuses;
+  };
+  error?: {                           // Present when status === 'failed'
+    code: string;
+    message: string;
+  };
+  raw?: any;                          // Original API item for debugging
+}
+```
+
+---
+
+### Error Handling
+
+All tracking functions throw `CarrierError` with the following categories mapped from HTTP status codes:
+
+| HTTP Status | CarrierError Category | Description |
+|---|---|---|
+| `400` | `Validation` | Bad request — invalid parameters |
+| `401` | `Auth` | Unauthorized — invalid/expired credentials |
+| `403` | `Auth` | Forbidden — caller not authorized |
+| `404` | `NotFound` | Tracking information not found for given barcode |
+| `429` | `RateLimit` | Rate limited |
+| `500+` | `Transient` | Server error — retryable |
+| Network errors | `Transient` | Connection refused, DNS failure, timeout |
+
+Additionally, the adapter checks for specific error conditions:
+
+| Condition | Error | Category |
+|---|---|---|
+| Empty/null response body | `"No tracking information found for {barcode}"` | `NotFound` |
+| Missing `clFox` in response | `"No tracking information found for {barcode}"` | `NotFound` |
+| Missing `traces` array | `"Invalid tracking response: traces array missing"` | `Transient` |
+| Zod validation failure on response | Validation error message | `Validation` |
+
+---
+
+### Usage Examples
+
+#### Single parcel tracking
+
+```ts
+const update = await adapter.track(
+  {
+    trackingNumber: "CLFOX0000000001",
+    credentials: { apiKey: "key", apiSecret: "secret" },
+    options: { useTestApi: true },
+  },
+  { http, logger: console },
+);
+
+// update.status              → "PENDING" | "IN_TRANSIT" | "DELIVERED" | etc.
+// update.trackingNumber      → "CLFOX0000000001"
+// update.events              → chronological TrackingEvent[]
+// update.events[0].timestamp → Date
+// update.events[0].status    → canonical status
+// update.events[0].carrierStatusCode → "OPERIN" (original Foxpost code)
+// update.events[0].location.facility → station name
+// update.events[0].description       → "Arrived at locker"
+// update.estimatedDelivery   → Date | null
+// update.relatedTrackingNumber → string | null (e.g. return parcel ID)
+```
+
+#### Batch tracking
 
 ```ts
 const result = await adapter.batchTrack!(
@@ -284,19 +567,33 @@ const result = await adapter.batchTrack!(
       "CLFOX0000000002",
       "CLFOX0000000003",
     ],
-    credentials,
+    credentials: { apiKey: "key", apiSecret: "secret" },
+    options: { useTestApi: true },
   },
-  context,
+  { http, logger: console },
 );
 
-// result.totalCount, result.successCount, result.failureCount
-// result.results[] — per-item BatchTrackingResult
+// result.totalCount
+// result.successCount
+// result.failureCount
+// result.summary → "All 3 parcels tracked successfully"
 
 const first = result.results[0];
 if (first.status === "found") {
-  first.update!.events; // chronological TrackingEvent[]
-  first.update!.status; // canonical status: PENDING, IN_TRANSIT, DELIVERED, ...
+  first.update!.events;              // chronological TrackingEvent[]
+  first.update!.status;              // canonical status
+  first.update!.relatedTrackingNumber;
+}
+if (first.status === "not_found") {
+  // Parcel not yet in tracking system
 }
 ```
 
-**Note:** Weight is not sent to Foxpost during parcel creation.
+### Sandbox Tracking Notes
+
+Foxpost sandbox tracking requires parcels to first be **created** via `createParcel` / `createParcels` before they appear in the tracking system. After creation, there may be a processing delay before tracking data becomes available. The E2E tests poll with retries to handle this.
+
+Recognised mock tracking numbers in sandbox:
+- Use the `carrierId` returned from `createParcel` in sandbox mode
+
+See `packages/adapters/foxpost/src/tests/live/batch-track.live.spec.ts` for the exact E2E test flow.

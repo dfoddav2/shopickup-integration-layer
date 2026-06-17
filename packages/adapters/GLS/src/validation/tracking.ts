@@ -7,26 +7,73 @@
 import { z, type ZodSafeParseResult } from 'zod';
 import type { TrackingRequest } from '@shopickup/core';
 
-export type GLSTrackingRequest = TrackingRequest;
+/**
+ * GLS-specific credentials for tracking
+ * 
+ * Extends Record<string, unknown> to remain compatible with the core
+ * TrackingRequest.credentials type (Record<string, unknown> | undefined).
+ */
+export interface GLSTrackingCredentials extends Record<string, unknown> {
+  username: string;
+  password: string;
+  clientNumberList: number[];
+}
 
 /**
- * Validates a canonical TrackingRequest
- * 
- * Zod schema for tracking request:
- * - trackingNumber: Required, non-empty string
- * - credentials: Optional, object with arbitrary fields (for flexibility)
- * - options: Optional, object with optional useTestApi boolean
+ * GLS-specific tracking options
  */
-export function safeValidateTrackingRequest(req: unknown): ZodSafeParseResult<any> {
-  const schema = z.object({
-    trackingNumber: z.string().min(1),
-    credentials: z.object({}).passthrough().optional(),
-    options: z.object({
-      useTestApi: z.boolean().optional(),
-    }).optional(),
-  });
+export interface GLSTrackingOptions {
+  useTestApi?: boolean;
+  returnPOD?: boolean;
+  languageIsoCode?: string;
+  country?: string;
+}
 
-  return schema.safeParse(req);
+/**
+ * Narrowed tracking request extending the core contract.
+ * 
+ * GLS requires credentials (username, password, clientNumberList)
+ * for all tracking API calls. Options are validated through Zod
+ * schema but kept as base RequestOptions for interface compatibility.
+ */
+export interface GLSTrackingRequest extends TrackingRequest {
+  credentials: GLSTrackingCredentials;
+}
+
+/**
+ * Single Zod schema for validating a complete GLS tracking request.
+ * 
+ * Validates:
+ * - trackingNumber: Required non-empty string
+ * - credentials: Required with username, password, clientNumberList
+ * - options: Optional with useTestApi, returnPOD, languageIsoCode, country
+ */
+export const GLSTrackingRequestSchema = z.object({
+  trackingNumber: z.string().min(1, 'Tracking number is required'),
+  credentials: z.object({
+    username: z.string().min(1, 'Username is required'),
+    password: z.string().min(1, 'Password is required'),
+    clientNumberList: z.array(z.number().int().positive()).min(1, 'At least one client number is required'),
+  }),
+  options: z.object({
+    useTestApi: z.boolean().optional(),
+    returnPOD: z.boolean().optional(),
+    languageIsoCode: z.string().refine(
+      (val) => ['HR', 'CS', 'HU', 'RO', 'SK', 'SL', 'EN'].includes(val.toUpperCase()),
+      'Language code must be one of: HR, CS, HU, RO, SK, SL, EN'
+    ).optional(),
+    country: z.string().optional(),
+  }).optional(),
+});
+
+/**
+ * Validates a GLS tracking request against the narrowed schema.
+ * 
+ * @param req Unknown request to validate
+ * @returns Safe parse result with strongly-typed data on success
+ */
+export function safeValidateTrackingRequest(req: unknown): ZodSafeParseResult<z.infer<typeof GLSTrackingRequestSchema>> {
+  return GLSTrackingRequestSchema.safeParse(req);
 }
 
 /**

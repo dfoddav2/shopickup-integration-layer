@@ -296,6 +296,7 @@ export function mapFoxpostTrackToCanonical(
     status: mapFoxpostStatusToCanonical(track.status || "PENDING"),
     carrierStatusCode: track.status || undefined,
     description: track.longName || track.status || "Unknown status",
+    location: track.location ? { facility: track.location } : undefined,
     raw: track,
   };
 }
@@ -318,7 +319,7 @@ export function mapFoxpostTrackToCanonical(
  * - Foxpost "RECEIVE" -> canonical "DELIVERED" (carrierStatusCode: "RECEIVE", description: "Delivered to recipient")
  */
 export function mapFoxpostTraceToCanonical(
-  trace: FoxpostTraceDTO | { statusDate: string | Date; status?: string; shortName?: string; longName?: string }
+  trace: FoxpostTraceDTO | { statusDate: string | Date; status?: string; shortName?: string; longName?: string; statusStationId?: string }
 ): TrackingEvent {
   const statusDate = typeof trace.statusDate === 'string'
     ? new Date(trace.statusDate)
@@ -333,11 +334,13 @@ export function mapFoxpostTraceToCanonical(
     || `Foxpost: ${statusCode}`;
 
   const humanDescriptionHu = statusMapping.human_hu || null;
+  const stationId = (trace as any).statusStationId || (trace as any).statusStatidionId;
 
   return {
     timestamp: statusDate || new Date(),
     status: mapFoxpostStatusToCanonical(statusCode),
     carrierStatusCode: statusCode || undefined,
+    location: stationId ? { facility: stationId } : undefined,
     description: humanDescription,
     descriptionLocalLanguage: humanDescriptionHu || undefined,
     raw: trace,

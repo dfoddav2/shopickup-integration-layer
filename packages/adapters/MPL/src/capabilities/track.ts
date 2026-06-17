@@ -18,16 +18,19 @@ import {
   safeValidatePull500CheckRequest,
   safeValidatePull500CheckResponse,
   type TrackingRequestMPL,
+  type TrackingMPLCarrierOptions,
   type Pull500StartRequest,
   type Pull500StartResponse,
   type Pull500CheckRequest,
   type Pull500CheckResponse,
+  type MPLCredentials,
 } from '../validation.js';
 import {
   mapMPLTrackingToCanonical,
 } from '../mappers/tracking.js';
 import { buildMPLHeaders } from '../utils/httpUtils.js';
-import type { ResolveTrackingUrl } from '../utils/resolveBaseUrl.js';
+import { withOAuthFallback } from '../utils/oauthFallback.js';
+import type { ResolveTrackingUrl, ResolveOAuthUrl } from '../utils/resolveBaseUrl.js';
 import { randomUUID } from 'crypto';
 
 /**
@@ -244,16 +247,24 @@ export async function trackPull500Check(
 export async function trackRegistered(
   request: TrackingRequestMPL,
   ctx: AdapterContext,
-  resolveTrackingUrl: ResolveTrackingUrl
+  resolveTrackingUrl: ResolveTrackingUrl,
+  resolveOAuthUrl?: ResolveOAuthUrl
 ): Promise<TrackingUpdate[]> {
   // Use core track() logic but force registered endpoint
   return track(
     {
       ...request,
-      useRegisteredEndpoint: true,
+      options: {
+        ...request.options,
+        mpl: {
+          ...request.options?.mpl,
+          useRegisteredEndpoint: true,
+        } as TrackingMPLCarrierOptions,
+      },
     },
     ctx,
-    resolveTrackingUrl
+    resolveTrackingUrl,
+    resolveOAuthUrl
   );
 }
 
@@ -269,7 +280,8 @@ export async function trackRegistered(
 export async function track(
   request: TrackingRequestMPL,
   ctx: AdapterContext,
-  resolveTrackingUrl: ResolveTrackingUrl
+  resolveTrackingUrl: ResolveTrackingUrl,
+  resolveOAuthUrl?: ResolveOAuthUrl
 ): Promise<TrackingUpdate[]> {
   // Validate request
   const validation = safeValidateTrackingRequest(request);
@@ -289,9 +301,10 @@ export async function track(
   }
 
   const validRequest = validation.data;
+  const mplOpts = validRequest.options?.mpl;
 
   // Determine endpoint (guest vs registered)
-  const isRegistered = validRequest.useRegisteredEndpoint ?? false;
+  const isRegistered = mplOpts?.useRegisteredEndpoint ?? false;
   const endpoint = isRegistered ? 'registered' : 'guest';
   
   // Build request payload.
@@ -300,10 +313,24 @@ export async function track(
   // - state: 'last' or 'all'
   // - language: 'hu' | 'en' | 'de'
   const idsParam = validRequest.trackingNumbers.join(',');
-  const stateParam = validRequest.state ?? 'last';
+  const stateParam = mplOpts?.state ?? 'last';
+  const languageParam = mplOpts?.language ?? 'hu';
   
-  // Extract accountingCode from credentials
-  const accountingCode = (validRequest.credentials as any)?.accountingCode;
+  // Extract accountingCode — may be in credentials or passed through options (CLI injects it)
+  const accountingCode = (validRequest.options as any)?.mpl?.accountingCode || (validRequest.credentials as any)?.accountingCode;
+  
+  // Wrap HTTP client with OAuth fallback when using apiKey auth,
+  // so that 401 "Basic auth not enabled" errors are handled transparently
+  const httpClient = (validRequest.credentials.authType === 'apiKey' && resolveOAuthUrl)
+    ? withOAuthFallback(
+        ctx.http,
+        validRequest.credentials as Extract<MPLCredentials, { authType: 'apiKey' }>,
+        accountingCode,
+        resolveOAuthUrl,
+        ctx.logger,
+        validRequest.options?.useTestApi ?? false
+      )
+    : ctx.http;
   
   // Resolve base URL
   const baseUrl = resolveTrackingUrl(validRequest.options);
@@ -313,6 +340,7 @@ export async function track(
     endpoint,
     trackingNumbers: validRequest.trackingNumbers,
     state: stateParam,
+    language: languageParam,
     testMode: isTestApi,
     registered: isRegistered,
   });
@@ -324,16 +352,16 @@ export async function track(
   const payload = {
     ids: idsParam,
     state: stateParam,
-    language: 'hu' as const,
+    language: languageParam,
   };
 
-  // Build authentication headers
+  // Build authentication headers (using original credentials; wrapped client handles fallback)
   const headers = buildMPLHeaders(validRequest.credentials, accountingCode);
 
-  // Make request
+  // Make request using potentially-wrapped HTTP client
   let httpResponse: any;
   try {
-    httpResponse = await ctx.http.post(url.toString(), payload, { headers });
+    httpResponse = await httpClient.post(url.toString(), payload, { headers });
   } catch (error) {
     throw translateTrackingError(error, idsParam);
   }

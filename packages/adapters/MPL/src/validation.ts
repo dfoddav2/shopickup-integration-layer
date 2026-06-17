@@ -845,6 +845,17 @@ export type MPLShipmentQueryResult = z.infer<typeof MPLShipmentQueryResultSchema
 // ===== TRACKING TYPES (TRACK capability) =====
 
 /**
+ * Carrier-specific options for MPL Pull-1 tracking.
+ * Nested under `options.mpl` to keep the top-level shape aligned with core types.
+ */
+export const TrackingMPLCarrierOptionsSchema = z.object({
+     state: z.enum(['last', 'all']).optional().default('last'),
+     language: z.enum(['hu', 'en', 'de']).optional().default('hu'),
+     useRegisteredEndpoint: z.boolean().optional().default(false),
+});
+export type TrackingMPLCarrierOptions = z.infer<typeof TrackingMPLCarrierOptionsSchema>;
+
+/**
  * Schema for tracking request (Pull-1 endpoint)
  * Retrieves tracking/trace information for one or more parcels
  * 
@@ -852,18 +863,17 @@ export type MPLShipmentQueryResult = z.infer<typeof MPLShipmentQueryResultSchema
  * - trackingNumbers: array of one or more tracking numbers
  * - credentials: MPLCredentials
  * 
- * Optional:
+ * Carrier-specific options live under `options.mpl`:
  * - state: 'last' (latest event only, faster) or 'all' (complete history)
+ * - language: 'hu' | 'en' | 'de' (default: 'hu')
  * - useRegisteredEndpoint: false (Guest) or true (Registered with financial data)
- * - useTestApi: use sandbox API instead of production
  */
 export const TrackingRequestMPLSchema = z.object({
      trackingNumbers: z.array(z.string().min(1)).min(1, 'At least one tracking number is required'),
      credentials: MPLCredentialsSchema,
-     state: z.enum(['last', 'all']).optional().default('last'),
-     useRegisteredEndpoint: z.boolean().optional().default(false),
      options: z.object({
           useTestApi: z.boolean().optional(),
+          mpl: TrackingMPLCarrierOptionsSchema.optional(),
      }).optional(),
 });
 export type TrackingRequestMPL = z.infer<typeof TrackingRequestMPLSchema>;
@@ -879,36 +889,36 @@ export function safeValidateTrackingRequest(input: unknown) {
  * MPL C-Code Tracking Record from Pull-1 API response
  * 
  * Contains C0-C63 fields representing different tracking data.
- * Guest endpoint excludes financial data (C2, C5, C41, C42, C58)
+ * Guest endpoint excludes financial data (C5, C41, C42, C58)
  * Registered endpoint includes all fields
  */
 export const MPLTrackingRecordSchema = z.object({
-     c0: z.string().nullable().optional(),   // System ID
-     c1: z.string(),                          // Consignment ID (Tracking number) - REQUIRED
-     c2: z.string().nullable().optional(),    // Service Code (Registered only)
-     c4: z.string().nullable().optional(),   // Delivery Mode
-     c5: z.string().nullable().optional(),    // Weight (Registered only)
-     c6: z.string().nullable().optional(),    // Service Description
-     c8: z.string().nullable().optional(),    // Location
-     c9: z.string().nullable().optional(),   // Last Event Status (CRITICAL)
-     c10: z.string().nullable().optional(),  // Timestamp
-     c11: z.string().nullable().optional(),  // Location Details
-     c12: z.string().nullable().optional(),  // Event Description
-     c13: z.string().nullable().optional(),  // Event Notes
-     c38: z.string().nullable().optional(),  // Service Name
-     c39: z.string().nullable().optional(),  // Service Details
-     c41: z.string().nullable().optional(),  // Size Length (Registered only)
-     c42: z.string().nullable().optional(),  // Size Width (Registered only)
-     c43: z.string().nullable().optional(),  // Size Height
-     c49: z.string().nullable().optional(),  // Destination
-     c53: z.string().nullable().optional(),  // Signature/Receiver
-     c55: z.string().nullable().optional(),  // Insurance flag
-     c56: z.string().nullable().optional(),  // COD flag
-     c57: z.string().nullable().optional(),  // Signature required flag
-     c59: z.string().nullable().optional(),  // Additional flag 1
-     c60: z.string().nullable().optional(),  // Additional flag 2
-     c61: z.string().nullable().optional(),  // Additional flag 3
-     c63: z.string().nullable().optional(),  // Custom/Reference data
+      c0: z.string().nullable().optional(),   // Backend system name or parcel type
+      c1: z.string(),                          // Consignment ID (tracking number) - REQUIRED
+      c2: z.string().nullable().optional(),    // Basic service name
+      c4: z.string().nullable().optional(),   // Delivery mode
+      c5: z.string().nullable().optional(),    // Declared value amount (HUF) — Registered only
+      c6: z.string().nullable().optional(),    // COD amount
+      c8: z.string().nullable().optional(),    // Retention period
+      c9: z.string().nullable().optional(),   // Event description / status text
+      c10: z.string().nullable().optional(),  // Event category description
+      c11: z.string().nullable().optional(),  // Event date (YYYYMMDD)
+      c12: z.string().nullable().optional(),  // Event time (HH:MM:SS)
+      c13: z.string().nullable().optional(),  // Receiving post office / facility name
+      c38: z.string().nullable().optional(),  // Recipient country code
+      c39: z.string().nullable().optional(),  // Recipient country name
+      c41: z.string().nullable().optional(),  // Weight in grams — Registered only
+      c42: z.string().nullable().optional(),  // Size category (S/M/L) — Registered only
+      c43: z.string().nullable().optional(),  // Event category code (0-5)
+      c49: z.string().nullable().optional(),  // Sender country code
+      c53: z.string().nullable().optional(),  // Replacement parcel tracking ID
+      c55: z.string().nullable().optional(),  // Failed delivery reason
+      c56: z.string().nullable().optional(),  // Recipient's title/role
+      c57: z.string().nullable().optional(),  // COD currency
+      c59: z.string().nullable().optional(),  // Related/linked identifier
+      c60: z.string().nullable().optional(),  // Retention deadline / expiry date
+      c61: z.string().nullable().optional(),  // Max transaction category reached (0-5)
+      c63: z.string().nullable().optional(),  // Sender country name
 }).passthrough();  // Allow additional fields
 export type MPLTrackingRecord = z.infer<typeof MPLTrackingRecordSchema>;
 
@@ -944,7 +954,7 @@ export function safeValidateTrackingResponse(input: unknown) {
 export const Pull500StartRequestSchema = z.object({
      trackingNumbers: z.array(z.string().min(1)).min(1).max(500, 'Maximum 500 tracking numbers allowed'),
      credentials: MPLCredentialsSchema,
-     language: z.enum(['hu', 'en']).default('hu').optional(),
+     language: z.enum(['HU', 'EN', 'hu', 'en']).transform(v => v.toUpperCase()).default('HU').optional(),
      options: z.object({
           useTestApi: z.boolean().optional(),
      }).optional(),
