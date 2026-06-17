@@ -141,9 +141,9 @@ if (!live.enabled) {
       expect(label.status).toBe('created');
       expect(label.fileId).toBeTruthy();
 
-      // GLS tracking requires the ParcelNumber (from label), not ParcelId (from createParcel)
-      const parcelNumber = (label.raw as any)?.parcelNumber || createdParcel.carrierId!;
-      console.log('GLS live pickup-point using tracking number', { parcelNumber, parcelId: createdParcel.carrierId });
+      // GLS tracking requires the ParcelNumber, which is in raw.parcelNumber
+      const parcelNumber = (label.raw as any)?.parcelNumber!;
+      console.log('GLS live pickup-point using tracking number', { parcelNumber });
 
       // GLS test API has a ~30 second lag before a newly created parcel
       // appears in the tracking system. We poll with a 15-second delay

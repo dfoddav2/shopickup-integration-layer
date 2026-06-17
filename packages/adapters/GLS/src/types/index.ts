@@ -255,6 +255,7 @@ export interface GLSPrepareLabelsResponse {
 export interface GLSPrintDataInfo {
   clientReference?: string;
   parcelId: number;
+  parcelNumber?: number; // Tracking number (assigned when label is printed)
 }
 
 /**

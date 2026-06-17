@@ -321,6 +321,8 @@ GLS provides **one tracking API** accessed through a single adapter function:
 
 > **Note:** GLS tracking requires credentials (`username`, `password`, `clientNumberList`) for every call. The password is hashed with SHA-512 before being sent.
 
+> **Info:** After creating a label via `createLabel` or `printLabels`, the tracking number `ParcelNumber` is available in `label.raw.parcelNumber`. Use this as the `trackingNumber` for tracking calls. This differs from `createParcels`, where `carrierId` is the internal `ParcelId`.
+
 ---
 
 ### Single Tracking (TRACK)

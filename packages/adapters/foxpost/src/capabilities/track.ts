@@ -129,7 +129,7 @@ export async function track(
       testMode: useTestApi,
     });
 
-    return {
+    const result: TrackingUpdate = {
       trackingNumber,
       events,
       status: currentStatus,
@@ -138,6 +138,7 @@ export async function track(
       relatedTrackingNumber: validatedResponse.relatedParcel ?? null,
       rawCarrierResponse: validatedResponse,
     };
+    return result;
   } catch (error) {
     if (error instanceof CarrierError) {
       throw error;
