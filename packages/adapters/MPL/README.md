@@ -222,6 +222,22 @@ Common extra service codes:
 
 All options below are **optional** and live under `options.mpl` alongside the required fields (`accountingCode`, `agreementCode`, `bankAccountNumber`).
 
+#### Delivery Mode
+
+Override the delivery mode for pickup point deliveries. By default, the adapter derives the mode from `delivery.method`: `HOME` → `HA` (home delivery), `PICKUP_POINT` → `CS` (parcel locker). Use this option to force a specific mode when the default doesn't match the pickup point type:
+
+- `HA` — Házhozszállítás (Home Delivery)
+- `CS` — Csomagautomata (Parcel Locker)
+- `PM` — Postán Maradó (Post Office)
+- `PP` — PostaPont (Post Point)
+
+```ts
+mpl: {
+  // ...required fields
+  deliveryMode: "PM", // post office delivery for Nagyoroszi
+}
+```
+
 #### Label Format
 
 Override the default `PDF` label format:
@@ -402,6 +418,7 @@ await adapter.createParcel(
         shipmentDate: "2026-06-15",
         tag: "summer-sale",
         groupTogether: true,
+        deliveryMode: "CS",
         deliveryTime: "morning",
         paymentMode: "UV_AT",
         packageRetention: 5,

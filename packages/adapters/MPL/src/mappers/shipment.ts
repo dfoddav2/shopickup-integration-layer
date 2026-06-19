@@ -94,14 +94,18 @@ export function mapServiceLevel(
  * - HomeDelivery: { method: 'HOME'; address }
  * - PickupPointDelivery: { method: 'PICKUP_POINT'; pickupPoint }
  */
-export function mapDeliveryMode(delivery: Delivery): DeliveryMode {
+export function mapDeliveryMode(
+  delivery: Delivery,
+  deliveryModeOverride?: string,
+): DeliveryMode {
+  if (deliveryModeOverride) {
+    return deliveryModeOverride as DeliveryMode;
+  }
   switch (delivery.method) {
     case 'HOME':
       return 'HA'; // Házhozszállítás (Home Delivery)
     case 'PICKUP_POINT':
-      // Parcel locker (Csomagautomata) by default for pickup points
-      // Integrator can override via metadata if needed
-      return 'CS'; // Csomagautomata
+      return 'CS'; // Csomagautomata (default fallback)
     default:
       return 'HA'; // Default to home
   }
@@ -229,6 +233,7 @@ export function mapService(
   otherComment?: string,
   secId?: boolean,
   produceContent?: string,
+  deliveryModeOverride?: string,
 ): Service {
   const service: Service = {
     basic: mapServiceLevel(
@@ -236,7 +241,7 @@ export function mapService(
       parcel.carrierServiceCode,
       isInternational,
     ),
-    deliveryMode: mapDeliveryMode(parcel.recipient.delivery),
+    deliveryMode: mapDeliveryMode(parcel.recipient.delivery, deliveryModeOverride),
   };
 
   // Merge explicit extra services with auto-derived ones
@@ -354,6 +359,7 @@ export function mapItem(
   secId?: boolean,
   produceContent?: string,
   qrCode?: string,
+  deliveryModeOverride?: string,
 ): Item {
   const item: Item = {
     services: mapService(
@@ -367,6 +373,7 @@ export function mapItem(
       otherComment,
       secId,
       produceContent,
+      deliveryModeOverride,
     ),
   };
 
@@ -462,6 +469,7 @@ export function mapParcelToMPLShipment(
         mplOpts.secId,
         mplOpts.produceContent,
         mplOpts.qrCode,
+        mplOpts.deliveryMode,
       ),
     ],
   };

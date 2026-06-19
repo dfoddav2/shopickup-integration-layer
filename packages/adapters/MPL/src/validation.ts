@@ -603,7 +603,8 @@ export const CreateParcelsMPLCarrierOptionsSchema = z.object({
      exportAuthorisation: z.string().max(35).optional().describe('Export authorization code (international).'),
      otherComment: z.string().max(105).optional().describe('Other comment for customs (international).'),
      secId: z.boolean().optional().describe('When A_125_HAR service is used, set to true to generate inverse parcel data.'),
-     produceContent: z.string().max(512).optional().describe('Produce content code (international).'),
+      produceContent: z.string().max(512).optional().describe('Produce content code (international).'),
+      deliveryMode: DeliveryModeSchema.optional().describe('Override delivery mode: HA (home), CS (parcel locker), PM (post office), PP (PostaPont). If omitted, derived from delivery.method (HOME→HA, PICKUP_POINT→CS).'),
 });
 export type CreateParcelsMPLCarrierOptions = z.infer<typeof CreateParcelsMPLCarrierOptionsSchema>;
 
