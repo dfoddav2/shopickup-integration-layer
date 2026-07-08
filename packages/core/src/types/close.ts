@@ -5,6 +5,7 @@
  * tracking numbers are submitted and the carrier returns manifests / receipts.
  */
 import type { RequestOptions } from '../interfaces/carrier-adapter.js';
+import type { LabelFileResource } from './label.js';
 
 /** Request to close one or more shipments (carrier-specific semantics) */
 export interface CloseShipmentsRequest {
@@ -23,8 +24,11 @@ export interface CloseShipmentResult {
   /** Optional generated manifest id / reference */
   manifestId?: string;
 
-  /** Optional raw manifest bytes (not required) */
-  manifest?: unknown;
+  /**
+   * References into the parent `CloseShipmentsResponse.files` array, identifying which
+   * manifest document(s) belong to this result (e.g., posting list, pallet posting list).
+   */
+  fileIds?: string[];
 
   /** Any per-item errors */
   errors?: Array<{ code?: string; message?: string }>;
@@ -39,6 +43,13 @@ export interface CloseShipmentResult {
 /** Batch close response with per-item results and summary */
 export interface CloseShipmentsResponse {
   results: CloseShipmentResult[];
+
+  /**
+   * Manifest document files produced by the close operation (e.g., delivery note,
+   * posting list PDF, pallet posting list PDF), structured the same way as label files.
+   */
+  files?: LabelFileResource[];
+
   successCount: number;
   failureCount: number;
   totalCount: number;

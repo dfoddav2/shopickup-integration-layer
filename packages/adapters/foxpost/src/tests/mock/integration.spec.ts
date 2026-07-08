@@ -383,7 +383,6 @@ describe("FoxpostAdapter Integration", () => {
 
     it("does not declare unsupported capabilities", () => {
       expect(adapter.capabilities).not.toContain("CREATE_SHIPMENT");
-      expect(adapter.capabilities).not.toContain("CLOSE_SHIPMENT");
       expect(adapter.capabilities).not.toContain("VOID_LABEL");
       expect(adapter.capabilities).not.toContain("PICKUP");
       expect(adapter.capabilities).not.toContain("RATES");

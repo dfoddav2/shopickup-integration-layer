@@ -1,42 +1,55 @@
 /**
- * MPL: Close Shipments Route
- * POST /api/dev/mpl/close-shipments
+ * Foxpost: Close Shipments Route
+ * POST /api/dev/foxpost/close-shipments
  */
 
 import { FastifyInstance } from 'fastify';
-import { MPLAdapter } from '@shopickup/adapters-mpl';
-import { safeValidateCloseShipmentsRequest } from '@shopickup/adapters-mpl/validation';
+import { FoxpostAdapter } from '@shopickup/adapters-foxpost';
+import { safeValidateCloseShipmentsRequest } from '@shopickup/adapters-foxpost/validation';
 import { CarrierError, type AdapterContext } from '@shopickup/core';
 import { wrapPinoLogger } from '../http-client.js';
-import { MPL_CREDENTIALS_SCHEMA } from './common.js';
 import { formatLabelResponseForHttp } from '../label-response-http.js';
+import { FOXPOST_CREDENTIALS_SCHEMA, EXAMPLE_CREDENTIALS } from './common.js';
 
-export async function registerCloseShipmentsRoute(fastify: FastifyInstance, adapter: MPLAdapter) {
-  fastify.post('/api/dev/mpl/close-shipments', {
+export async function registerCloseShipmentsRoute(fastify: FastifyInstance, adapter: FoxpostAdapter) {
+  fastify.post('/api/dev/foxpost/close-shipments', {
     schema: {
-      description: 'Close multiple shipments (generate manifests) for MPL - dev endpoint',
-      tags: ['MPL', 'Dev'],
-      summary: 'Close shipments (batch)',
+      description: 'Generate a delivery note (bill of delivery) PDF for a batch of Foxpost parcels - dev endpoint',
+      tags: ['Foxpost', 'Dev'],
+      summary: 'Close shipments (generate delivery note)',
       body: {
         type: 'object',
-        required: ['credentials', 'trackingNumbers'],
+        required: ['trackingNumbers', 'credentials', 'options'],
         properties: {
-          trackingNumbers: { type: 'array', items: { type: 'string' }, minItems: 1 },
-          credentials: MPL_CREDENTIALS_SCHEMA,
+          trackingNumbers: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            description: 'Foxpost parcel barcodes (clFoxCodes) to include in the delivery note',
+          },
+          credentials: FOXPOST_CREDENTIALS_SCHEMA,
           options: {
             type: 'object',
+            required: ['foxpost'],
             properties: {
               useTestApi: { type: 'boolean' },
-              mpl: {
+              foxpost: {
                 type: 'object',
+                required: ['sender'],
                 properties: {
-                  accountingCode: { type: 'string' },
+                  sender: { type: 'string', description: 'Sender account id used to look up parcels' },
                 },
-                required: ['accountingCode'],
               },
             },
           },
         },
+        examples: [
+          {
+            trackingNumbers: ['CLFOX0000000001', 'CLFOX0000000002'],
+            credentials: EXAMPLE_CREDENTIALS,
+            options: { useTestApi: true, foxpost: { sender: 'my-sender-account' } },
+          },
+        ],
       },
       response: {
         200: {
@@ -93,13 +106,9 @@ export async function registerCloseShipmentsRoute(fastify: FastifyInstance, adap
       try {
         const { trackingNumbers, credentials, options } = request.body as any;
 
-        const closeReq = {
-          trackingNumbers,
-          credentials,
-          options,
-        } as any;
+        const closeReq = { trackingNumbers, credentials, options } as any;
 
-        const validated = safeValidateCloseShipmentsRequest({ trackingNumbers, credentials, options });
+        const validated = safeValidateCloseShipmentsRequest(closeReq);
         if (!validated.success) {
           return reply.status(400).send({
             message: `Validation error: ${validated.error.message}`,
@@ -123,11 +132,7 @@ export async function registerCloseShipmentsRoute(fastify: FastifyInstance, adap
           },
         };
 
-        if (typeof (adapter as any).closeShipments !== 'function') {
-          return reply.status(501).send({ message: 'Adapter does not implement closeShipments', category: 'NotImplemented' });
-        }
-
-        const result: any = await (adapter as any).closeShipments(closeReq, ctx);
+        const result = await adapter.closeShipments(closeReq, ctx);
 
         return reply.status(200).send(formatLabelResponseForHttp(result));
       } catch (error) {

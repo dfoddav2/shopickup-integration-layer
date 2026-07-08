@@ -1,12 +1,16 @@
 {
+  "trackingNumbers": [
+    "CLFOX178354025669889"
+  ],
   "credentials": {
     "apiKey": "FOXPOST_API_KEY",
     "basicUsername": "FOXPOST_BASIC_USERNAME",
     "basicPassword": "FOXPOST_BASIC_PASSWORD"
   },
-  "parcelCarrierId": "CLFOX178354025669889",
   "options": {
     "useTestApi": true,
-    "size": "A7"
+    "foxpost": {
+      "sender": "FOXPOST_SENDER"
+    }
   }
 }

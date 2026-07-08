@@ -12,6 +12,7 @@ import { registerCreateLabelRoute } from './create-label.js';
 import { registerCreateLabelsRoute } from './create-labels.js';
 import { registerTrackRoute } from './track.js';
 import { registerPickupPointsRoute } from './get-pickup-points.js';
+import { registerCloseShipmentsRoute } from './close-shipments.js';
 
 /**
  * Register all Foxpost routes to the Fastify instance
@@ -23,6 +24,7 @@ import { registerPickupPointsRoute } from './get-pickup-points.js';
  * - POST /api/dev/foxpost/create-labels (batch labels)
  * - POST /api/dev/foxpost/track (tracking)
  * - GET /api/dev/foxpost/pickup-points (fetch APM list)
+ * - POST /api/dev/foxpost/close-shipments (generate delivery note PDF)
  * 
  * ### Example: Using Adapter Wrappers for Cross-Cutting Concerns
  * 
@@ -88,6 +90,7 @@ export async function registerFoxpostRoutes(fastify: FastifyInstance) {
   await registerCreateLabelsRoute(fastify, adapter as any);
   await registerTrackRoute(fastify, adapter as any);
   await registerPickupPointsRoute(fastify, adapter as any);
+  await registerCloseShipmentsRoute(fastify, adapter as any);
 }
 
 // Export common utilities for tests or external use

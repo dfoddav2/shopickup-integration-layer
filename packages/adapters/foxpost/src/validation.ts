@@ -1169,3 +1169,53 @@ export type FoxpostBatchTrackingResponse = z.infer<typeof FoxpostBatchTrackingRe
 export function safeValidateBatchTrackingResponse(res: unknown) {
   return FoxpostBatchTrackingResponseSchema.safeParse(res);
 }
+
+// ============================================================================
+// Close Shipments Schemas (from OpenAPI /api/label/deliveryNote)
+// ============================================================================
+
+/**
+ * BillOfDeliveryData schema (from OpenAPI components/schemas/BillOfDeliveryData)
+ * Request body for POST /api/label/deliveryNote
+ *
+ * `sender` identifies the sender account (Foxpost derives which sender's parcels
+ * to include in the delivery note); `clFoxCodes` are the parcel barcodes to close.
+ */
+const CloseShipmentsOptionsSchema = z.object({
+  useTestApi: z.boolean().optional(),
+}).catchall(z.unknown());
+
+export const CloseShipmentsRequestFoxpostSchema = z.object({
+  trackingNumbers: z.array(z.string().min(1)).min(1, 'At least one tracking number is required'),
+  credentials: FoxpostCredentialsSchema,
+  options: CloseShipmentsOptionsSchema.extend({
+    foxpost: z.object({
+      sender: z.string().min(1, 'Sender is required'),
+    }),
+  }).optional(),
+}).superRefine((req, ctx) => {
+  if (!req.options?.foxpost?.sender) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['options', 'foxpost', 'sender'],
+      message: 'options.foxpost.sender is required to close shipments',
+    });
+  }
+});
+
+export type CloseShipmentsRequestFoxpost = z.infer<typeof CloseShipmentsRequestFoxpostSchema>;
+
+/**
+ * Helper to safely validate a CloseShipmentsRequest without throwing
+ * Returns { success: true, data } or { success: false, error }
+ */
+export function safeValidateCloseShipmentsRequest(req: unknown) {
+  return CloseShipmentsRequestFoxpostSchema.safeParse(req);
+}
+
+/**
+ * PDF binary raw response validation for delivery note (reuses label PDF validation logic)
+ */
+export function safeValidateFoxpostDeliveryNotePdfRaw(raw: unknown) {
+  return FoxpostLabelPdfRawSchema.safeParse(raw);
+}

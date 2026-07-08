@@ -54,8 +54,22 @@ If you want the CLI to exchange API key/secret for OAuth first, add `--exchange-
 
   pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.create-parcels --args examples/functions/fixtures/mpl/create-parcels.json --exchange-first
 
+Close shipments and save manifest PDFs
+---------------------------------------
+
+`close-shipments` generates carrier manifest/delivery-note PDFs, exposed via the response's `files` array (same shape as label PDFs). Pass `--save-label` to write them to disk next to the function file. When a result has multiple files (e.g. MPL can return delivery note + posting list + pallet posting list), each is saved separately with a `.<documentType>.pdf` suffix; a single file is saved as plain `.pdf`.
+
+  pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.close-shipments \
+    --args examples/functions/fixtures/mpl/close-shipments.json --mock --save-label
+
+  pnpm dlx ts-node ./examples/functions/cli.ts -- --run foxpost.close-shipments \
+    --args examples/functions/fixtures/foxpost/close-shipments.json --mock --save-label
+
+Foxpost's `close-shipments` requires a sender account id via `options.foxpost.sender` (or `FOXPOST_SENDER` in env).
+
 Notes
 -----
 
 - `--mock` and `USE_MOCK_HTTP_CLIENT=1` are equivalent; pick whichever you prefer.
 - `--full-logs` or `FULL_LOGS=1` disable truncation and show full response payloads — handy for development, but avoid in CI where logs should be concise.
+- `--save-label` works for `create-label`, `create-labels`, `print-label`, `print-labels`, and `close-shipments`; it extracts binary PDF (or ZPL) bytes from the result's `files`/`file`/`rawBytes` fields and writes them next to the function's source file.

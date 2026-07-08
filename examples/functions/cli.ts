@@ -33,7 +33,7 @@ function getFlagValue(argv: string[], flagNames: string[]): string | undefined {
 
 function isLabelExampleFunction(functionId: string): boolean {
   const operation = functionId.split('.')[1] || '';
-  return ['create-label', 'create-labels', 'print-label', 'print-labels'].includes(operation);
+  return ['create-label', 'create-labels', 'print-label', 'print-labels', 'close-shipments', 'close'].includes(operation);
 }
 
 function resolveLabelOutputExtension(result: unknown): string {
@@ -146,13 +146,47 @@ function extractLabelBytes(value: unknown, seen = new WeakSet<object>()): Buffer
   return undefined;
 }
 
-function saveLabelOutput(result: unknown, outputPath: string): { saved: boolean; byteLength?: number } {
-  const bytes = extractLabelBytes(result);
+function extractNamedFileEntries(result: unknown): Array<{ suffix: string; bytes: Buffer }> {
+  const record = result as Record<string, unknown> | undefined;
+  const files = Array.isArray(record?.files) ? (record?.files as Array<Record<string, unknown>>) : [];
+  if (files.length === 0) return [];
+
+  const entries: Array<{ suffix: string; bytes: Buffer }> = [];
+  files.forEach((file, idx) => {
+    const bytes = extractLabelBytes(file);
+    if (!bytes) return;
+    const metadata = (typeof file?.metadata === 'object' && file?.metadata ? file.metadata : {}) as Record<string, unknown>;
+    const documentType = typeof metadata.documentType === 'string' ? metadata.documentType : undefined;
+    const suffix = documentType || (typeof file.id === 'string' ? file.id : String(idx));
+    entries.push({ suffix, bytes });
+  });
+  return entries;
+}
+
+function saveLabelOutput(result: unknown, outputPath: string): { saved: boolean; byteLength?: number; savedPaths?: string[] } {
+  const namedFiles = extractNamedFileEntries(result);
+
+  if (namedFiles.length > 1) {
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    const ext = path.extname(outputPath);
+    const base = outputPath.slice(0, -ext.length || undefined);
+    const savedPaths: string[] = [];
+    let totalBytes = 0;
+    for (const { suffix, bytes } of namedFiles) {
+      const filePath = `${base}.${suffix}${ext}`;
+      fs.writeFileSync(filePath, bytes);
+      savedPaths.push(filePath);
+      totalBytes += bytes.length;
+    }
+    return { saved: true, byteLength: totalBytes, savedPaths };
+  }
+
+  const bytes = namedFiles.length === 1 ? namedFiles[0].bytes : extractLabelBytes(result);
   if (!bytes) return { saved: false };
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, bytes);
-  return { saved: true, byteLength: bytes.length };
+  return { saved: true, byteLength: bytes.length, savedPaths: [outputPath] };
 }
 
 function createCliOutput(logFilePath?: string) {
@@ -448,7 +482,8 @@ async function runModuleById(modules: Array<{ id: string; file: string }>, id: s
     const outputPath = deriveLabelOutputPath(path.resolve(FUNCTIONS_DIR, found.file), result);
     const saved = saveLabelOutput(result, outputPath);
     if (saved.saved) {
-      output?.log(`Saved label to ${outputPath}${saved.byteLength ? ` (${saved.byteLength} bytes)` : ''}`);
+      const paths = saved.savedPaths && saved.savedPaths.length > 1 ? saved.savedPaths.join(', ') : outputPath;
+      output?.log(`Saved label to ${paths}${saved.byteLength ? ` (${saved.byteLength} bytes)` : ''}`);
     } else {
       output?.warn('Label save requested but no binary PDF payload was found in the result');
     }
@@ -583,6 +618,11 @@ function applyEnvOverridesToArgs(args: any, carrier?: string, output?: CliOutput
     if (env.MPL_AGREEMENT_CODE) args.options.mpl.agreementCode = env.MPL_AGREEMENT_CODE;
     if (env.MPL_MEGALLAPODASKOD) args.options.mpl.agreementCode = env.MPL_MEGALLAPODASKOD;
     if (env.MPL_BANK_ACCOUNT_NUMBER) args.options.mpl.bankAccountNumber = env.MPL_BANK_ACCOUNT_NUMBER;
+  } else if (carrier === 'foxpost') {
+    if (env.FOXPOST_SENDER) {
+      args.options.foxpost = args.options.foxpost || {};
+      args.options.foxpost.sender = env.FOXPOST_SENDER;
+    }
   } else if (carrier === 'gls') {
     args.options.gls = args.options.gls || {};
   }
@@ -608,6 +648,7 @@ function applyEnvOverridesToArgs(args: any, carrier?: string, output?: CliOutput
     if (env.FOXPOST_API_KEY && args.credentials?.apiKey) { applied.push('FOXPOST_API_KEY'); masked.push(`FOXPOST_API_KEY=${mask(env.FOXPOST_API_KEY)}`); }
     if (env.FOXPOST_BASIC_USERNAME && args.credentials?.basicUsername) { applied.push('FOXPOST_BASIC_USERNAME'); masked.push(`FOXPOST_BASIC_USERNAME=${mask(env.FOXPOST_BASIC_USERNAME)}`); }
     if (env.FOXPOST_BASIC_PASSWORD && args.credentials?.basicPassword) { applied.push('FOXPOST_BASIC_PASSWORD'); masked.push(`FOXPOST_BASIC_PASSWORD=${mask(env.FOXPOST_BASIC_PASSWORD)}`); }
+    if (env.FOXPOST_SENDER && args.options?.foxpost?.sender) { applied.push('FOXPOST_SENDER'); masked.push(`FOXPOST_SENDER=${mask(env.FOXPOST_SENDER)}`); }
   } else if (carrier === 'gls') {
     if (env.GLS_USERNAME && args.credentials?.username) { applied.push('GLS_USERNAME'); masked.push(`GLS_USERNAME=${mask(env.GLS_USERNAME)}`); }
     if (env.GLS_PASSWORD && args.credentials?.password) { applied.push('GLS_PASSWORD'); masked.push(`GLS_PASSWORD=${mask(env.GLS_PASSWORD)}`); }
@@ -646,6 +687,7 @@ async function main() {
       if (process.env.FOXPOST_API_KEY) present.push(`FOXPOST_API_KEY=${mask(process.env.FOXPOST_API_KEY)}`);
       if (process.env.FOXPOST_BASIC_USERNAME) present.push(`FOXPOST_BASIC_USERNAME=${mask(process.env.FOXPOST_BASIC_USERNAME)}`);
       if (process.env.FOXPOST_BASIC_PASSWORD) present.push(`FOXPOST_BASIC_PASSWORD=${mask(process.env.FOXPOST_BASIC_PASSWORD)}`);
+      if (process.env.FOXPOST_SENDER) present.push(`FOXPOST_SENDER=${mask(process.env.FOXPOST_SENDER)}`);
       if (process.env.GLS_USERNAME) present.push(`GLS_USERNAME=${mask(process.env.GLS_USERNAME)}`);
       if (process.env.GLS_PASSWORD) present.push(`GLS_PASSWORD=${mask(process.env.GLS_PASSWORD)}`);
       if (process.env.GLS_CLIENT_ID) present.push(`GLS_CLIENT_ID=${mask(process.env.GLS_CLIENT_ID)}`);

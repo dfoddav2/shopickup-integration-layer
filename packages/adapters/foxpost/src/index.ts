@@ -26,6 +26,8 @@ import type {
   CreateReturnsRequest,
   BatchTrackingRequest,
   BatchTrackingResponse,
+  CloseShipmentsRequest,
+  CloseShipmentsResponse,
 } from "@shopickup/core";
 import { Capabilities, CarrierError, NotImplementedError } from "@shopickup/core";
 import {
@@ -39,6 +41,7 @@ import {
   createReturn as createReturnImpl,
   createReturns as createReturnsImpl,
   batchTrack as batchTrackImpl,
+  closeShipments as closeShipmentsImpl,
 } from './capabilities/index.js';
 import { createResolveBaseUrl, type ResolveBaseUrl } from './utils/resolveBaseUrl.js';
 import type {
@@ -50,6 +53,7 @@ import type {
   CreateReturnRequestFoxpost,
   CreateReturnsRequestFoxpost,
   BatchTrackingRequestFoxpost,
+  CloseShipmentsRequestFoxpost,
 } from './validation.js';
 
 /**
@@ -91,6 +95,7 @@ export class FoxpostAdapter implements CarrierAdapter {
     Capabilities.CREATE_RETURN,
     Capabilities.CREATE_RETURNS,
     Capabilities.BATCH_TRACK,
+    Capabilities.CLOSE_SHIPMENT,
   ];
 
   // Foxpost doesn't require close before label
@@ -286,6 +291,29 @@ export class FoxpostAdapter implements CarrierAdapter {
     ctx: AdapterContext
   ): Promise<BatchTrackingResponse> {
     return batchTrackImpl(req, ctx, this.resolveBaseUrl);
+  }
+
+  /**
+   * Generate a delivery note (bill of delivery) PDF covering a batch of parcels.
+   *
+   * Foxpost has no separate shipment-closing step; this maps CLOSE_SHIPMENT to
+   * POST /api/label/deliveryNote, which returns a single manifest-style PDF for
+   * all requested parcel barcodes. Pass the sender account id via
+   * options.foxpost.sender.
+   *
+   * @param req CloseShipmentsRequest with trackingNumbers (barcodes)
+   * @param ctx AdapterContext with HTTP client and logger
+   * @returns CloseShipmentsResponse with a single delivery note file shared by all results
+   */
+  async closeShipments(
+    req: CloseShipmentsRequestFoxpost,
+    ctx: AdapterContext
+  ): Promise<CloseShipmentsResponse>;
+  async closeShipments(
+    req: CloseShipmentsRequest,
+    ctx: AdapterContext
+  ): Promise<CloseShipmentsResponse> {
+    return closeShipmentsImpl(req, ctx, this.resolveBaseUrl);
   }
 
   /**

@@ -14,6 +14,10 @@ function toBase64PdfStub() {
   return Buffer.from('%PDF-1.4\n% mock pdf\n').toString('base64');
 }
 
+function toPdfBufferStub() {
+  return Buffer.from('%PDF-1.4\n% mock pdf\n');
+}
+
 function asNumber(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -112,6 +116,28 @@ function handleGlsPost(url, data) {
     ]);
   }
 
+  if (url.includes('/shipments/close')) {
+    const trackingNumbers = data?.trackingNumbers || [];
+    return makeResponse(200, [
+      {
+        dispatchId: 'mock-dispatch-1',
+        manifest: toBase64PdfStub(),
+        manifestSUM: toBase64PdfStub(),
+        trackingNrPrices: trackingNumbers.map((trackingNumber) => ({ trackingNumber, price: 0 })),
+        errors: null,
+        warnings: null,
+      },
+    ]);
+  }
+
+  return null;
+}
+
+function handleFoxpostPost(url) {
+  if (url.includes('/api/label/deliveryNote')) {
+    return makeResponse(200, toPdfBufferStub());
+  }
+
   return null;
 }
 
@@ -164,6 +190,8 @@ export function createMockHttpClient() {
       logRequest('post', url, data);
       const glsResponse = handleGlsPost(url, data);
       if (glsResponse) return glsResponse;
+      const foxpostResponse = handleFoxpostPost(url);
+      if (foxpostResponse) return foxpostResponse;
       return makeResponse(201, { url, method: 'POST', ok: true, data });
     },
     async put(url, data, _config) {

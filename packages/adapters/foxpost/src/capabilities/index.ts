@@ -10,3 +10,4 @@ export { fetchPickupPoints } from './pickup-points.js';
 export { deleteParcel } from './delete-parcel.js';
 export { createReturn, createReturns } from './return.js';
 export { batchTrack } from './batch-track.js';
+export { closeShipments } from './close.js';

@@ -2,7 +2,7 @@ import type { AdapterContext, CarrierResource } from '@shopickup/core';
 import type { CreateParcelRequestFoxpost } from '@shopickup/adapters-foxpost/validation';
 
 // Quick test call:
-// pnpm dlx ts-node ./examples/functions/cli.ts -- --run foxpost.create-parcel --args examples/functions/fixtures/foxpost/create-parcel.json --full-logs
+// pnpm dlx ts-node ./examples/functions/cli.ts -- --run foxpost.create-parcel --args examples/functions/fixtures/foxpost/create-parcel-home.json --full-logs
 
 export const meta = {
   id: 'foxpost.create-parcel',

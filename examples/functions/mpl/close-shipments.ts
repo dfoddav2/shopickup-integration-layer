@@ -1,12 +1,16 @@
-import type { AdapterContext, CloseShipmentResult } from '@shopickup/core';
+import type { AdapterContext, CloseShipmentsResponse } from '@shopickup/core';
 import type { CloseShipmentsMPLRequest } from '@shopickup/adapters-mpl/validation';
 
 // Quick test call:
-// pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.close-shipments --args examples/functions/fixtures/mpl/close-shipments.json --exchange-first --full-logs
+// pnpm dlx ts-node ./examples/functions/cli.ts -- --run mpl.close-shipments --args examples/functions/fixtures/mpl/close-shipments.json --exchange-first --full-logs --save-label
+//
+// Manifest PDFs (delivery note / posting list / pallet posting list) are exposed via
+// the response's `files` array (see CloseShipmentsResponse). Pass --save-label to
+// write each returned manifest to close-shipments.<documentType>.pdf next to this file.
 
 export const meta = {
-  id: 'mpl.close',
-  description: 'MPL: close shipments (batch)',
+  id: 'mpl.close-shipments',
+  description: 'MPL: close shipments (batch) and generate manifest PDFs',
 };
 
 export async function run(args: CloseShipmentsMPLRequest, ctx: { adapterContext: AdapterContext }) {
@@ -26,5 +30,5 @@ export async function run(args: CloseShipmentsMPLRequest, ctx: { adapterContext:
   }
 
   const res = await adapter.closeShipments(req, adapterCtx);
-  return res as CloseShipmentResult;
+  return res as CloseShipmentsResponse;
 }
