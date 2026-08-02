@@ -267,6 +267,48 @@ export const FOXPOST_STATUS_MAP: Record<string, FoxpostStatusMapping> = {
     human_hu: "Házhoz szállításra előkészítve",
     type: "technical",
   },
+
+  // === Packeta Network (External) Operations ===
+  EXTPICKUP: {
+    canonical: "IN_TRANSIT",
+    human_en: "Arrived at Packeta warehouse",
+    human_hu: "Megérkezett a Packeta raktárba",
+    type: "facility",
+  },
+  EXTOPERIN: {
+    canonical: "IN_TRANSIT",
+    human_en: "Arrived at locker",
+    human_hu: "Automatában megérkezett",
+    type: "locker",
+  },
+  EXTRETURN: {
+    canonical: "RETURNED",
+    human_en: "Returned to sender (Packeta network)",
+    human_hu: "Visszaküldésre került (Packeta hálózat)",
+    type: "facility",
+  },
+
+  // === Return Courier Handoff ===
+  RETURNCOURIER: {
+    canonical: "IN_TRANSIT",
+    human_en: "Returned parcel with courier, en route to sender",
+    human_hu: "Visszaküldött csomag a futárnál",
+    type: "courier",
+  },
+  RETURNDELIVERED: {
+    canonical: "DELIVERED",
+    human_en: "Returned parcel received by sender",
+    human_hu: "Visszaküldött csomag átvéve",
+    type: "facility",
+  },
+
+  // === Terminal Failure ===
+  DESTROYED: {
+    canonical: "EXCEPTION",
+    human_en: "Parcel destroyed",
+    human_hu: "Csomag megsemmisítve",
+    type: "technical",
+  },
 };
 
 /**

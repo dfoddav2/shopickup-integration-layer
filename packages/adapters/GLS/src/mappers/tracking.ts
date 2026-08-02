@@ -53,7 +53,7 @@ const GLS_STATUS_MAPPING: Record<string, TrackingStatus> = {
   '21': 'EXCEPTION', // Forwarded sorting error
   '22': 'IN_TRANSIT', // Sent from depot to sorting center
   '23': 'RETURNED', // Returned to sender
-  '24': 'EXCEPTION', // Delivery option changed
+  '24': 'IN_TRANSIT', // Delivery option change saved and will be implemented as requested (confirmation, not a problem)
   '25': 'EXCEPTION', // Forwarded misrouted
   '26': 'IN_TRANSIT', // Reached parcel center
   '27': 'IN_TRANSIT', // Reached parcel center
@@ -64,9 +64,9 @@ const GLS_STATUS_MAPPING: Record<string, TrackingStatus> = {
   '32': 'OUT_FOR_DELIVERY', // Will be delivered in the evening
   '33': 'EXCEPTION', // Delivery attempted - exceeded time frame
   '34': 'EXCEPTION', // Refused acceptance due to delayed delivery
-  '35': 'DELIVERED', // Delivered (parcel was refused because goods not ordered)
+  '35': 'RETURNED', // Refused because the goods was not ordered (a refusal, not a successful delivery — leads to a return)
   '36': 'EXCEPTION', // Consignee was not in, contact card couldn't be left
-  '37': 'EXCEPTION', // Change delivery for shipper's request
+  '37': 'IN_TRANSIT', // Change delivery for shipper's request (confirmation, not a problem)
   '38': 'EXCEPTION', // Could not be delivered due to missing delivery note
   '39': 'EXCEPTION', // Delivery note not signed
   '40': 'RETURNED', // Returned to sender
@@ -74,7 +74,7 @@ const GLS_STATUS_MAPPING: Record<string, TrackingStatus> = {
   '42': 'EXCEPTION', // Disposed upon shipper's request
   '43': 'EXCEPTION', // Parcel is not locatable
   '44': 'EXCEPTION', // Parcel excluded from General Terms and Conditions
-  '46': 'EXCEPTION', // Change completed for delivery address
+  '46': 'IN_TRANSIT', // Change completed for delivery address (confirmation, not a problem)
   '47': 'IN_TRANSIT', // Left the parcel center
   '51': 'PENDING', // Parcel data entered into GLS IT system; not yet handed over
   '52': 'PENDING', // COD data entered into GLS IT system
@@ -88,8 +88,8 @@ const GLS_STATUS_MAPPING: Record<string, TrackingStatus> = {
   '60': 'EXCEPTION', // Customs clearance delayed - missing invoice
   '61': 'EXCEPTION', // Customs documents being prepared
   '62': 'EXCEPTION', // Customs clearance delayed - missing phone number
-  '64': 'EXCEPTION', // Released by customs
-  '65': 'EXCEPTION', // Released by customs (clearance by consignee)
+  '64': 'IN_TRANSIT', // Released by customs (resolution, not an ongoing problem)
+  '65': 'IN_TRANSIT', // Released by customs, clearance by consignee (resolution, not an ongoing problem)
   '66': 'EXCEPTION', // Customs clearance delayed - awaiting approval
   '67': 'EXCEPTION', // Customs documents being prepared
   '68': 'EXCEPTION', // Could not be delivered - consignee refused to pay
@@ -100,7 +100,7 @@ const GLS_STATUS_MAPPING: Record<string, TrackingStatus> = {
   '73': 'EXCEPTION', // Customs parcel locked in origin country
   '74': 'EXCEPTION', // Customs clearance delayed - customs inspection
   '75': 'EXCEPTION', // Confiscated by customs authorities
-  '76': 'EXCEPTION', // Customs data recorded, parcel can be sent to final location
+  '76': 'IN_TRANSIT', // Customs data recorded, parcel can be sent to final location (resolution, not an ongoing problem)
   '80': 'IN_TRANSIT', // Forwarded to desired address for delivery
   '83': 'PENDING', // Pickup-service data entered into GLS system
   '84': 'PENDING', // Label for pickup produced

@@ -94,9 +94,23 @@ export interface PickupPoint {
   longitude?: number;
 
   /**
-   * Opening hours information
-   * Can be a free-form string or structured object
-   * For Foxpost: typically an object with day keys (hetfo, kedd, etc.) and time ranges
+   * Opening hours information.
+   *
+   * Recommended canonical format (see `buildOpeningHours` in `@shopickup/core`):
+   *
+   * ```ts
+   * {
+   *   Monday:   "08:00 - 18:00",
+   *   Saturday: "09:00 - 14:00, 15:00 - 18:00", // split shift / lunch break
+   *   // closed days omitted
+   * }
+   * ```
+   *
+   * - Keys: full English weekday names (`Monday`..`Sunday`)
+   * - Values: 24-hour `"HH:MM - HH:MM"` intervals, multiple joined with `", "`
+   * - Closed days omitted; `undefined` when nothing is open
+   *
+   * The raw carrier representation is preserved in `metadata` and `raw`.
    */
   openingHours?: string | Record<string, any>;
 

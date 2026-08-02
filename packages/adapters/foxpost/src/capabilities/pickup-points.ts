@@ -15,13 +15,48 @@ import type {
   AdapterContext,
   CarrierError as CarrierErrorType,
 } from "@shopickup/core";
-import { CarrierError, safeLog, createLogEntry } from "@shopickup/core";
+import {
+  CarrierError,
+  safeLog,
+  createLogEntry,
+  buildOpeningHours,
+  normalizeHungarianDayName,
+  normalizeTimeRange,
+} from "@shopickup/core";
 import {
   safeValidateFetchPickupPointsRequest,
   safeValidateFoxpostApmEntry,
   type FoxpostApmEntry,
   type FoxpostApmMetadata,
+  type FoxpostOpeningHours,
 } from "../validation.js";
+
+/**
+ * Normalize Foxpost opening hours (Hungarian day keys, free-form time ranges)
+ * into the canonical English-day format shared across carriers.
+ *
+ * Raw carrier shape remains available via `raw.open` on the pickup point.
+ */
+function normalizeFoxpostOpeningHours(
+  open: FoxpostOpeningHours | undefined
+): Record<string, string> | undefined {
+  if (!open) return undefined;
+
+  const entries: Record<string, Array<{ from: string; to: string }>> = {};
+
+  for (const [day, value] of Object.entries(open)) {
+    if (typeof value !== 'string' || !value) continue;
+    const dayName = normalizeHungarianDayName(day);
+    if (!dayName) continue;
+
+    const range = normalizeTimeRange(value);
+    if (!range) continue;
+
+    entries[dayName] = [{ from: range.from, to: range.to }];
+  }
+
+  return buildOpeningHours(entries);
+}
 
 /**
  * Normalize a Foxpost APM entry to canonical PickupPoint
@@ -122,7 +157,7 @@ function mapFoxpostApmToPickupPoint(apm: FoxpostApmEntry): PickupPoint {
     findme: apm.findme,
     latitude,
     longitude,
-    openingHours: apm.open,
+    openingHours: normalizeFoxpostOpeningHours(apm.open),
     dropoffAllowed,
     pickupAllowed,
     isOutdoor: apm.isOutdoor,

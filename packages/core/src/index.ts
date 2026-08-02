@@ -25,6 +25,14 @@ export { createFetchHttpClient } from './http/fetch-client.js';
 // Utilities
 export { serializeForLog, truncateString, sanitizeHeadersForLog, errorToLog } from './utils/index.js';
 export {
+  WEEKDAY_NAMES,
+  formatOpenInterval,
+  buildOpeningHours,
+  normalizeHungarianDayName,
+  normalizeTimeRange,
+} from './utils/opening-hours.js';
+export type { WeekdayName } from './utils/opening-hours.js';
+export {
   isSilentOperation,
   getLoggingOptions,
   truncateForLogging,

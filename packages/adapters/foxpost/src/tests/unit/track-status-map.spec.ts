@@ -56,6 +56,38 @@ describe('Foxpost Status Mapping', () => {
       const result = mapFoxpostStatusCode('FOOBAR');
       expect(result.canonical).toBe('PENDING');
     });
+
+    it('should map EXTOPERIN to IN_TRANSIT, matching OPERIN (Packeta-network pickup-ready)', () => {
+      const extResult = mapFoxpostStatusCode('EXTOPERIN');
+      const nativeResult = mapFoxpostStatusCode('OPERIN');
+      expect(extResult.canonical).toBe('IN_TRANSIT');
+      expect(extResult.canonical).toBe(nativeResult.canonical);
+    });
+
+    it('should map EXTPICKUP to IN_TRANSIT', () => {
+      const result = mapFoxpostStatusCode('EXTPICKUP');
+      expect(result.canonical).toBe('IN_TRANSIT');
+    });
+
+    it('should map EXTRETURN to RETURNED', () => {
+      const result = mapFoxpostStatusCode('EXTRETURN');
+      expect(result.canonical).toBe('RETURNED');
+    });
+
+    it('should map RETURNCOURIER to IN_TRANSIT', () => {
+      const result = mapFoxpostStatusCode('RETURNCOURIER');
+      expect(result.canonical).toBe('IN_TRANSIT');
+    });
+
+    it('should map RETURNDELIVERED to DELIVERED', () => {
+      const result = mapFoxpostStatusCode('RETURNDELIVERED');
+      expect(result.canonical).toBe('DELIVERED');
+    });
+
+    it('should map DESTROYED to EXCEPTION', () => {
+      const result = mapFoxpostStatusCode('DESTROYED');
+      expect(result.canonical).toBe('EXCEPTION');
+    });
   });
 
   // === Human-Readable Description Tests ===
@@ -133,6 +165,11 @@ describe('Foxpost Status Mapping', () => {
         'HDCOURIER', 'HDUNDELIVERABLE', 'PREPAREDFORPD', 'INWAREHOUSE',
         'COLLECTSENT', 'C2BIN', 'RETURNED', 'COLLECTED', 'BACKLOGINFULL',
         'BACKLOGINFAIL', 'MISSORT', 'EMPTYSLOT', 'RESENT', 'PREREDIRECT',
+        // Packeta network + return-courier + terminal-failure codes, present
+        // in the official Foxpost API §5 status table but previously
+        // missing from both FOXPOST_STATUS_MAP and this expected-codes list.
+        'RETURNCOURIER', 'RETURNDELIVERED', 'DESTROYED',
+        'EXTPICKUP', 'EXTOPERIN', 'EXTRETURN',
       ];
 
       expectedCodes.forEach(code => {

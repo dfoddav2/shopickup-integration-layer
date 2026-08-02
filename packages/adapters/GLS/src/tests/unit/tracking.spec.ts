@@ -117,6 +117,87 @@ describe('GLS Tracking Mapper', () => {
       expect(event.carrierStatusCode).toBe('23');
     });
 
+    it('should map status code 8 (ready for self-collection) to OUT_FOR_DELIVERY', () => {
+      const glsStatus: GLSParcelStatus = {
+        statusCode: '8',
+        statusDate: '2024-01-17T09:00:00Z',
+        statusDescription: 'Ready for self-collection',
+        depotCity: 'Budapest',
+        depotNumber: '0001',
+      };
+
+      const event = mapGLSStatusToTrackingEvent(glsStatus);
+
+      expect(event.status).toBe('OUT_FOR_DELIVERY');
+      expect(event.carrierStatusCode).toBe('8');
+    });
+
+    it('should map status code 35 (refused, goods not ordered) to RETURNED, not DELIVERED (regression)', () => {
+      const glsStatus: GLSParcelStatus = {
+        statusCode: '35',
+        statusDate: '2024-01-18T12:00:00Z',
+        statusDescription: 'Parcel was refused because the goods was not ordered',
+        depotCity: 'Budapest',
+        depotNumber: '0001',
+      };
+
+      const event = mapGLSStatusToTrackingEvent(glsStatus);
+
+      expect(event.status).toBe('RETURNED');
+      expect(event.carrierStatusCode).toBe('35');
+    });
+
+    it('should map delivery-option-change confirmation codes (24, 37, 46) to IN_TRANSIT, not EXCEPTION (regression)', () => {
+      const confirmationCodes = ['24', '37', '46'];
+
+      for (const code of confirmationCodes) {
+        const glsStatus: GLSParcelStatus = {
+          statusCode: code,
+          statusDate: '2024-01-16T11:00:00Z',
+          statusDescription: 'Delivery option change confirmed',
+          depotCity: 'Budapest',
+          depotNumber: '0001',
+        };
+
+        const event = mapGLSStatusToTrackingEvent(glsStatus);
+        expect(event.status).toBe('IN_TRANSIT');
+      }
+    });
+
+    it('should map customs-released codes (64, 65, 76) to IN_TRANSIT, not EXCEPTION (regression)', () => {
+      const customsReleasedCodes = ['64', '65', '76'];
+
+      for (const code of customsReleasedCodes) {
+        const glsStatus: GLSParcelStatus = {
+          statusCode: code,
+          statusDate: '2024-01-16T13:00:00Z',
+          statusDescription: 'Released by customs',
+          depotCity: 'Budapest',
+          depotNumber: '0001',
+        };
+
+        const event = mapGLSStatusToTrackingEvent(glsStatus);
+        expect(event.status).toBe('IN_TRANSIT');
+      }
+    });
+
+    it('should keep other customs-pipeline delay codes (60-75, excluding 64/65/76) as EXCEPTION', () => {
+      const stillExceptionCodes = ['60', '61', '62', '66', '67', '70', '71', '72', '73', '74', '75'];
+
+      for (const code of stillExceptionCodes) {
+        const glsStatus: GLSParcelStatus = {
+          statusCode: code,
+          statusDate: '2024-01-16T13:00:00Z',
+          statusDescription: 'Customs pipeline event',
+          depotCity: 'Budapest',
+          depotNumber: '0001',
+        };
+
+        const event = mapGLSStatusToTrackingEvent(glsStatus);
+        expect(event.status).toBe('EXCEPTION');
+      }
+    });
+
     it('should default to PENDING for unknown status codes', () => {
       const glsStatus: GLSParcelStatus = {
         statusCode: '999',

@@ -152,24 +152,24 @@ describe('GLS Adapter - Mapper', () => {
        expect(point.openingHours).toBeUndefined();
      });
 
-     it('should handle lunch break tuples (4+ elements)', () => {
-       const withLunchBreak: GLSDeliveryPoint = {
-         ...mockGLSDeliveryPoint,
-         hours: [
-           [1, '09:00', '18:00', '12:00', '12:30'], // Monday with lunch break
-           [2, '09:00', '18:00', '12:00', '12:30'],
-         ] as any,
-       };
+      it('should handle lunch break tuples (4+ elements)', () => {
+        const withLunchBreak: GLSDeliveryPoint = {
+          ...mockGLSDeliveryPoint,
+          hours: [
+            [1, '09:00', '18:00', '12:00', '12:30'], // Monday with lunch break
+            [2, '09:00', '18:00', '12:00', '12:30'],
+          ] as any,
+        };
 
-       const point = mapGLSDeliveryPointToPickupPoint(withLunchBreak, 'hu');
+        const point = mapGLSDeliveryPointToPickupPoint(withLunchBreak, 'hu');
 
-       // Should extract primary hours, ignoring lunch break times
-       expect(point.openingHours).toBeDefined();
-       if (point.openingHours && typeof point.openingHours === 'object') {
-         expect((point.openingHours as Record<string, string>).Monday).toBe('09:00 - 18:00');
-         expect((point.openingHours as Record<string, string>).Tuesday).toBe('09:00 - 18:00');
-       }
-     });
+        // Lunch breaks are represented as a split shift across the closure
+        expect(point.openingHours).toBeDefined();
+        if (point.openingHours && typeof point.openingHours === 'object') {
+          expect((point.openingHours as Record<string, string>).Monday).toBe('09:00 - 12:00, 12:30 - 18:00');
+          expect((point.openingHours as Record<string, string>).Tuesday).toBe('09:00 - 12:00, 12:30 - 18:00');
+        }
+      });
 
     it('should preserve raw data', () => {
       const point = mapGLSDeliveryPointToPickupPoint(mockGLSDeliveryPoint, 'hu');

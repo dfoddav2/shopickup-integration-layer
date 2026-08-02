@@ -255,7 +255,7 @@ describe("Foxpost Pickup Points", () => {
       expect(thirdPoint.paymentOptions).toContain("cash");
     });
 
-    it("should include opening hours", async () => {
+    it("should include opening hours in canonical English format", async () => {
       (mockHttpClient.get as any).mockResolvedValueOnce({
         status: 200,
         headers: {},
@@ -264,9 +264,16 @@ describe("Foxpost Pickup Points", () => {
 
       const result = await fetchPickupPoints({}, mockContext);
       const firstPoint = result.points[0];
+      const secondPoint = result.points[1];
 
       expect(firstPoint.openingHours).toBeDefined();
-      expect((firstPoint.openingHours as any).hetfo).toBe("00:00-24:00");
+      expect((firstPoint.openingHours as any).Monday).toBe("00:00 - 24:00");
+      expect((firstPoint.openingHours as any).vasarnap).toBeUndefined();
+
+      // Closed days (e.g. "-") are omitted; raw shape stays in raw.open
+      expect((secondPoint.openingHours as any).Sunday).toBeUndefined();
+      expect((secondPoint.openingHours as any).Saturday).toBe("07:00 - 13:00");
+      expect(secondPoint.raw.open?.vasarnap).toBe("-");
     });
 
     it("should preserve isOutdoor flag", async () => {

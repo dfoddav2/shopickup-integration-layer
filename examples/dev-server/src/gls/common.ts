@@ -63,14 +63,15 @@ export const GLS_PICKUP_POINTS_RESPONSE_SCHEMA = {
             },
             openingHours: {
               type: 'object',
-              description: 'Opening hours by day',
+              description:
+                'Opening hours by English weekday name. Values are "HH:MM - HH:MM"; multiple intervals joined with ", "; closed days omitted.',
               additionalProperties: { type: 'string' },
               example: {
                 Monday: '08:00 - 18:00',
                 Tuesday: '08:00 - 18:00',
                 Wednesday: '08:00 - 18:00',
                 Thursday: '08:00 - 18:00',
-                Friday: '08:00 - 18:00',
+                Friday: '09:00 - 12:00, 13:00 - 17:00',
                 Saturday: '09:00 - 14:00',
               },
             },

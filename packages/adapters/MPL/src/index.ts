@@ -1,12 +1,12 @@
 import { AdapterContext, Capabilities, Capability, CarrierAdapter, CarrierError, CarrierResource, CreateLabelRequest, CreateLabelResponse, CreateLabelsRequest, CreateLabelsResponse, CreateParcelRequest, CreateParcelsRequest, CreateParcelsResponse, TrackingRequest, TrackingUpdate, ShipmentDetailsRequest, ShipmentDetailsResponse, FetchPickupPointsRequest, FetchPickupPointsResponse } from '@shopickup/core';
 import { createResolveBaseUrl, createResolveOAuthUrl, createResolveTrackingUrl, ResolveBaseUrl, ResolveOAuthUrl, ResolveTrackingUrl } from './utils/resolveBaseUrl.js';
-import { fetchPickupPoints as fetchPickupPointsImpl } from './capabilities/index.js';
+import { fetchPickupPoints as fetchPickupPointsImpl, fetchDetailedPickupPoints as fetchDetailedPickupPointsImpl } from './capabilities/index.js';
 import { getShipmentDetails as getShipmentDetailsImpl } from './capabilities/get-shipment-details.js';
 import { track as trackImpl } from './capabilities/track.js';
 import { exchangeAuthToken as exchangeAuthTokenImpl } from './capabilities/auth.js';
 import { createParcel as createParcelImpl, createParcels as createParcelsImpl } from './capabilities/parcels.js';
 import { createLabel as createLabelImpl, createLabels as createLabelsImpl } from './capabilities/label.js';
-import type { CreateParcelMPLRequest, CreateParcelsMPLRequest, CreateLabelMPLRequest, CreateLabelsMPLRequest, ExchangeAuthTokenRequest, ExchangeAuthTokenResponse, FetchPickupPointsRequestMPL, CloseShipmentsMPLRequest, TrackingRequestMPL } from './validation.js';
+import type { CreateParcelMPLRequest, CreateParcelsMPLRequest, CreateLabelMPLRequest, CreateLabelsMPLRequest, ExchangeAuthTokenRequest, ExchangeAuthTokenResponse, FetchPickupPointsRequestMPL, FetchDetailedPickupPointsRequestMPL, CloseShipmentsMPLRequest, TrackingRequestMPL } from './validation.js';
 
 /**
  * MPLAdapter
@@ -21,6 +21,8 @@ import type { CreateParcelMPLRequest, CreateParcelsMPLRequest, CreateLabelMPLReq
  * - TRACK: Track parcels by barcode
  * - EXCHANGE_AUTH_TOKEN: Exchange API credentials for OAuth2 Bearer token
  * - TEST_MODE_SUPPORTED: Can switch to test API for sandbox testing
+ * - LIST_PICKUP_POINTS: Fetch pickup points via /deliveryplace (authenticated)
+ * - LIST_PICKUP_POINTS_DETAILED: Fetch detailed pickup points via PartnerExtra (public XML feed)
  * 
  * Test API:
  * - Production: 	https://core.api.posta.hu/v2/mplapi
@@ -56,6 +58,7 @@ export class MPLAdapter implements CarrierAdapter {
         Capabilities.TRACK,
         Capabilities.GET_SHIPMENT_DETAILS,
         Capabilities.CLOSE_SHIPMENT,
+        Capabilities.LIST_PICKUP_POINTS,
         Capabilities.TEST_MODE_SUPPORTED,
         Capabilities.EXCHANGE_AUTH_TOKEN,
     ];
@@ -191,6 +194,20 @@ export class MPLAdapter implements CarrierAdapter {
         ctx: AdapterContext,
     ): Promise<FetchPickupPointsResponse> {
         return fetchPickupPointsImpl(req, ctx, this.resolveBaseUrl);
+    }
+
+    /**
+     * Fetch detailed pickup points from the public PartnerExtra XML feed.
+     * 
+     * The PartnerExtra endpoint (https://httpmegosztas.posta.hu/PartnerExtra/Out/PostInfo.xml)
+     * is unauthenticated, has no test/sandbox variant, and returns richer metadata
+     * (working hours, GPS, phone, email, service point type) than /deliveryplace.
+     */
+    async fetchDetailedPickupPoints(
+        req: FetchPickupPointsRequest,
+        ctx: AdapterContext,
+    ): Promise<FetchPickupPointsResponse> {
+        return fetchDetailedPickupPointsImpl(req, ctx);
     }
 
     /**

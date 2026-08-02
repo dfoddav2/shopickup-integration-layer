@@ -54,7 +54,11 @@ function mapC43ToStatus(c43: string | undefined, c9: string | undefined): Tracki
         c9Lower.includes('sérülés') ||
         c9Lower.includes('ismeretlen') ||
         c9Lower.includes('megszűnt') ||
-        c9Lower.includes('akadályozott')
+        c9Lower.includes('akadályozott') ||
+        c9Lower.includes('elköltözött') ||
+        c9Lower.includes('hibás vagy hiányos címzés') ||
+        c9Lower.includes('nem kereste') ||
+        c9Lower.includes('megőrzésre továbbítva')
       ) {
         return 'EXCEPTION';
       }

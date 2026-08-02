@@ -303,7 +303,7 @@ This capability uses a **public unauthenticated feed**. No credentials required.
 | `cardPayment` / `cashPayment` | `paymentOptions` | ✅ | Normalized to "card", "cash" |
 | `paymentOptions` | `paymentOptions` | ✅ | Merged with card/cash |
 | `isOutdoor` | `isOutdoor` | ✅ | |
-| `open` | `openingHours` | ✅ | Hungarian day names preserved |
+| `open` | `openingHours` | ✅ | Normalized to canonical English day names (`Monday`..`Sunday`, `"HH:MM - HH:MM"`); raw Hungarian shape preserved in `raw.open` |
 | `depot`, `load`, `apmType`, `substitutes`, `variant`, `fillEmptyList`, `ssapt`, `sdapt` | `metadata` | ✅ | Carrier-specific fields |
 | Raw entry | `raw` | ✅ | Full original object preserved |
 

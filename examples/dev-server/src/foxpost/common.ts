@@ -813,11 +813,12 @@ export const BATCH_LABEL_RESPONSE_SCHEMA = {
                type: 'number',
                example: 21.716012
              },
-             openingHours: {
-               type: 'object',
-               description: 'Opening hours by day',
-               example: { hetfo: '00:00-24:00', kedd: '00:00-24:00' }
-             },
+              openingHours: {
+                type: 'object',
+                description:
+                  'Opening hours by English weekday name. Values are "HH:MM - HH:MM"; closed days omitted. Raw Hungarian shape stays in raw.open.',
+                example: { Monday: '00:00 - 24:00', Tuesday: '00:00 - 24:00' }
+              },
              dropoffAllowed: { 
                type: 'boolean',
                example: true

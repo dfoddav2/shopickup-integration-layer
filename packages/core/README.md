@@ -44,6 +44,35 @@ import { createFetchHttpClient } from '@shopickup/core/http/fetch-client';
 
 `FetchPickupPointsRequest.credentials` is optional in core. Individual adapters decide whether pickup-point lookup is public or authenticated.
 
+## Opening hours
+
+`PickupPoint.openingHours` uses a recommended canonical shape shared across adapters:
+
+```ts
+{
+  Monday:   "08:00 - 18:00",
+  Friday:   "09:00 - 12:00, 13:00 - 17:00", // split shift / lunch break
+  // closed days omitted
+}
+```
+
+- Keys: full English weekday names (`Monday`..`Sunday`).
+- Values: 24-hour `"HH:MM - HH:MM"` intervals; multiple intervals joined with `", "`.
+- Closed days are omitted; `openingHours` is `undefined` when nothing is open.
+- The raw carrier shape is preserved on the point (`metadata` / `raw`).
+
+Helpers are exported from the package root:
+
+```ts
+import {
+  buildOpeningHours,
+  normalizeTimeRange,
+  normalizeHungarianDayName,
+  formatOpenInterval,
+  WEEKDAY_NAMES,
+} from '@shopickup/core';
+```
+
 ## Status
 
 This package is early and published as `0.0.8`.

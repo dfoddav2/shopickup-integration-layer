@@ -247,6 +247,86 @@ export function isSuccessResponse(response: unknown): response is MPLPickupPoint
      return Array.isArray(response);
 }
 
+/**
+ * Schema for fetchDetailedPickupPoints request.
+ *
+ * PartnerExtra is a public, unauthenticated XML feed
+ * (https://httpmegosztas.posta.hu/PartnerExtra/Out/PostInfo.xml),
+ * so no credentials are required and no test API variant exists.
+ */
+export const FetchDetailedPickupPointsMPLOptionsSchema = z.object({}).catchall(z.unknown());
+export type FetchDetailedPickupPointsMPLOptions = z.infer<typeof FetchDetailedPickupPointsMPLOptionsSchema>;
+
+export const FetchDetailedPickupPointsMPLSchema = z.object({
+     credentials: z.record(z.string(), z.unknown()).optional(),
+     options: FetchDetailedPickupPointsMPLOptionsSchema.optional(),
+});
+
+export interface FetchDetailedPickupPointsRequestMPL {
+     credentials?: Record<string, unknown>;
+     options?: FetchDetailedPickupPointsMPLOptions;
+}
+
+/**
+ * Helper: validate fetchDetailedPickupPoints request
+ */
+export function safeValidateFetchDetailedPickupPointsRequest(input: unknown) {
+     return FetchDetailedPickupPointsMPLSchema.safeParse(input);
+}
+
+/**
+ * Single <post> entry from the PartnerExtra XML feed.
+ * Mirrors the raw XML shape parsed by fast-xml-parser (string values,
+ * attributes prefixed with @_). Repeated elements may be objects or arrays.
+ */
+export interface PartnerExtraPost {
+     ID?: string;
+     name?: string;
+     city?: string;
+     street?: {
+          name?: string;
+          type?: string;
+          houseNumber?: string;
+     };
+     gpsData?: {
+          EOVx?: string;
+          EOVy?: string;
+          WGSLat?: string;
+          WGSLon?: string;
+     };
+     phoneArea?: string;
+     workingHours?: {
+          days?: PartnerExtraWorkingHoursDay | PartnerExtraWorkingHoursDay[];
+          '@_culture'?: string;
+     };
+     description?: string;
+     email?: string;
+     ServicePointType?: string;
+     '@_isPostPoint'?: string;
+     '@_zipCode'?: string;
+     [key: string]: unknown;
+}
+
+/**
+ * Single working-hours day entry (<days>), may carry a second interval
+ * (From2/To2) in addition to the primary From1/To1.
+ */
+export interface PartnerExtraWorkingHoursDay {
+     day?: string;
+     From1?: string;
+     To1?: string;
+     From2?: string;
+     To2?: string;
+}
+
+/**
+ * Root <postInfo> element of the PartnerExtra feed.
+ */
+export interface PartnerExtraPostInfo {
+     post?: PartnerExtraPost | PartnerExtraPost[];
+     '@_timestamp'?: string;
+}
+
 // ===== SHIPMENT TYPES (CREATE_PARCEL capability) =====
 
 /**

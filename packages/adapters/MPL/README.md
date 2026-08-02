@@ -16,13 +16,41 @@ MPL adapter for Shopickup.
 - `CREATE_PARCELS`
 - `CREATE_LABEL`
 - `CREATE_LABELS`
-- `LIST_PICKUP_POINTS`
+- `LIST_PICKUP_POINTS` — pickup points via the authenticated `/deliveryplace` endpoint
+- `LIST_PICKUP_POINTS_DETAILED` — detailed pickup points via the public PartnerExtra XML feed
 - `TRACK` — single-parcel tracking via Pull-1 API (guest/registered)
 - `TRACK` — batch tracking via Pull-500 API (up to 500 items)
 - `TRACK` — registered tracking with financial data
 - OAuth/basic auth exchange helpers
 
 Pickup points are authenticated and require MPL credentials in the adapter request.
+
+### Detailed Pickup Points (PartnerExtra)
+
+`fetchDetailedPickupPoints()` fetches the full set of post offices, posta partners,
+and pickup points from MPL's **public PartnerExtra XML feed**
+(`https://httpmegosztas.posta.hu/PartnerExtra/Out/PostInfo.xml`,
+API description: <https://www.posta.hu/partnerextra>).
+
+Unlike the authenticated `/deliveryplace` endpoint:
+
+- **No credentials** — the feed is public (request `credentials`/`options` are optional)
+- **No test/sandbox variant** — only the production feed exists
+- **No filtering** — every point is returned in one response
+- **Richer metadata** — per-day working hours, WGS84 GPS coordinates (Hungarian
+  comma-decimal format), phone, email, service point type, and `isPostPoint`
+
+```ts
+const result = await adapter.fetchDetailedPickupPoints!({}, { http, logger: console });
+
+// Canonical opening hours (English day names, "HH:MM - HH:MM", shared shape
+// with GLS and Foxpost via @shopickup/core's buildOpeningHours):
+// result.points[0].openingHours → { Monday: "08:00 - 10:00", Tuesday: "08:00 - 10:00", ... }
+// Raw API working-hours shape preserved in metadata:
+// result.points[0].metadata.workingHours → [{ day: "Hétfő", From1: "08:00", To1: "10:00" }, ...]
+// result.points[0].metadata.servicePointType → "PM"
+// result.points[0].latitude / longitude → parsed from "48,028436" / "22,807174"
+```
 
 ## Install
 

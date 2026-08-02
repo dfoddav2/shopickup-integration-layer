@@ -178,12 +178,56 @@ function handleGlsGet(url) {
   return null;
 }
 
+function handleMplGet(url) {
+  if (url.includes('httpmegosztas.posta.hu/PartnerExtra/Out/PostInfo.xml')) {
+    return makeResponse(200, `<?xml version="1.0" encoding="UTF-8"?>
+<postInfo timestamp="2026-01-01T00:00:00">
+  <post isPostPoint="1" zipCode="4955">
+    <ID>107264</ID>
+    <name>Botpalád postapartner</name>
+    <city>Botpalád</city>
+    <street>
+      <name>Fő</name>
+      <type>utca</type>
+      <houseNumber>124</houseNumber>
+    </street>
+    <gpsData>
+      <EOVx>305057</EOVx>
+      <EOVy>930326</EOVy>
+      <WGSLat>48,028436</WGSLat>
+      <WGSLon>22,807174</WGSLon>
+    </gpsData>
+    <phoneArea>1-767-8272</phoneArea>
+    <workingHours culture="HU">
+      <days>
+        <day>Hétfő</day>
+        <From1>08:00</From1>
+        <To1>10:00</To1>
+      </days>
+      <days>
+        <day>Kedd</day>
+        <From1>08:00</From1>
+        <To1>10:00</To1>
+      </days>
+    </workingHours>
+    <description>N/A</description>
+    <email>uzleti.ugyfelszolgalat@posta.hu</email>
+    <ServicePointType>PM</ServicePointType>
+  </post>
+</postInfo>`);
+  }
+
+  return null;
+}
+
 export function createMockHttpClient() {
   return {
     async get(url, _config) {
       logRequest('get', url);
       const glsResponse = handleGlsGet(url);
       if (glsResponse) return glsResponse;
+      const mplResponse = handleMplGet(url);
+      if (mplResponse) return mplResponse;
       return makeResponse(200, { url, method: 'GET', ok: true });
     },
     async post(url, data, _config) {

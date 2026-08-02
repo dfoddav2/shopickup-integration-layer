@@ -5,18 +5,23 @@
  */
 
 import type { PickupPoint } from '@shopickup/core';
+import { buildOpeningHours, WEEKDAY_NAMES } from '@shopickup/core';
 import type { GLSDeliveryPoint } from '../types/index.js';
 
 // Re-export parcel mappers
 export * from './parcels.js';
 
 /**
- * Parses GLS hours array into a readable format
- * GLS hours are: [weekday (1-7, where 1=Monday, 7=Sunday), "HH:MM", "HH:MM"] or with lunch break: [weekday, from, to, lunch_start, lunch_end]
- * Some entries may have null times (closed on that day)
- * 
+ * Parses GLS hours array into the canonical opening-hours format.
+ *
+ * GLS hours tuples are `[weekday, from, to]` where weekday is 1-7
+ * (1=Monday, 7=Sunday) and times are "HH:MM". A 4+ element tuple adds a
+ * lunch break: `[weekday, from, to, lunch_start, lunch_end]`, which is
+ * represented as a split shift (e.g. "09:00 - 11:00, 14:00 - 18:00").
+ * Entries with null times (closed that day) are skipped.
+ *
  * @param hours Array of [weekday, from, to, ...] tuples
- * @returns Structured opening hours object or undefined
+ * @returns Canonical opening-hours map keyed by English weekday, or undefined
  */
 function parseGLSHours(
   hours: Array<[weekday: number, from: string | null, to: string | null, ...rest: any[]]>
@@ -26,29 +31,37 @@ function parseGLSHours(
   }
 
   // GLS uses 1-based weekday indexing: 1=Monday, 7=Sunday
-  const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const result: Record<string, string> = {};
+  const entries: Record<string, Array<{ from: string; to: string }>> = {};
 
   for (const entry of hours) {
     if (!entry || entry.length < 3) {
       continue;
     }
-    
+
     const [weekday, from, to] = entry;
-    
+    const dayName = WEEKDAY_NAMES[weekday - 1];
+    if (!dayName) continue;
+
     // Skip entries where times are null or undefined (closed that day)
     if (from === null || to === null || from === undefined || to === undefined) {
       continue;
     }
-    
-    const dayName = dayNames[weekday] || `Day${weekday}`;
-    
-    // For now, ignore lunch breaks (4+ elements) and just show primary hours
-    // Could be enhanced to show: "08:00 - 18:00 (closed 11:00 - 14:00)" if needed
-    result[dayName] = `${from} - ${to}`;
+
+    const intervals = entries[dayName] || (entries[dayName] = []);
+
+    // Lunch break tuples carry [weekday, from, to, lunch_start, lunch_end].
+    // Represent the day as a split shift across the lunch closure.
+    const lunchStart = entry[3];
+    const lunchEnd = entry[4];
+    if (lunchStart && lunchEnd) {
+      intervals.push({ from, to: lunchStart });
+      intervals.push({ from: lunchEnd, to });
+    } else {
+      intervals.push({ from, to });
+    }
   }
 
-  return Object.keys(result).length > 0 ? result : undefined;
+  return buildOpeningHours(entries);
 }
 
 /**
