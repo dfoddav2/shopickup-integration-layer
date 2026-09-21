@@ -290,3 +290,7 @@ export type { GLSAdapterWithPrintContracts };
 export type { GLSDeliveryPoint, GLSDeliveryPointsFeed } from './types/index.js';
 export * from './mappers/index.js';
 export * from './validation.js';
+// Service applicability matrix (SHO-164). Exported so consumers can apply
+// the same HD/APM rules in their own UI and settings validation rather
+// than restating them and drifting from the adapter.
+export * from './service-constraints.js';

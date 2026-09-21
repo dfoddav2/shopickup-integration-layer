@@ -157,21 +157,26 @@ export function buildGLSServiceList(
   logger?: Logger
 ): GLSService[] {
   const services: GLSService[] = [];
-  const deliveryCountry = (parcel.recipient.delivery.method === 'PICKUP_POINT'
+  const deliveryMethod = parcel.recipient.delivery.method;
+  const deliveryCountry = (deliveryMethod === 'PICKUP_POINT'
     ? parcel.recipient.delivery.pickupPoint?.address?.country
     : parcel.recipient.delivery.address?.country) || 'HU';
 
-  // Validate service compatibility before building
-  // PSD (Parcel Shop Delivery) is incompatible with home delivery services (FDS, FSS, CS1)
-  // because a parcel cannot be delivered to a pickup point and have home delivery services simultaneously.
-  if (parcel.recipient.delivery.method === 'PICKUP_POINT' && (options?.flexDeliveryServiceEmailFDS || options?.flexDeliveryServiceSmsFSS || options?.contactServiceCS1)) {
-    const conflicting = [
-      options.flexDeliveryServiceEmailFDS && 'FDS (flexDeliveryServiceEmailFDS)',
-      options.flexDeliveryServiceSmsFSS && 'FSS (flexDeliveryServiceSmsFSS)',
-      options.contactServiceCS1 && 'CS1 (contactServiceCS1)',
-    ].filter(Boolean).join(' and ');
+  // Validate service applicability before building. This adapter is a
+  // general-purpose library: a caller that explicitly asks for a service
+  // the carrier cannot accept here has a bug, and silently dropping it
+  // would hide that. The applicability rules are exported from
+  // ./service-constraints so callers can filter their own defaults up
+  // front (the Shopickup platform does exactly that) and only reach this
+  // point with a combination they genuinely intend.
+  const inapplicable = [
+    options?.flexDeliveryServiceEmailFDS && 'FDS (flexDeliveryServiceEmailFDS)',
+    options?.flexDeliveryServiceSmsFSS && 'FSS (flexDeliveryServiceSmsFSS)',
+    options?.contactServiceCS1 && 'CS1 (contactServiceCS1)',
+  ].filter(Boolean) as string[];
+  if (deliveryMethod === 'PICKUP_POINT' && inapplicable.length > 0) {
     throw new Error(
-      `GLS: PSD (Parcel Shop Delivery) is incompatible with ${conflicting}. `
+      `GLS: PSD (Parcel Shop Delivery) is incompatible with ${inapplicable.join(' and ')}. `
       + 'PSD delivers to a pickup point; these are home delivery services. '
       + 'Remove the conflicting options or use HOME delivery instead.'
     );
@@ -249,6 +254,7 @@ export function buildGLSServiceList(
 
   // SMS notification → FSS (recipient phone)
   // NOTE: FSS requires FDS (flexDeliveryServiceEmailFDS) as a prerequisite per GLS service matrix
+  // (Appendix B, and GLS API error 30: "FSS service is not available without FDS").
   if (options?.flexDeliveryServiceSmsFSS) {
     if (!options.flexDeliveryServiceEmailFDS) {
       throw new Error(
@@ -404,34 +410,58 @@ export function mapAddressToGLSAddress(address: any): GLSAddress {
 }
 
 /**
- * Maps parcel dimensions to GLS ParcelProperty format
+ * Maps a canonical parcel's package details to GLS ParcelProperty format.
  *
- * @param parcel Canonical parcel with optional dimensions
+ * Every field on GLSParcelProperty is optional, so each is emitted only
+ * when we actually have a value for it. This used to bail out entirely
+ * unless `dimensionsCm` was present, which silently dropped the content
+ * description, the weight and any explicit packageType override along
+ * with the dimensions (SHO-169) — the guard predated those fields being
+ * added to the property.
+ *
+ * @param parcel Canonical parcel with optional dimensions/weight
  * @param options GLS carrier options
- * @returns GLS ParcelProperty array or undefined if no dimensions
+ * @returns GLS ParcelProperty array, or undefined when there is nothing
+ *          to put in it (so the payload keeps omitting the list entirely
+ *          rather than carrying an empty object)
  */
 export function mapDimensionsToGLSParcelProperty(
   parcel: Parcel,
   options?: CreateParcelsGLSCarrierOptions
 ): GLSParcelProperty[] | undefined {
-  if (!parcel.package?.dimensionsCm) {
+  const dim = parcel.package?.dimensionsCm;
+  const weightGrams = parcel.package?.weightGrams;
+  const content = determineContent(parcel, options?.content);
+  // Only default to Colli (1) when there is a property worth sending;
+  // packageType alone is not a reason to emit one.
+  const packageType = options?.packageType;
+
+  const hasWeight =
+    typeof weightGrams === 'number' &&
+    Number.isFinite(weightGrams) &&
+    weightGrams > 0;
+
+  if (!dim && !hasWeight && content === undefined && packageType === undefined) {
     return undefined;
   }
 
-  const dim = parcel.package.dimensionsCm;
-  const properties: GLSParcelProperty[] = [];
+  const property: GLSParcelProperty = {
+    packageType: packageType ?? 1,
+  };
 
-  // Create a parcel property with dimensions and packaging info
-  properties.push({
-    content: determineContent(parcel, options?.content),
-    packageType: options?.packageType ?? 1, // Use override or default to Colli (1)
-    height: dim.height,
-    length: dim.length,
-    width: dim.width,
-    weight: parcel.package.weightGrams / 1000, // Convert from grams to kg
-  });
+  if (content !== undefined) {
+    property.content = content;
+  }
+  if (dim) {
+    property.height = dim.height;
+    property.length = dim.length;
+    property.width = dim.width;
+  }
+  if (hasWeight) {
+    property.weight = weightGrams / 1000; // Convert from grams to kg
+  }
 
-  return properties;
+  return [property];
 }
 
 /**
@@ -460,10 +490,21 @@ export function mapCanonicalParcelToGLS(
   options?: CreateParcelsGLSCarrierOptions,
   logger?: Logger
 ): GLSParcel {
-  // Map shipper/sender address
+  // Map shipper/sender address.
+  //
+  // GLSAddress keeps `name` (the business/addressee) and `contactName` (the
+  // person to reach) apart, and so does the canonical model: Address.name is
+  // "person or company name", Contact.name is the person. This used to
+  // overwrite `name` with the contact's name, collapsing the two and
+  // printing the contact person where the merchant had configured their
+  // company name (SHO-161). Prefer the address's own name, falling back to
+  // the contact only when the address carries none.
   const pickupAddress = mapAddressToGLSAddress({
     ...parcel.shipper.address,
-    name: parcel.shipper.contact.name,
+    name:
+      parcel.shipper.address.name ||
+      parcel.shipper.contact.company ||
+      parcel.shipper.contact.name,
     contactName: parcel.shipper.contact.name,
     contactPhone: parcel.shipper.contact.phone,
     contactEmail: parcel.shipper.contact.email,
@@ -472,9 +513,16 @@ export function mapCanonicalParcelToGLS(
   // Map recipient/delivery address
   let deliveryAddressData: any;
   if (parcel.recipient.delivery.method === 'HOME') {
+    // Same name/contactName split as the shipper above (SHO-161). For a
+    // home delivery the two are usually the same person, but a parcel
+    // addressed to a company keeps the company on `name` and the person
+    // to ask for on `contactName`.
     deliveryAddressData = {
       ...parcel.recipient.delivery.address,
-      name: parcel.recipient.contact.name,
+      name:
+        parcel.recipient.delivery.address.name ||
+        parcel.recipient.contact.company ||
+        parcel.recipient.contact.name,
       contactName: parcel.recipient.contact.name,
       contactPhone: parcel.recipient.contact.phone,
       contactEmail: parcel.recipient.contact.email,

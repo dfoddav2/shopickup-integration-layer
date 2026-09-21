@@ -252,14 +252,60 @@ expect(result).toHaveLength(1);
       expect(result![0].content).toBe('Books');
     });
 
-    it('should return undefined if no dimensions', () => {
+    it('should still carry weight and content when dimensions are absent (SHO-169)', () => {
+      const parcelWithoutDimensions = {
+        ...mockParcel,
+        package: { weightGrams: 1000 },
+        metadata: { glsContent: 'Books' },
+      };
+
+      const result = mapDimensionsToGLSParcelProperty(parcelWithoutDimensions as any);
+
+      expect(result).toHaveLength(1);
+      expect(result![0].weight).toBe(1);
+      expect(result![0].content).toBe('Books');
+      // Dimension keys are omitted rather than sent as undefined.
+      expect(result![0]).not.toHaveProperty('height');
+      expect(result![0]).not.toHaveProperty('length');
+      expect(result![0]).not.toHaveProperty('width');
+    });
+
+    it('should keep an explicit packageType when dimensions are absent (SHO-169)', () => {
       const parcelWithoutDimensions = {
         ...mockParcel,
         package: { weightGrams: 1000 },
       };
 
-      const result = mapDimensionsToGLSParcelProperty(parcelWithoutDimensions as any);
+      const result = mapDimensionsToGLSParcelProperty(parcelWithoutDimensions as any, {
+        packageType: 5,
+      });
+
+      expect(result![0].packageType).toBe(5);
+    });
+
+    it('should return undefined when there is nothing to put in the property', () => {
+      const bareParcel = {
+        ...mockParcel,
+        package: {},
+        items: undefined,
+        metadata: undefined,
+      };
+
+      const result = mapDimensionsToGLSParcelProperty(bareParcel as any);
       expect(result).toBeUndefined();
+    });
+
+    it('should omit weight rather than sending zero when there is none', () => {
+      const parcelWithoutWeight = {
+        ...mockParcel,
+        package: { dimensionsCm: { length: 30, width: 20, height: 15 } },
+      };
+
+      const result = mapDimensionsToGLSParcelProperty(parcelWithoutWeight as any);
+
+      expect(result).toHaveLength(1);
+      expect(result![0]).not.toHaveProperty('weight');
+      expect(result![0].length).toBe(30);
     });
 
     it('should use packageType override when provided', () => {
@@ -299,6 +345,65 @@ it('should include PSD for pickup point delivery', () => {
        expect(psd!.psdParameter?.stringValue).toBe('379-PARCELSHOP');
        expect(psd!.psdParameter?.integerValue).toBeUndefined();
      });
+
+    it('should reject home-delivery services on a pickup point parcel (SHO-164)', () => {
+      // The adapter is a general-purpose library: an explicitly requested
+      // but inapplicable service is a caller bug, so it fails loudly.
+      // Filtering a merchant's shop-wide defaults down to what applies is
+      // application policy and happens in the Shopickup platform, before
+      // the request reaches here.
+      const parcel = {
+        ...mockParcel,
+        recipient: {
+          contact: { ...mockParcel.recipient.contact, phone: '+36301234567', email: 'a@b.hu' },
+          delivery: {
+            method: 'PICKUP_POINT',
+            pickupPoint: { id: '379-PARCELSHOP', name: 'GLS ParcelShop' },
+          },
+        },
+      };
+
+      expect(() =>
+        buildGLSServiceList(parcel as any, { flexDeliveryServiceEmailFDS: true })
+      ).toThrow(/incompatible with FDS/);
+      expect(() =>
+        buildGLSServiceList(parcel as any, { contactServiceCS1: true })
+      ).toThrow(/incompatible with CS1/);
+    });
+
+    it('should still apply home-delivery services for HOME parcels (SHO-164)', () => {
+      const parcel = {
+        ...mockParcel,
+        recipient: {
+          ...mockParcel.recipient,
+          contact: { ...mockParcel.recipient.contact, phone: '+36301234567', email: 'a@b.hu' },
+        },
+      };
+
+      const services = buildGLSServiceList(parcel as any, {
+        flexDeliveryServiceEmailFDS: true,
+        flexDeliveryServiceSmsFSS: true,
+        contactServiceCS1: true,
+      });
+
+      expect(services.some((s) => s.code === 'FDS')).toBe(true);
+      expect(services.some((s) => s.code === 'FSS')).toBe(true);
+      expect(services.some((s) => s.code === 'CS1')).toBe(true);
+    });
+
+    it('should reject FSS without FDS (GLS API error 30)', () => {
+      const parcel = {
+        ...mockParcel,
+        recipient: {
+          ...mockParcel.recipient,
+          contact: { ...mockParcel.recipient.contact, phone: '+36301234567', email: 'a@b.hu' },
+        },
+      };
+
+      expect(() =>
+        buildGLSServiceList(parcel as any, { flexDeliveryServiceSmsFSS: true })
+      ).toThrow(/requires FDS/);
+    });
 
     it('should include SAT when saturdayDelivery is enabled', () => {
       const services = buildGLSServiceList(mockParcel as any, { saturdayDelivery: true });
@@ -428,6 +533,70 @@ it('should include PSD for pickup point delivery', () => {
       expect(result.parcelPropertyList).toHaveLength(1);
       expect(result.codAmount).toBeUndefined();
       expect(result.codCurrency).toBeUndefined();
+    });
+
+    it('should keep the business name and the contact person apart (SHO-161)', () => {
+      const parcel = {
+        ...mockParcel,
+        shipper: {
+          contact: { name: 'Kiss Anna', phone: '+36301234567' },
+          address: { ...mockParcel.shipper.address, name: 'Bolt Kft' },
+        },
+      };
+
+      const result = mapCanonicalParcelToGLS(parcel as any, 12345);
+
+      // The address name is the addressee; the contact is the person to
+      // reach. Collapsing them printed the contact where the merchant had
+      // configured their company name.
+      expect(result.pickupAddress.name).toBe('Bolt Kft');
+      expect(result.pickupAddress.contactName).toBe('Kiss Anna');
+      expect(result.pickupAddress.contactPhone).toBe('+36301234567');
+    });
+
+    it('should fall back to the contact when the address carries no name (SHO-161)', () => {
+      // mockParcel's shipper address has no name, which is the pre-existing
+      // behaviour this must not regress.
+      const result = mapCanonicalParcelToGLS(mockParcel as any, 12345);
+
+      expect(result.pickupAddress.name).toBe('Seller Inc');
+      expect(result.pickupAddress.contactName).toBe('Seller Inc');
+    });
+
+    it('should prefer contact.company over the contact person when the address has no name (SHO-161)', () => {
+      const parcel = {
+        ...mockParcel,
+        shipper: {
+          contact: { name: 'Kiss Anna', company: 'Bolt Kft' },
+          address: { ...mockParcel.shipper.address, name: undefined },
+        },
+      };
+
+      const result = mapCanonicalParcelToGLS(parcel as any, 12345);
+
+      expect(result.pickupAddress.name).toBe('Bolt Kft');
+      expect(result.pickupAddress.contactName).toBe('Kiss Anna');
+    });
+
+    it('should keep recipient name and contact apart for home delivery (SHO-161)', () => {
+      const parcel = {
+        ...mockParcel,
+        recipient: {
+          contact: { name: 'Nagy Bela' },
+          delivery: {
+            method: 'HOME',
+            address: {
+              ...(mockParcel as any).recipient.delivery.address,
+              name: 'Vevo Kft',
+            },
+          },
+        },
+      };
+
+      const result = mapCanonicalParcelToGLS(parcel as any, 12345);
+
+      expect(result.deliveryAddress.name).toBe('Vevo Kft');
+      expect(result.deliveryAddress.contactName).toBe('Nagy Bela');
     });
 
     it('should map COD from parcel.cod', () => {

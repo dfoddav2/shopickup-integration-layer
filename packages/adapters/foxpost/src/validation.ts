@@ -106,7 +106,8 @@ const ParcelSchema = z.object({
   service: z.enum(['standard', 'express', 'economy', 'overnight']),
   carrierServiceCode: z.string().optional(),
   package: z.object({
-    weightGrams: z.number().gt(0),
+    // Optional: a parcel may legitimately declare no weight (SHO-168).
+    weightGrams: z.number().gt(0).optional(),
     dimensionsCm: z.object({
       length: z.number().gt(0),
       width: z.number().gt(0),

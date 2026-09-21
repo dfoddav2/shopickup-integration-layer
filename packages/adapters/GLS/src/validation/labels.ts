@@ -71,7 +71,8 @@ const PickupPointDeliverySchema = z.object({
 const CanonicalParcelSchema = z.object({
   id: z.string().min(1, 'Parcel ID is required'),
   package: z.object({
-    weightGrams: z.number().positive('Weight must be positive'),
+    // Optional: a parcel may legitimately declare no weight (SHO-168).
+    weightGrams: z.number().positive('Weight must be positive').optional(),
     dimensionsCm: z.object({
       length: z.number().positive(),
       width: z.number().positive(),

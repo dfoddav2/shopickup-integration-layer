@@ -39,8 +39,17 @@ export interface Parcel {
 
   /** Package physical details */
   package: {
-    /** Weight in grams */
-    weightGrams: number;
+    /**
+     * Weight in grams (optional).
+     *
+     * Carriers differ on whether a declared weight is required: GLS's
+     * ParcelProperty.weight is optional and simply isn't printed when
+     * absent, which some merchants prefer, and MPL/Foxpost don't put it
+     * on the label at all. Leaving this out is a valid choice, not an
+     * error — forcing a number here is what let a packaging material's
+     * tare weight get declared as a whole shipment's weight (SHO-160).
+     */
+    weightGrams?: number;
 
     /** Dimensions (optional) */
     dimensionsCm?: {

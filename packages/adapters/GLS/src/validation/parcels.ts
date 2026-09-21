@@ -14,6 +14,10 @@ import {
   type GLSCredentials,
   type GLSCarrierOptions,
 } from './schemas.js';
+import {
+  isServiceAllowedForDelivery,
+  GLS_SERVICE_CONSTRAINTS,
+} from '../service-constraints.js';
 
 /**
  * Validates a CreateParcelRequest
@@ -61,7 +65,8 @@ export function safeValidateCreateParcelRequest(req: unknown): ZodSafeParseResul
 const ParcelSchema = z.object({
      id: z.string().min(1, 'Parcel ID is required'),
      package: z.object({
-       weightGrams: z.number().positive('Weight must be positive'),
+      // Optional: a parcel may legitimately declare no weight (SHO-168).
+      weightGrams: z.number().positive('Weight must be positive').optional(),
        dimensionsCm: z.object({
          length: z.number().positive(),
          width: z.number().positive(),
@@ -245,7 +250,8 @@ export function safeValidateCreateParcelsRequest(req: unknown): ZodSafeParseResu
   const ParcelSchema = z.object({
     id: z.string().min(1, 'Parcel ID is required'),
     package: z.object({
-      weightGrams: z.number().positive('Weight must be positive'),
+      // Optional: a parcel may legitimately declare no weight (SHO-168).
+      weightGrams: z.number().positive('Weight must be positive').optional(),
       dimensionsCm: z.object({
         length: z.number().positive(),
         width: z.number().positive(),
@@ -492,4 +498,70 @@ export function safeValidateGLSPrepareLabelsResponse(
   response: unknown
 ): ZodSafeParseResult<any> {
   return GLSPrepareLabelsResponseSchema.safeParse(response);
+}
+
+/**
+ * Strict, opt-in check that the requested GLS services are applicable to
+ * each parcel's delivery method (SHO-164).
+ *
+ * This is deliberately NOT folded into the request schemas above. The
+ * mapper's contract is to *drop* an inapplicable service and carry on —
+ * a shop-wide default that cannot apply to one pickup-point parcel must
+ * not fail that label. Rejecting the same input at the schema boundary
+ * would reintroduce exactly that failure.
+ *
+ * Use this where a caller wants to surface misconfiguration *before*
+ * submitting — e.g. a settings screen validating a merchant's defaults,
+ * or a test asserting a request is fully applicable. Callers that just
+ * want a label should rely on the mapper's graceful drop instead.
+ */
+export function validateGLSServiceApplicability(
+  parcels: readonly {
+    id?: string;
+    recipient: { delivery: { method: string } };
+  }[],
+  glsOptions?: {
+    flexDeliveryServiceEmailFDS?: boolean;
+    flexDeliveryServiceSmsFSS?: boolean;
+    contactServiceCS1?: boolean;
+    smsPreadviceSM2?: boolean;
+    saturdayDelivery?: boolean;
+    guaranteed24H?: boolean;
+    services?: readonly { code: string }[];
+  }
+): { ok: true } | { ok: false; issues: string[] } {
+  if (!glsOptions) return { ok: true };
+
+  const requested: string[] = [];
+  if (glsOptions.flexDeliveryServiceEmailFDS) requested.push('FDS');
+  if (glsOptions.flexDeliveryServiceSmsFSS) requested.push('FSS');
+  if (glsOptions.contactServiceCS1) requested.push('CS1');
+  if (glsOptions.smsPreadviceSM2) requested.push('SM2');
+  if (glsOptions.saturdayDelivery) requested.push('SAT');
+  if (glsOptions.guaranteed24H) requested.push('24H');
+  for (const svc of glsOptions.services ?? []) requested.push(svc.code);
+
+  const issues: string[] = [];
+
+  // Documented as GLS API error 30, and Appendix B's FSS row.
+  if (glsOptions.flexDeliveryServiceSmsFSS && !glsOptions.flexDeliveryServiceEmailFDS) {
+    issues.push('FSS requires FDS (GLS API error 30: "FSS service is not available without FDS")');
+  }
+
+  for (const parcel of parcels) {
+    const method = parcel.recipient.delivery.method;
+    if (method !== 'HOME' && method !== 'PICKUP_POINT') continue;
+    for (const code of requested) {
+      if (!isServiceAllowedForDelivery(code, method)) {
+        const note = GLS_SERVICE_CONSTRAINTS[code]?.note;
+        issues.push(
+          `${code} is not available for ${method} delivery`
+          + (parcel.id ? ` (parcel ${parcel.id})` : '')
+          + (note ? `: ${note}` : '')
+        );
+      }
+    }
+  }
+
+  return issues.length > 0 ? { ok: false, issues } : { ok: true };
 }
