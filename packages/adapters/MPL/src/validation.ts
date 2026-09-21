@@ -460,12 +460,24 @@ export type UnitValue = z.infer<typeof UnitValueSchema>;
 
 /**
  * Contact information (name, organization, phone, email)
+ *
+ * `phone` is capped at MPL's documented 14 characters and must be E.164
+ * ("+36201234567"), per the `Contact.phone` property in the MPL OpenAPI
+ * spec (carrier-docs/hu-mpl/hu-mpl.openapi.yaml). The cap was previously 20,
+ * which let a human-formatted number like "+36 20 961 5039" (15 chars) pass
+ * validation here and then be rejected by MPL itself with the unhelpful
+ * `sender.contact.phone: 103` / "mezo hossza nem megfelelo" — a round trip
+ * and a Hungarian-language carrier error instead of a local failure.
+ *
+ * `email` is likewise capped at the spec's 60 rather than the 100 it used
+ * to allow. Same class of bug: a longer address passes here and is then
+ * rejected by MPL, so failing locally is strictly more useful.
  */
 export const ContactSchema = z.object({
      name: z.string().max(120).min(1),
      organization: z.string().max(120).optional(),
-     phone: z.string().max(20).optional(),
-     email: z.string().max(100).optional(),
+     phone: z.string().max(14).optional(),
+     email: z.string().max(60).optional(),
 });
 export type Contact = z.infer<typeof ContactSchema>;
 
