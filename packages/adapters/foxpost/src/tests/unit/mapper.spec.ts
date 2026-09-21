@@ -282,19 +282,21 @@ describe('Foxpost Mappers', () => {
       expect(result.size).toBe('s'); // Default size when no dimensions
     });
 
-    it('includes reference in refCode for HOME delivery', () => {
+    it('passes the reference through to refCode verbatim (SHO-170)', () => {
       const parcel = createTestParcel();
       parcel.references = { customerReference: 'ORDER-999' };
       parcel.id = 'parcel-123';
 
       const result = mapParcelToFoxpost(parcel);
 
-      expect(result.refCode).toContain('ORDER-999');
-      expect(result.refCode).toContain('parcel-12');
-      expect(result.refCode).toHaveLength(20);
+      // The parcel id is ours, not the merchant's: it must never reach
+      // the label. refCode carries no uniqueness requirement (that is
+      // uniqueBarcode), so the reference is passed through as given.
+      expect(result.refCode).toBe('ORDER-999');
+      expect(result.refCode).not.toContain('parcel-12');
     });
 
-    it('truncates refCode to Foxpost max length', () => {
+    it('truncates refCode to Foxpost max length without a suffix (SHO-170)', () => {
       const parcel = createTestParcel();
       parcel.references = { customerReference: 'THIS-REFERENCE-IS-WAY-TOO-LONG-FOR-FOXPOST' };
       parcel.id = 'parcel-1234567890';
@@ -302,6 +304,15 @@ describe('Foxpost Mappers', () => {
       const result = mapParcelToFoxpost(parcel);
 
       expect(result.refCode).toHaveLength(30);
+      expect(result.refCode).toBe('THIS-REFERENCE-IS-WAY-TOO-LONG');
+      expect(result.refCode).not.toContain('parcel-1234');
+    });
+
+    it('omits refCode when there is no customer reference', () => {
+      const parcel = createTestParcel();
+      parcel.references = {};
+
+      expect(mapParcelToFoxpost(parcel).refCode).toBeUndefined();
     });
 
     it('maps canonical Parcel with PICKUP_POINT delivery to APM format', () => {

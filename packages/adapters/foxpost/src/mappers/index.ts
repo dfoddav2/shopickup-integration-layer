@@ -131,12 +131,17 @@ export function mapParcelToFoxpostRequest(
     uniqueBarcode?: string;
   } = {}
 ): FoxCreateParcelRequestItem {
+  // The caller's reference reaches the label verbatim, truncated only to
+  // the API's 30-character limit. This used to append the first 10
+  // characters of the canonical parcel id, which put our internal
+  // shipment UUID on merchants' labels ("#8103-ad8053ca-8") and ate 11 of
+  // the 30 characters, silently cutting longer references (SHO-170).
+  // Foxpost's refCode carries no uniqueness requirement - uniqueBarcode
+  // is the field for that, and callers set it through options.
   const buildRefCode = (parcel: Parcel): string | undefined => {
     const reference = parcel.references?.customerReference?.trim();
     if (!reference) return undefined;
-
-    const suffix = `-${parcel.id.substring(0, 10)}`;
-    return reference.substring(0, Math.max(0, 30 - suffix.length)).concat(suffix);
+    return reference.substring(0, 30);
   };
 
   const delivery = parcel.recipient.delivery;
@@ -217,12 +222,17 @@ export function mapParcelToFoxpost(
     isRedirect?: boolean;
   } = {}
 ): FoxpostParcelRequest & { destination?: string } {
+  // The caller's reference reaches the label verbatim, truncated only to
+  // the API's 30-character limit. This used to append the first 10
+  // characters of the canonical parcel id, which put our internal
+  // shipment UUID on merchants' labels ("#8103-ad8053ca-8") and ate 11 of
+  // the 30 characters, silently cutting longer references (SHO-170).
+  // Foxpost's refCode carries no uniqueness requirement - uniqueBarcode
+  // is the field for that, and callers set it through options.
   const buildRefCode = (parcel: Parcel): string | undefined => {
     const reference = parcel.references?.customerReference?.trim();
     if (!reference) return undefined;
-
-    const suffix = `-${parcel.id.substring(0, 10)}`;
-    return reference.substring(0, Math.max(0, 30 - suffix.length)).concat(suffix);
+    return reference.substring(0, 30);
   };
 
   const delivery = parcel.recipient.delivery;
