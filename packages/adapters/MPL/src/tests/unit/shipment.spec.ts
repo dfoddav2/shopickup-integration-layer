@@ -261,6 +261,75 @@ describe('MPL Shipment Mapper', () => {
       expect(service.value).toBe(100000);
     });
 
+    describe('declared value (K_ENY) constraints', () => {
+      // MPL's item.value is HUF-only with a 2M ceiling, and there is no
+      // valueCurrency companion field, so both are enforced in the mapper
+      // rather than left to fail at label creation.
+      const declaredValueParcel = (declaredValue: unknown) => ({
+        id: 'p1',
+        shipper: {
+          contact: { name: 'Sender', phone: '+36301234567', email: 'sender@example.com' },
+          address: { name: 'Sender', street: 'St 1', city: 'Budapest', postalCode: '1011', country: 'HU' },
+        },
+        recipient: {
+          contact: { name: 'Recipient', phone: '+36309876543', email: 'recipient@example.com' },
+          delivery: { method: 'HOME' as const, address: { name: 'Recipient', street: 'St 2', city: 'Budapest', postalCode: '1012', country: 'HU' } },
+        },
+        package: { weightGrams: 500 },
+        service: 'standard' as const,
+        declaredValue,
+      });
+
+      it('accepts exactly the 2M HUF maximum', () => {
+        const service = mapService(
+          declaredValueParcel({ amount: 2_000_000, currency: 'HUF' }) as any,
+        );
+
+        expect(service.value).toBe(2_000_000);
+        expect(service.extra).toContain('K_ENY');
+      });
+
+      it('rejects a declared value above the 2M HUF maximum', () => {
+        expect(() =>
+          mapService(declaredValueParcel({ amount: 2_000_001, currency: 'HUF' }) as any),
+        ).toThrow(/must not exceed 2000000 HUF/);
+      });
+
+      it('rejects a non-HUF declared value', () => {
+        expect(() =>
+          mapService(declaredValueParcel({ amount: 100, currency: 'EUR' }) as any),
+        ).toThrow(/must be HUF, got EUR/);
+      });
+
+      it('derives K_ENY from insurance when declaredValue is absent', () => {
+        const parcel = {
+          ...declaredValueParcel(undefined),
+          insurance: { amount: { amount: 75_000, currency: 'HUF' } },
+        };
+
+        const service = mapService(parcel as any);
+
+        expect(service.value).toBe(75_000);
+        expect(service.extra).toContain('K_ENY');
+      });
+
+      it('applies the same constraints to the insurance fallback', () => {
+        const parcel = {
+          ...declaredValueParcel(undefined),
+          insurance: { amount: { amount: 3_000_000, currency: 'HUF' } },
+        };
+
+        expect(() => mapService(parcel as any)).toThrow(/must not exceed 2000000 HUF/);
+      });
+
+      it('sets neither value nor K_ENY when no declared value is present', () => {
+        const service = mapService(declaredValueParcel(undefined) as any);
+
+        expect(service.value).toBeUndefined();
+        expect(service.extra ?? []).not.toContain('K_ENY');
+      });
+    });
+
     it('auto-adds K_TER extra service when fragile handling is present', () => {
       const parcel = {
         id: 'p1',

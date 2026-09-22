@@ -219,6 +219,46 @@ export function mapSender(
 }
 
 /**
+ * Maximum declarable value (értéknyilvánítás) at MPL, in HUF.
+ *
+ * From the MPL OpenAPI spec for `item.value`: "Az értéknyilvánítás
+ * (biztosítás) összege Ft-ban, egész számként, max 2 millió."
+ */
+export const MPL_MAX_DECLARED_VALUE_HUF = 2_000_000;
+
+/**
+ * Converts a canonical Money into MPL's `item.value`.
+ *
+ * Two constraints come straight from the carrier, and both are enforced here
+ * rather than left to fail at label creation:
+ *
+ * - **HUF only.** The spec defines `item.value` as "összege Ft-ban" and, unlike
+ *   COD, offers no `valueCurrency` companion field. A non-HUF amount would be
+ *   silently read by MPL as forints, so it is rejected instead.
+ * - **2 million HUF ceiling.** Above it MPL rejects the label.
+ *
+ * Rounding is safe because the amount is HUF, which has no minor unit.
+ */
+function toMplDeclaredValue(money: { amount: number; currency?: string }): number {
+  if (money.currency && money.currency !== 'HUF') {
+    throw new Error(
+      `MPL declared value (K_ENY) must be HUF, got ${money.currency}. ` +
+        'MPL has no valueCurrency field, so a non-HUF amount would be sent as forints.',
+    );
+  }
+
+  const value = Math.round(money.amount);
+
+  if (value > MPL_MAX_DECLARED_VALUE_HUF) {
+    throw new Error(
+      `MPL declared value (K_ENY) must not exceed ${MPL_MAX_DECLARED_VALUE_HUF} HUF, got ${value}.`,
+    );
+  }
+
+  return value;
+}
+
+/**
  * Maps canonical Parcel to MPL Service configuration
  * Handles COD, insurance, delivery mode, service level
  */
@@ -256,12 +296,14 @@ export function mapService(
     extras.add('K_UVT');
   }
 
-  // Handle declared value / insurance
-  if (parcel.declaredValue?.amount) {
-    service.value = Math.round(parcel.declaredValue.amount);
-    extras.add('K_ENY');
-  } else if (parcel.insurance?.amount) {
-    service.value = Math.round(parcel.insurance.amount.amount);
+  // Handle declared value / insurance. At MPL these are the same thing:
+  // `item.value` is the "értéknyilvánítás (biztosítás)" amount, and K_ENY is
+  // what makes Posta pay compensation up to it. One implies the other, so the
+  // code is derived here rather than being passed in as an explicit extra --
+  // K_ENY without a value is rejected by MPL.
+  const declared = parcel.declaredValue ?? parcel.insurance?.amount;
+  if (declared?.amount) {
+    service.value = toMplDeclaredValue(declared);
     extras.add('K_ENY');
   }
 
