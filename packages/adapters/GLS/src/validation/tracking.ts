@@ -63,6 +63,7 @@ export const GLSTrackingRequestSchema = z.object({
       'Language code must be one of: HR, CS, HU, RO, SK, SL, EN'
     ).optional(),
     country: z.string().optional(),
+    gls: z.object({ country: z.string().optional() }).optional(),
   }).optional(),
 });
 

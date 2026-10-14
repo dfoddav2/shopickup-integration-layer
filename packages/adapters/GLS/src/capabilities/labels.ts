@@ -6,7 +6,7 @@
  * 1. CreateParcels (PrepareLabels) - creates parcel records in GLS system
  * 2. GetPrintedLabels - retrieves printable PDF labels for those parcels by ID
  * 
- * IMPORTANT: This is HU-specific implementation.
+ * IMPORTANT: The MyGLS endpoint is chosen by the sender (account) country, see resolveGLSEndpointCountry.
  */
 
 import type {
@@ -23,6 +23,7 @@ import {
 import {
   hashPasswordSHA512,
   resolveGLSBaseUrl,
+  resolveGLSEndpointCountry,
   validateGLSCredentials,
   convertToPascalCase,
 } from '../utils/authentication.js';
@@ -92,7 +93,7 @@ export async function createLabel(
  * Returns PDF bytes in rawCarrierResponse for integrator to store/upload.
  * Per-label metadata is in files array.
  * 
- * IMPORTANT: This is HU-specific implementation.
+ * IMPORTANT: The MyGLS endpoint is chosen by the sender (account) country, see resolveGLSEndpointCountry.
  * 
  * @param req CreateLabelsRequest with parcel carrier IDs (from createParcels)
  * @param ctx Adapter context with HTTP client
@@ -135,7 +136,7 @@ export async function createLabels(
     }
 
     // Extract country and test mode from options
-    const country = (validated.options?.gls?.country as string) || 'HU';
+    const country = resolveGLSEndpointCountry(validated.options as any);
     const useTestApi = (validated.options?.useTestApi as boolean) || false;
 
     // Resolve GLS base URL

@@ -51,15 +51,11 @@ export interface GLSUrlConfig {
  * GLS API Request Base
  * Used for authentication in all GLS MyGLS API calls
  * 
- * IMPORTANT: This adapter is currently HU-specific (Hungary).
- * While GLS MyGLS API supports multiple countries (CZ, HR, RO, SI, SK, RS),
- * this implementation is optimized for HU. Other countries may require:
- * - Adjusted service codes and parameters
- * - Country-specific address validation rules
- * - Special requirements (e.g., senderIdentityCardNumber for Serbia)
- * - Regional endpoint configuration
- * 
- * To extend to other countries, ensure regional requirements are met.
+ * The MyGLS endpoint (api.mygls.<cc>) is the sender's account country. Hungarian
+ * merchants ship to CZ, HR, RO, SI, SK and RS through the HU endpoint. Other
+ * account countries (using their local endpoint) are supported by routing but
+ * are not live-verified. See GLS_SUPPORTED_COUNTRIES and resolveGLSEndpointCountry.
+ * Serbian senders must supply senderIdentityCardNumber and content.
  */
 export interface GLSAPIRequestBase {
   username: string; // MyGLS email address

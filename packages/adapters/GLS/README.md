@@ -83,6 +83,50 @@ const result = await adapter.createParcel!(
 );
 ```
 
+## Supported countries
+
+The adapter exposes `supportedCountries` (and the exported `GLS_SUPPORTED_COUNTRIES` constant) listing the destination countries it can create shipments for. Pickup point lookup has a wider list, `GLS_PICKUP_POINT_COUNTRIES`.
+
+| Capability | Countries (ISO 3166-1 alpha-2) |
+|---|---|
+| Parcels, labels, tracking (MyGLS endpoints) | `HU`, `CZ`, `HR`, `RO`, `SI`, `SK`, `RS` |
+| Pickup points (public feed) | `AT`, `BE`, `BG`, `CZ`, `DE`, `DK`, `ES`, `FI`, `FR`, `GR`, `HR`, `HU`, `IT`, `LU`, `NL`, `PL`, `PT`, `RO`, `RS`, `SI`, `SK` |
+
+### Shipping from Hungary to CZ, HR, RO, SI, SK, RS
+
+The MyGLS endpoint (`api.mygls.<cc>`) belongs to the **sender's account country**, not the destination. A Hungarian merchant uses the HU endpoint and HU credentials for every destination.
+
+The endpoint country is chosen in this order: `options.gls.country`, then the legacy `options.country`, then the shipper address country, then `HU`. Create, label, print-label and tracking calls all use the same rule. Batches with different sender countries need an explicit `options.gls.country` or must be split.
+
+```ts
+await adapter.createParcels(
+  { parcels: [huToCzParcel], credentials, options: { useTestApi: true } },
+  ctx,
+); // posts to api.test.mygls.hu
+```
+
+Rules enforced before calling GLS:
+
+- Destination must be in `GLS_SUPPORTED_COUNTRIES` (otherwise a clear error; for example AT and DE are pickup-point only).
+- `shopReturnServiceSRS` is only available for HU and SI destinations (GLS API doc, Appendix B).
+- Declared value (DPV) needs an explicit currency for non-HU destinations. HUF is only defaulted for HU.
+- Serbian senders (shipper country `RS`) must supply `options.gls.senderIdentityCardNumber` (ID card number or PIB) and `content` (GLS errors 43/44).
+- SMS-based services validate the phone prefix against the destination country.
+
+### Verification status
+
+| Route | Create + label | Tracking |
+|---|---|---|
+| HU → HU | Live verified | Live verified |
+| HU → CZ, SK, RO, HR, SI, RS | Live verified (test API) | Live verified: found about 30s after creation, `deliveryCountryCode` matches the destination |
+| Sender in CZ/HR/RO/SI/SK/RS (local endpoint) | Routing unit/mock tested only | Not verified |
+
+Known documentation gaps (GLS API doc ver. 25.12.11): which endpoint a cross-border parcel must use is not stated, per-country service availability is only partly documented, COD currency rules per country are not documented, there are no customs input fields, and the tracking language list has no Serbian entry.
+
+Ready-made per-country parcels live in `examples/functions/fixtures/gls/create-parcel-<cc>.json` (cz, sk, ro, hr, si, rs); from `examples/functions`, run one with `pnpm run cli -- --run gls.create-parcel --args fixtures/gls/create-parcel-sk.json --mock`.
+
+Run live tests per destination with `GLS_LIVE_DEST_COUNTRY=CZ pnpm --filter @shopickup/adapters-gls run test:live` (see `live.env.example`).
+
 ## Status
 
 Published as `0.x.x` while the adapter API is still evolving.
@@ -255,12 +299,13 @@ options: {
 
 ### Serbia-Specific Fields
 
-For Serbia (`country: "RS"`), GLS requires `senderIdentityCardNumber`:
+GLS requires `senderIdentityCardNumber` (ID card number or PIB) and `content` for **Serbian senders**, meaning a shipper address with `country: "RS"`. The adapter throws before calling GLS if either is missing. Hungarian merchants shipping *to* Serbia do not need them.
 
 ```ts
 options: {
   gls: {
     senderIdentityCardNumber: "123456789",
+    content: "Books",
   },
 }
 ```

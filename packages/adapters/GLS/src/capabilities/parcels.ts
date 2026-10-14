@@ -48,6 +48,7 @@ import type { GLSPrepareLabelsResponse } from '../types/index.js';
 import {
   hashPasswordSHA512,
   resolveGLSBaseUrl,
+  resolveGLSEndpointCountry,
   validateGLSCredentials,
   convertToPascalCase,
 } from '../utils/authentication.js';
@@ -152,7 +153,18 @@ export async function createParcels(
     }
 
     // Extract country and test mode from options
-    const country = (req.options?.country as string) || 'HU';
+    const explicitCountry = (req.options as any)?.gls?.country || (req.options as any)?.country;
+    const shipperCountries = new Set(
+      req.parcels.map((p: any) => (p.shipper?.address?.country as string | undefined)?.toUpperCase() || 'HU')
+    );
+    if (!explicitCountry && shipperCountries.size > 1) {
+      throw new CarrierError(
+        `Parcels in one request have different sender countries (${[...shipperCountries].join(', ')}); set options.gls.country or split the batch.`,
+        'Validation',
+        { carrierCode: 'hu-gls' }
+      );
+    }
+    const country = resolveGLSEndpointCountry(req.options as any, [...shipperCountries][0]);
     const useTestApi = (req.options?.useTestApi as boolean) || false;
 
     // Resolve GLS base URL
@@ -176,7 +188,7 @@ export async function createParcels(
     // Map canonical parcels to GLS format
     // NOTE: Parcels DO NOT include auth fields - those go at the request root level per GLS API spec
     const glsOptions = (req.options as any)?.gls;
-    const rootOptions = req.options as any;
+    const rootOptions = (req.options as any) ?? {};
     const glsParcelList = mapCanonicalParcelsToGLS(req.parcels, clientNumber, {
       ...glsOptions,
       useTestApi,

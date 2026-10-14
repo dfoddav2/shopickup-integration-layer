@@ -25,6 +25,7 @@ import {
 import {
   hashPasswordSHA512,
   resolveGLSBaseUrl,
+  resolveGLSEndpointCountry,
   convertToPascalCase,
   convertFromPascalCase,
 } from '../utils/authentication.js';
@@ -70,7 +71,7 @@ export async function track(
     const credentials = data.credentials;
     const options = data.options;
     const useTestApi = options?.useTestApi || false;
-    const country = options?.country || 'HU';
+    const country = resolveGLSEndpointCountry(options as any);
     const returnPOD = options?.returnPOD || false;
     const languageIsoCode = options?.languageIsoCode || 'EN';
     const baseUrl = resolveGLSBaseUrl(country, useTestApi);

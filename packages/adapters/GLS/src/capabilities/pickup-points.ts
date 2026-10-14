@@ -26,6 +26,7 @@ import {
 import { z } from 'zod';
 import { mapGLSDeliveryPointsToPickupPoints } from '../mappers/index.js';
 import type { GLSDeliveryPointsFeed } from '../types/index.js';
+import { GLS_PICKUP_POINT_COUNTRIES } from '../constants.js';
 
 const GLS_PICKUP_POINTS_BASE_URL = 'https://map.gls-hungary.com/data/deliveryPoints';
 
@@ -51,29 +52,7 @@ export function safeValidateFetchPickupPointsRequest(input: unknown) {
 /**
  * Supported GLS countries (ISO 3166-1 alpha-2)
  */
-const SUPPORTED_COUNTRIES = new Set([
-  'at', // Austria
-  'be', // Belgium
-  'bg', // Bulgaria
-  'cz', // Czech Republic
-  'de', // Germany
-  'dk', // Denmark
-  'es', // Spain
-  'fi', // Finland
-  'fr', // France
-  'gr', // Greece
-  'hr', // Croatia
-  'hu', // Hungary
-  'it', // Italy
-  'lu', // Luxembourg
-  'nl', // Netherlands
-  'pl', // Poland
-  'pt', // Portugal
-  'ro', // Romania
-  'si', // Slovenia
-  'sk', // Slovakia
-  'rs', // Serbia
-]);
+const SUPPORTED_COUNTRIES = new Set<string>(GLS_PICKUP_POINT_COUNTRIES.map((c) => c.toLowerCase()));
 
 /**
  * Validates that country code is in supported format and supported by GLS

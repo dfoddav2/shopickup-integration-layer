@@ -57,6 +57,7 @@ export const GLSServiceSchema = z.object({
 });
 
 export const GLSCarrierOptionsSchema = z.object({
+  country: z.string().min(2).max(2).optional(),
   packageType: z.number().int().min(1).max(7).optional(),
   pickupDate: z.string().datetime().optional(),
   saturdayDelivery: z.boolean().optional(),

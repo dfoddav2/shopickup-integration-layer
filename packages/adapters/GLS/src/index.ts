@@ -13,10 +13,10 @@
  * - PRINT_LABELS: Create/Print labels from full parcel payloads in one step via GLS PrintLabels endpoint
  * - TRACK: Track shipments and parcels (Phase 3)
  * 
- * IMPORTANT: This adapter is HU (Hungary) specific for parcel/label creation and tracking.
+ * Parcels and labels: HU merchants can ship to HU, CZ, HR, RO, SI, SK and RS through the
+ * HU MyGLS endpoint (live-verified on the test API for create + label; tracking lags 30-60s).
  * Pickup points support 20+ countries via public feed.
- * MyGLS API parcel and label creation is currently optimized for Hungary only.
- * Tracking (TRACK) is HU-focused but experimental for other countries.
+ * Tracking (TRACK) uses the endpoint country from options (default HU); only HU-account tracking is live-verified.
  * 
  * Future capabilities (Phase 4+):
  * - CLOSE_SHIPMENT: Close shipments for label generation
@@ -64,6 +64,7 @@ import type {
   TrackingUpdate,
 } from '@shopickup/core';
 import { Capabilities, NotImplementedError } from '@shopickup/core';
+import { GLS_SUPPORTED_COUNTRIES } from './constants.js';
 import {
   fetchPickupPoints as fetchPickupPointsImpl,
   createParcel as createParcelImpl,
@@ -95,17 +96,20 @@ type GLSAdapterWithPrintContracts = CarrierAdapter & {
  * 
  * Currently implements:
  * - LIST_PICKUP_POINTS: Fetches pickup points from public GLS feed (20+ countries)
- * - CREATE_PARCEL: Creates single parcel via GLS MyGLS API (HU-specific)
- * - CREATE_PARCELS: Creates multiple parcels in batch via GLS MyGLS API (HU-specific)
- * - CREATE_LABEL: Creates single label/PDF via GLS GetPrintData (HU-specific, two-step)
- * - CREATE_LABELS: Creates multiple labels/PDFs in batch via GLS GetPrintData (HU-specific, two-step)
- * - PRINT_LABEL: Creates single label/PDF via GLS PrintLabels from full parcel payload (HU-specific, one-step)
- * - PRINT_LABELS: Creates multiple labels/PDFs via GLS PrintLabels from full parcel payloads (HU-specific, one-step)
- * - TRACK: Tracks parcels via GLS GetParcelStatuses API (HU-focused, experimental for other countries)
+ * - CREATE_PARCEL: Creates single parcel via GLS MyGLS API
+ * - CREATE_PARCELS: Creates multiple parcels in batch via GLS MyGLS API
+ * - CREATE_LABEL: Creates single label/PDF via GLS GetPrintData (two-step)
+ * - CREATE_LABELS: Creates multiple labels/PDFs in batch via GLS GetPrintData (two-step)
+ * - PRINT_LABEL: Creates single label/PDF via GLS PrintLabels from full parcel payload (one-step)
+ * - PRINT_LABELS: Creates multiple labels/PDFs via GLS PrintLabels from full parcel payloads (one-step)
+ * - TRACK: Tracks parcels via GLS GetParcelStatuses API (endpoint country from options)
  */
 export class GLSAdapter implements CarrierAdapter {
   readonly id = 'hu-gls';
   readonly displayName = 'GLS Hungary';
+
+  /** Countries with a MyGLS endpoint; see GLS_PICKUP_POINT_COUNTRIES for the wider pickup feed. */
+  readonly supportedCountries = GLS_SUPPORTED_COUNTRIES;
 
   readonly capabilities: Capability[] = [
     Capabilities.LIST_PICKUP_POINTS,
@@ -146,7 +150,7 @@ export class GLSAdapter implements CarrierAdapter {
    * Maps canonical Parcel to GLS format and submits via MyGLS API.
    * Delegates to createParcels for batch processing.
    * 
-   * IMPORTANT: This is HU-specific implementation.
+   * IMPORTANT: The MyGLS endpoint is chosen by the sender (account) country, see resolveGLSEndpointCountry.
    * 
    * @param req Request with parcel and credentials
    * @param ctx Adapter context with HTTP client
@@ -163,7 +167,7 @@ export class GLSAdapter implements CarrierAdapter {
    * Maps canonical Parcels to GLS format and submits via MyGLS PrepareLabels endpoint.
    * Handles partial failures - returns per-parcel status.
    * 
-   * IMPORTANT: This is HU-specific implementation.
+   * IMPORTANT: The MyGLS endpoint is chosen by the sender (account) country, see resolveGLSEndpointCountry.
    * While GLS API supports CZ, HR, RO, SI, SK, RS, this adapter has been
    * tested and optimized for Hungary. Other countries may require adjustments.
    * 
@@ -182,7 +186,7 @@ export class GLSAdapter implements CarrierAdapter {
     * The parcelCarrierId should be a GLS parcel ID from a prior CreateParcels call.
     * This method delegates to createLabels for batch processing and returns a single LabelResult.
     * 
-    * IMPORTANT: This is HU-specific implementation.
+    * IMPORTANT: The MyGLS endpoint is chosen by the sender (account) country, see resolveGLSEndpointCountry.
     * 
     * @param req Request with parcel carrier ID and credentials
     * @param ctx Adapter context with HTTP client
@@ -206,7 +210,7 @@ export class GLSAdapter implements CarrierAdapter {
        * Returns per-label metadata in files array and combined PDF bytes in rawCarrierResponse.
        * The integrator should extract rawCarrierResponse and store/upload it to cloud storage.
        * 
-       * IMPORTANT: This is HU-specific implementation.
+       * IMPORTANT: The MyGLS endpoint is chosen by the sender (account) country, see resolveGLSEndpointCountry.
        * 
        * @param req Request with parcel carrier IDs and credentials
        * @param ctx Adapter context with HTTP client
@@ -225,7 +229,7 @@ export class GLSAdapter implements CarrierAdapter {
        * 
        * Uses the GLS PrintLabels endpoint which combines PrepareLabels + GetPrintedLabels in one call.
        * 
-       * IMPORTANT: This is HU-specific implementation.
+       * IMPORTANT: The MyGLS endpoint is chosen by the sender (account) country, see resolveGLSEndpointCountry.
        * 
        * @param req Request with one full canonical parcel payload and credentials
        * @param ctx Adapter context with HTTP client
@@ -249,7 +253,7 @@ export class GLSAdapter implements CarrierAdapter {
        * Returns per-label metadata in files array and combined PDF bytes in rawCarrierResponse.
        * The integrator should extract rawCarrierResponse and store/upload it to cloud storage.
        * 
-       * IMPORTANT: This is HU-specific implementation.
+       * IMPORTANT: The MyGLS endpoint is chosen by the sender (account) country, see resolveGLSEndpointCountry.
        * 
        * @param req Request with full canonical parcel payloads and credentials
        * @param ctx Adapter context with HTTP client
@@ -265,7 +269,7 @@ export class GLSAdapter implements CarrierAdapter {
      * 
      * Returns a timeline of tracking events for the parcel.
      * 
-     * IMPORTANT: This is HU-focused implementation. Experimental for other countries.
+     * IMPORTANT: The endpoint country comes from options.gls.country / options.country (default HU).
      * 
      * @param req Request with tracking number and optional credentials
      * @param ctx Adapter context with HTTP client
@@ -294,3 +298,4 @@ export * from './validation.js';
 // the same HD/APM rules in their own UI and settings validation rather
 // than restating them and drifting from the adapter.
 export * from './service-constraints.js';
+export * from './constants.js';

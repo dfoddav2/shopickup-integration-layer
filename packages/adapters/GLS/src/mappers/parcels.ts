@@ -2,9 +2,10 @@
  * GLS Parcel Mapper
  * 
  * Transforms canonical Parcel objects to GLS API format for ParcelService.
- * All mappings are HU-specific but should work for other regions with minimal adjustments.
+ * Destinations are limited to GLS_SUPPORTED_COUNTRIES (HU, CZ, HR, RO, SI, SK, RS).
  */
 
+import { GLS_SUPPORTED_COUNTRIES } from '../constants.js';
 import type { Parcel } from '@shopickup/core';
 import type { GLSParcel, GLSAddress, GLSParcelProperty, GLSService } from '../types/index.js';
 import type { Logger } from '@shopickup/core';
@@ -149,6 +150,32 @@ function validatePhoneNumber(phone: string, country: string): string {
 }
 
 /**
+ * Returns the parcel's destination country (uppercase ISO alpha-2).
+ * A pickup point delivery without an address cannot tell us the country, so it
+ * is treated as HU (the only market where address-less pickup points were used).
+ */
+export function resolveDestinationCountry(parcel: Parcel): string {
+  const delivery = parcel.recipient.delivery;
+  const country =
+    delivery.method === 'PICKUP_POINT'
+      ? delivery.pickupPoint?.address?.country
+      : delivery.address?.country;
+  return (country || 'HU').toUpperCase();
+}
+
+/**
+ * Throws when the destination is not a country we can ship to via MyGLS.
+ */
+export function assertSupportedDestination(parcel: Parcel): void {
+  const country = resolveDestinationCountry(parcel);
+  if (!(GLS_SUPPORTED_COUNTRIES as readonly string[]).includes(country)) {
+    throw new Error(
+      `GLS does not support shipping to ${country} via this adapter. Supported destinations: ${GLS_SUPPORTED_COUNTRIES.join(', ')}`
+    );
+  }
+}
+
+/**
  * Builds auto-derived services from parcel data and options.
  */
 export function buildGLSServiceList(
@@ -158,9 +185,7 @@ export function buildGLSServiceList(
 ): GLSService[] {
   const services: GLSService[] = [];
   const deliveryMethod = parcel.recipient.delivery.method;
-  const deliveryCountry = (deliveryMethod === 'PICKUP_POINT'
-    ? parcel.recipient.delivery.pickupPoint?.address?.country
-    : parcel.recipient.delivery.address?.country) || 'HU';
+  const deliveryCountry = resolveDestinationCountry(parcel);
 
   // Validate service applicability before building. This adapter is a
   // general-purpose library: a caller that explicitly asks for a service
@@ -228,10 +253,19 @@ export function buildGLSServiceList(
 
   // Declared Value → DPV
   if (parcel.declaredValue?.amount != null) {
+    // HUF is only a safe default for domestic parcels; for other markets a
+    // silent HUF would declare the value in the wrong currency.
+    const dpvCurrency =
+      parcel.declaredValue.currency || (deliveryCountry === 'HU' ? 'HUF' : undefined);
+    if (!dpvCurrency) {
+      throw new Error(
+        `DPV (declaredValue): currency is required for destination ${deliveryCountry}`
+      );
+    }
     services.push({
       code: 'DPV',
       dpvParameter: {
-        stringValue: parcel.declaredValue.currency || 'HUF',
+        stringValue: dpvCurrency,
         decimalValue: parcel.declaredValue.amount,
       },
     });
@@ -317,16 +351,15 @@ export function buildGLSServiceList(
     logger?.debug(`GLS: Added SM2 SMS Pre-advice for phone: ${parcel.recipient.contact.phone}`);
   }
 
-  // ShopReturn Service (SRS) - Available only in HU and SI
+  // ShopReturn Service (SRS) - Available only in HU and SI (GLS API doc, Appendix B)
   if (options?.shopReturnServiceSRS) {
-    const country = (parcel.recipient.delivery.method === 'PICKUP_POINT' 
-      ? parcel.recipient.delivery.pickupPoint?.address?.country 
-      : parcel.recipient.delivery.address.country) || 'HU';
-    if (country.toUpperCase() === 'HU' || country.toUpperCase() === 'SI') {
+    if (deliveryCountry === 'HU' || deliveryCountry === 'SI') {
       services.push({ code: 'SRS' });
-      logger?.debug(`GLS: Added SRS ShopReturn Service for country: ${country.toUpperCase()}`);
+      logger?.debug(`GLS: Added SRS ShopReturn Service for country: ${deliveryCountry}`);
     } else {
-      logger?.warn(`GLS: SRS ShopReturn Service not available for country: ${country.toUpperCase()} (only HU and SI)`);
+      throw new Error(
+        `SRS (shopReturnServiceSRS): ShopReturn Service is only available for HU and SI, not ${deliveryCountry}`
+      );
     }
   }
 
@@ -490,6 +523,19 @@ export function mapCanonicalParcelToGLS(
   options?: CreateParcelsGLSCarrierOptions,
   logger?: Logger
 ): GLSParcel {
+  assertSupportedDestination(parcel);
+
+  // Serbia (GLS doc): sender identity card number / PIB and content are
+  // mandatory for Serbian senders (API errors 43/44). Fail before the call.
+  if ((parcel.shipper.address.country || 'HU').toUpperCase() === 'RS') {
+    if (!options?.senderIdentityCardNumber) {
+      throw new Error('senderIdentityCardNumber is required for Serbian (RS) senders');
+    }
+    if (!determineContent(parcel, options?.content)) {
+      throw new Error('content is required for Serbian (RS) senders');
+    }
+  }
+
   // Map shipper/sender address.
   //
   // GLSAddress keeps `name` (the business/addressee) and `contactName` (the

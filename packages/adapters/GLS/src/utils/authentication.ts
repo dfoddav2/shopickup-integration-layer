@@ -9,6 +9,7 @@
  */
 
 import { createHash } from 'crypto';
+import { GLS_SUPPORTED_COUNTRIES } from '../constants.js';
 
 /**
  * Computes SHA512 hash of a password and returns as byte array
@@ -42,29 +43,24 @@ export function hashPasswordSHA512(password: string): number[] {
 }
 
 /**
- * Determines the GLS API base URL based on country and environment
- * 
- * IMPORTANT: This adapter is HU-specific. Other countries are listed for reference
- * but may require additional configuration or validation.
- * 
- * Supported countries:
- * - HU (Hungary) - Primary/tested
- * - CZ (Czech Republic) - Secondary support
- * - HR (Croatia) - Secondary support
- * - RO (Romania) - Secondary support
- * - SI (Slovenia) - Secondary support
- * - SK (Slovakia) - Secondary support
- * - RS (Serbia) - Secondary support
- * 
+ * Determines the GLS API base URL based on country and environment.
+ *
+ * The country selects the MyGLS *account* endpoint (api.mygls.<cc>), not the
+ * parcel destination. Hungarian merchants ship to CZ, HR, RO, SI, SK and RS
+ * through the HU endpoint. See resolveGLSEndpointCountry for how the endpoint
+ * country is chosen.
+ *
+ * HU is the primary, live-tested market; the others are unit/mock tested only.
+ *
  * @param country ISO 3166-1 alpha-2 country code (uppercase or lowercase)
  * @param useTestApi If true, uses test API endpoint; otherwise production
  * @returns Base URL for GLS MyGLS API
  * @throws Error if country is not supported
- * 
+ *
  * @example
  * const prodUrl = resolveGLSBaseUrl("HU", false);
  * // "https://api.mygls.hu/ParcelService.svc"
- * 
+ *
  * const testUrl = resolveGLSBaseUrl("hu", true);
  * // "https://api.test.mygls.hu/ParcelService.svc"
  */
@@ -75,7 +71,7 @@ export function resolveGLSBaseUrl(
   const countryCode = country.toUpperCase();
   
   // Validate country is supported
-  const supportedCountries = ['HU', 'CZ', 'HR', 'RO', 'SI', 'SK', 'RS'];
+  const supportedCountries: readonly string[] = GLS_SUPPORTED_COUNTRIES;
   if (!supportedCountries.includes(countryCode)) {
     throw new Error(
       `Unsupported country: ${countryCode}. Supported countries: ${supportedCountries.join(', ')}`
@@ -261,4 +257,25 @@ export function convertToPascalCase(obj: Record<string, any>): Record<string, an
   }
   
   return result;
+}
+
+/**
+ * Picks the MyGLS endpoint country for a request.
+ *
+ * Precedence: `options.gls.country` -> legacy `options.country` ->
+ * shipper (sender) country -> 'HU'. The result is uppercase.
+ *
+ * Operations without a parcel in hand (labels by id, tracking) pass no shipper
+ * country and fall back to 'HU' unless the caller sets the option explicitly.
+ */
+export function resolveGLSEndpointCountry(
+  options?: { country?: unknown; gls?: { country?: unknown } } | null,
+  shipperCountry?: string | null
+): string {
+  const candidate =
+    (options?.gls?.country as string | undefined) ||
+    (options?.country as string | undefined) ||
+    shipperCountry ||
+    'HU';
+  return candidate.toUpperCase();
 }

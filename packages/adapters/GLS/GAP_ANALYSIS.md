@@ -158,5 +158,5 @@ All 23 service codes are now supported. Services are built from two sources:
 
 ## Test Results
 
-- GLS adapter: **X tests passed** (up from Y)
+- GLS adapter: **223 unit and mock tests passed** (live tests are run separately via `test:live`)
 - Full repo: **566 tests passed** across 33 files

@@ -4,7 +4,7 @@
  * Creates labels and retrieves PDF files in one call using GLS MyGLS API PrintLabels endpoint.
  * PrintLabels internally performs PrepareLabels + GetPrintedLabels in a single API call.
  * 
- * IMPORTANT: This is HU-specific implementation.
+ * IMPORTANT: The MyGLS endpoint is chosen by the sender (account) country, see resolveGLSEndpointCountry.
  */
 
 import type {
@@ -21,6 +21,7 @@ import {
 import {
   hashPasswordSHA512,
   resolveGLSBaseUrl,
+  resolveGLSEndpointCountry,
   validateGLSCredentials,
   convertToPascalCase,
 } from '../utils/authentication.js';
@@ -106,7 +107,7 @@ export async function printLabel(
  * Returns PDF bytes in rawCarrierResponse for integrator to store/upload.
  * Per-label metadata is in files array.
  * 
- * IMPORTANT: This is HU-specific implementation.
+ * IMPORTANT: The MyGLS endpoint is chosen by the sender (account) country, see resolveGLSEndpointCountry.
  * 
  * @param req Request with canonical parcels to print
  * @param ctx Adapter context with HTTP client
@@ -149,7 +150,7 @@ export async function printLabels(
     }
 
     // Extract country and test mode from options
-    const country = (validated.options?.gls?.country as string) || 'HU';
+    const country = resolveGLSEndpointCountry(validated.options as any, (validated.parcels as any)?.[0]?.shipper?.address?.country);
     const useTestApi = (validated.options?.useTestApi as boolean) || false;
 
     // Resolve GLS base URL
@@ -170,8 +171,8 @@ export async function printLabels(
     const clientNumber = credentials.clientNumberList[0];
 
     // Map canonical request to GLS PrintLabels request
-    // Carrier options are not passed through PrintLabels — use the two-step
-    // flow (create-parcel → create-label) when carrier-level overrides are needed.
+    // Carrier options (options.gls) are forwarded to the parcel mapper because
+    // the one-step flow creates the parcels as well.
     const glsRequestCamelCase = mapCanonicalCreateLabelsToGLSPrintLabels(
       validated,
       clientNumber,
@@ -181,7 +182,7 @@ export async function printLabels(
       validated.options?.gls?.printerType,
       validated.options?.gls?.printPosition,
       validated.options?.gls?.showPrintDialog,
-      undefined,
+      validated.options?.gls as any,
     );
 
     // Convert to PascalCase (matching PHP example)

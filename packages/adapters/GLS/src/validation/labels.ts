@@ -17,6 +17,7 @@ import { z } from 'zod';
 import {
   GLSCredentialsSchema,
   GLSPrinterOptionsSchema,
+  GLSCarrierOptionsSchema,
   PrinterTypeEnum,
   type GLSCredentials,
   type GLSPrinterOptions,
@@ -132,7 +133,10 @@ const CanonicalParcelSchema = z.object({
  */
 const GLSPrintLabelsOptionsSchema = z.object({
   useTestApi: z.boolean().optional(),
-  gls: GLSPrinterOptionsSchema.optional(),
+  country: z.string().min(2).max(2).optional(),
+  // One-step PrintLabels creates the parcel too, so carrier options (e.g.
+  // senderIdentityCardNumber, content, SRS) are accepted next to printer options.
+  gls: GLSPrinterOptionsSchema.extend(GLSCarrierOptionsSchema.shape).optional(),
 }).optional();
 
 /**
@@ -145,6 +149,7 @@ export const GLSCreateLabelsRequestSchema = z.object({
   options: z
     .object({
       useTestApi: z.boolean().optional(),
+      country: z.string().min(2).max(2).optional(),
       gls: z
         .object({
           printerType: PrinterTypeEnum.optional(),
@@ -167,6 +172,7 @@ export const GLSCreateLabelRequestSchema = z.object({
   options: z
     .object({
       useTestApi: z.boolean().optional(),
+      country: z.string().min(2).max(2).optional(),
       gls: z
         .object({
           printerType: PrinterTypeEnum.optional(),
