@@ -202,6 +202,13 @@ export interface CarrierAdapter {
   readonly displayName?: string;
 
   /**
+   * Destination countries (ISO 3166-1 alpha-2, uppercase) this adapter can
+   * create shipments to. Documentation and filtering aid for orchestrators;
+   * adapters still validate per call. Omitted means "not declared".
+   */
+  readonly supportedCountries?: readonly string[];
+
+  /**
    * List of capabilities this adapter supports
    * Orchestrator checks this to decide which methods to call
    */
