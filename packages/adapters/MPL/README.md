@@ -76,6 +76,10 @@ const result = await adapter.exchangeAuthToken(
 );
 ```
 
+## Supported countries
+
+Domestic only: `supportedCountries` and the exported `MPL_SUPPORTED_COUNTRIES` constant are `['HU']`. The adapter contains international service codes (`A_123_EUP`, `A_13_EMS`) and customs fields, but they are not exercised or verified, so international destinations are not declared as supported.
+
 ## Testing
 
 Tests are organized in three tiers under `src/tests/`:

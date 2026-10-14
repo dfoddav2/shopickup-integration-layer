@@ -65,6 +65,10 @@ const result = await executeCreateLabelFlow({
 });
 ```
 
+## Supported countries
+
+Domestic only: `supportedCountries` and the exported `FOXPOST_SUPPORTED_COUNTRIES` constant are `['HU']`. `recipientCountry` defaults to `HU` when omitted.
+
 ## Status
 
 Published as `0.x.x` while the adapter API is still evolving.

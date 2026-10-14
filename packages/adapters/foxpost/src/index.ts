@@ -80,9 +80,15 @@ import type {
  * - Tracking available via barcode (FoxWeb barcode format: CLFOX...)
  * - createLabel does not support per-call test mode (no request object in interface)
  */
+/** Destination countries supported for shipment creation (ISO 3166-1 alpha-2). */
+export const FOXPOST_SUPPORTED_COUNTRIES = ['HU'] as const;
+
 export class FoxpostAdapter implements CarrierAdapter {
   readonly id = "hu-foxpost";
   readonly displayName = "Foxpost Hungary";
+
+  /** Foxpost integration is domestic-only (Hungary). */
+  readonly supportedCountries = FOXPOST_SUPPORTED_COUNTRIES;
 
   readonly capabilities: Capability[] = [
     Capabilities.CREATE_PARCEL,
