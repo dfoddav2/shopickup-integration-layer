@@ -268,7 +268,17 @@ export async function registerCreateParcelsRoute(
              properties: {
                country: {
                  type: 'string',
-                 description: 'ISO 3166-1 alpha-2 country code (default: HU)',
+                 description: 'MyGLS endpoint country (the account country, NOT the destination). Defaults to the sender country, then HU. Hungarian merchants ship to CZ/HR/RO/SI/SK/RS through the HU endpoint.',
+               },
+               gls: {
+                 type: 'object',
+                 description: 'GLS-specific options',
+                 properties: {
+                   country: { type: 'string', description: 'Same as options.country; takes precedence' },
+                   senderIdentityCardNumber: { type: 'string', description: 'Required for Serbian (RS) senders: ID card number / PIB' },
+                   content: { type: 'string', description: 'Parcel content description (required for Serbian senders)' },
+                   shopReturnServiceSRS: { type: 'boolean', description: 'ShopReturn service (HU and SI destinations only)' },
+                 },
                },
                useTestApi: {
                  type: 'boolean',

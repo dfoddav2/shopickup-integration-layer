@@ -43,6 +43,16 @@ export async function registerTrackRoute(fastify: FastifyInstance, adapter: GLSA
           options: {
             type: 'object',
             properties: {
+              country: {
+                type: 'string',
+                description: 'MyGLS endpoint country (account country, e.g. HU). Defaults to HU.',
+              },
+              gls: {
+                type: 'object',
+                properties: {
+                  country: { type: 'string', description: 'Same as options.country; takes precedence' },
+                },
+              },
               useTestApi: {
                 type: 'boolean',
                 description: 'Use test/sandbox API',
@@ -161,6 +171,8 @@ export async function registerTrackRoute(fastify: FastifyInstance, adapter: GLSA
            },
            options: {
              useTestApi: options?.useTestApi || false,
+             ...(options?.country && { country: options.country }),
+             ...(options?.gls?.country && { gls: { country: options.gls.country } }),
              returnPOD: options?.returnPOD || false,
              languageIsoCode: options?.languageIsoCode || 'EN',
            },

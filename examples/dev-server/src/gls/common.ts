@@ -1,3 +1,4 @@
+import { GLS_PICKUP_POINT_COUNTRIES } from "@shopickup/adapters-gls";
 /**
  * GLS routes - Common utilities, schemas, and examples
  * Shared across all GLS route handlers
@@ -158,28 +159,6 @@ export const GLS_PICKUP_POINTS_RESPONSE_SCHEMA = {
 };
 
 /**
- * Supported GLS countries for OpenAPI documentation
+ * Countries accepted by the pickup points route (public feed; wider than the shipping list)
  */
-export const GLS_SUPPORTED_COUNTRIES = [
-  'AT', // Austria
-  'BE', // Belgium
-  'BG', // Bulgaria
-  'CZ', // Czech Republic
-  'DE', // Germany
-  'DK', // Denmark
-  'ES', // Spain
-  'FI', // Finland
-  'FR', // France
-  'GR', // Greece
-  'HR', // Croatia
-  'HU', // Hungary
-  'IT', // Italy
-  'LU', // Luxembourg
-  'NL', // Netherlands
-  'PL', // Poland
-  'PT', // Portugal
-  'RO', // Romania
-  'SI', // Slovenia
-  'SK', // Slovakia
-  'RS', // Serbia
-];
+export const GLS_SUPPORTED_COUNTRIES = GLS_PICKUP_POINT_COUNTRIES;
