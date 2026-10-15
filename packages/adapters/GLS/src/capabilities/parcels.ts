@@ -152,6 +152,17 @@ export async function createParcels(
       };
     }
 
+    // Results are paired with parcels by id, so ids must be unique in a batch.
+    const parcelIds = req.parcels.map((p: any) => p.id);
+    const duplicateId = parcelIds.find((id: string, i: number) => parcelIds.indexOf(id) !== i);
+    if (duplicateId !== undefined) {
+      throw new CarrierError(
+        `Duplicate parcel id in batch: ${duplicateId}. Parcel ids must be unique because GLS results are matched by client reference.`,
+        'Validation',
+        { carrierCode: 'hu-gls' }
+      );
+    }
+
     // Extract country and test mode from options
     const explicitCountry = (req.options as any)?.gls?.country || (req.options as any)?.country;
     const shipperCountries = new Set(
@@ -302,66 +313,124 @@ export async function createParcels(
       });
     }
 
-    // Map carrier response array -> CarrierResource[]
-    // GLS API returns both parcelInfoList and ParcelInfoList (case varies)
+    // GLS answers with two separate lists (successes, then errors) that are
+    // NOT in input order. Pair everything with the input parcels through the
+    // client reference (= parcel.id) and return one result per input parcel,
+    // in input order, so callers can never mislink a result to another parcel.
     const parcelList = (carrierRespBody.parcelInfoList || (carrierRespBody as any).ParcelInfoList || []) as any[];
     const errorList = (carrierRespBody.prepareLabelsError || (carrierRespBody as any).PrepareLabelsError || []) as any[];
 
-    // Group errors by client reference to avoid counting multiple errors for same parcel as separate parcels
-    const errorGroups = new Map<string, any[]>();
-    for (const err of errorList) {
-      const clientRefs = err.clientReferenceList || err.ClientReferenceList || [];
-      const inputId = clientRefs[0] || 'unknown';
-      if (!errorGroups.has(inputId)) {
-        errorGroups.set(inputId, []);
-      }
-      errorGroups.get(inputId)?.push(err);
+    if (parcelList.length === 0 && errorList.length === 0) {
+      throw new CarrierError('GLS returned no parcel results', 'Transient', { raw: carrierRespBody as any });
     }
 
-    const results: CarrierResource[] = [
-      ...parcelList.map((p: any, idx: number) => mapGLSParcelInfoToCarrierResource(p, idx)),
-      ...Array.from(errorGroups.entries()).map(([inputId, errors], idx: number) => {
-        const errorCode = errors[0].errorCode || errors[0].ErrorCode;
-        const errorDescription = errors[0].errorDescription || errors[0].ErrorDescription || 'Unknown error';
+    const inputIds: string[] = req.parcels.map((p: any) => p.id);
+    const inputIdSet = new Set(inputIds);
 
-        let category: 'Auth' | 'Validation' | 'Permanent' | 'Transient' = 'Validation';
-        if (errorCode === -1 || errorCode === 14 || errorCode === 15 || errorCode === 27) {
-          category = 'Auth';
-        } else if (errorCode >= 1000) {
-          category = 'Permanent';
-        }
+    // Errors by client reference. One GLS error can list several references.
+    // Errors without any reference apply to the batch as a whole.
+    const errorsByRef = new Map<string, any[]>();
+    const unattributedErrors: any[] = [];
+    for (const err of errorList) {
+      const refs: string[] = err.clientReferenceList || err.ClientReferenceList || [];
+      const known = refs.filter((r) => inputIdSet.has(r));
+      if (known.length === 0) {
+        unattributedErrors.push(err);
+        continue;
+      }
+      for (const ref of known) {
+        if (!errorsByRef.has(ref)) errorsByRef.set(ref, []);
+        errorsByRef.get(ref)!.push(err);
+      }
+    }
 
-        const failed: FailedCarrierResource = {
-          carrierId: undefined,
-          status: 'failed',
-          raw: serializeForLog(errors) as any,
-          errors: errors.map((err: any) => ({
-            code: String(err.errorCode || err.ErrorCode),
-            message: err.errorDescription || err.ErrorDescription || 'Unknown error',
-          })),
-        };
+    // Successes by client reference.
+    const successByRef = new Map<string, any>();
+    const unreferencedSuccesses: any[] = [];
+    for (const info of parcelList) {
+      const ref = info.clientReference ?? info.ClientReference;
+      if (ref != null && inputIdSet.has(ref) && !successByRef.has(ref)) {
+        successByRef.set(ref, info);
+      } else {
+        unreferencedSuccesses.push(info);
+      }
+    }
 
-        safeLog(
-          ctx.logger,
-          'warn',
-          'GLS: Parcel creation error',
-          {
-            inputId,
-            errorCode,
-            errorDescription,
-            category,
-            errorCount: errors.length,
-          },
-          ctx,
-          ['createParcels']
-        );
+    const buildFailure = (inputId: string, errors: any[]): FailedCarrierResource => {
+      const errorCode = errors[0].errorCode ?? errors[0].ErrorCode;
+      const errorDescription = errors[0].errorDescription || errors[0].ErrorDescription || 'Unknown error';
 
-        return failed;
-      }),
-    ];
+      let category: 'Auth' | 'Validation' | 'Permanent' | 'Transient' = 'Validation';
+      if (errorCode === -1 || errorCode === 14 || errorCode === 15 || errorCode === 27) {
+        category = 'Auth';
+      } else if (errorCode >= 1000) {
+        category = 'Permanent';
+      }
 
-    if (results.length === 0) {
-      throw new CarrierError('GLS returned no parcel results', 'Transient', { raw: carrierRespBody as any });
+      safeLog(
+        ctx.logger,
+        'warn',
+        'GLS: Parcel creation error',
+        { inputId, errorCode, errorDescription, category, errorCount: errors.length },
+        ctx,
+        ['createParcels']
+      );
+
+      return {
+        inputId,
+        carrierId: undefined,
+        status: 'failed',
+        raw: serializeForLog(errors) as any,
+        errors: errors.map((err: any) => ({
+          code: String(err.errorCode ?? err.ErrorCode),
+          message: err.errorDescription || err.ErrorDescription || 'Unknown error',
+        })),
+      };
+    };
+
+    const results: CarrierResource[] = inputIds.map((inputId) => {
+      const errors = errorsByRef.get(inputId);
+      if (errors) return buildFailure(inputId, errors);
+
+      const info = successByRef.get(inputId);
+      if (info) return mapGLSParcelInfoToCarrierResource(info, 0);
+
+      // In neither list: do not guess. Report it as failed so the caller never
+      // treats a parcel GLS did not confirm as created.
+      if (unattributedErrors.length > 0) return buildFailure(inputId, unattributedErrors);
+      safeLog(
+        ctx.logger,
+        'warn',
+        'GLS: Parcel missing from response',
+        { inputId },
+        ctx,
+        ['createParcels']
+      );
+      return {
+        inputId,
+        carrierId: undefined,
+        status: 'failed',
+        raw: undefined,
+        errors: [{ code: 'NO_RESULT', message: 'GLS returned neither a result nor an error for this parcel' }],
+      } as FailedCarrierResource;
+    });
+
+    // Successes GLS returned that we cannot tie to an input parcel (no or
+    // unknown ClientReference). They exist at GLS, so never drop them silently.
+    if (unreferencedSuccesses.length > 0) {
+      safeLog(
+        ctx.logger,
+        'error',
+        'GLS: Successful parcels without a matching client reference',
+        { count: unreferencedSuccesses.length },
+        ctx,
+        ['createParcels']
+      );
+      for (const info of unreferencedSuccesses) {
+        const orphan = mapGLSParcelInfoToCarrierResource(info, 0);
+        orphan.inputId = undefined;
+        results.push(orphan);
+      }
     }
 
     // Calculate summary statistics

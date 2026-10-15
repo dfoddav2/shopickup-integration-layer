@@ -80,6 +80,10 @@ const result = await adapter.exchangeAuthToken(
 
 Domestic only: `supportedCountries` and the exported `MPL_SUPPORTED_COUNTRIES` constant are `['HU']`. The adapter contains international service codes (`A_123_EUP`, `A_13_EMS`) and customs fields, but they are not exercised or verified, so international destinations are not declared as supported.
 
+## Matching `createParcels` results to input parcels
+
+Results have `inputId`, taken from the `webshopId` MPL echoes for every shipment (the parcel `id`), and are returned in input order when every result maps to a distinct input parcel. If `webshopId` is missing or unknown, MPL's order is kept and `inputId` is left unset.
+
 ## Testing
 
 Tests are organized in three tiers under `src/tests/`:

@@ -17,6 +17,15 @@ export interface ParcelValidationError {
  */
 export interface CarrierResource {
   /**
+   * The `id` of the input Parcel this result is for (batch operations such as
+   * createParcels). Lets callers pair results with the parcels they sent
+   * instead of relying on array position. Adapters set it when the carrier
+   * lets them tie a result to an input; absent means "unknown", so callers
+   * should fall back to position and treat that as a warning.
+   */
+  inputId?: string;
+
+  /**
    * Provider-assigned ID for this resource
    * Examples: shipment ID, parcel ID, label ID, tracking number
    */

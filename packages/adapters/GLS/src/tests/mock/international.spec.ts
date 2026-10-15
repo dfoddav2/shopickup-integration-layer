@@ -24,10 +24,10 @@ function recordingContext() {
 
 const credentials = { username: 'u@example.com', password: 'pw', clientNumberList: [123456789] };
 
-function parcel(shipperCountry: string, recipientCountry: string) {
+function parcel(shipperCountry: string, recipientCountry: string, id = 'ORDER-1') {
   const dial: Record<string, string> = { HU: '+36', CZ: '+420', RS: '+381' };
   return {
-    id: 'ORDER-1',
+    id,
     shipper: {
       contact: { name: 'Seller', phone: `${dial[shipperCountry]} 1 111 1111`, email: 's@example.com' },
       address: { name: 'Seller', street: 'Seller Street 1', city: 'City', postalCode: '1012', country: shipperCountry },
@@ -81,7 +81,7 @@ describe('GLS international endpoint routing', () => {
   it('rejects a batch with mixed sender countries and no explicit country', async () => {
     const { ctx, urls } = recordingContext();
     await expect(
-      new GLSAdapter().createParcels({ parcels: [parcel('HU', 'CZ'), parcel('CZ', 'HU')] as any, credentials }, ctx),
+      new GLSAdapter().createParcels({ parcels: [parcel('HU', 'CZ', 'A'), parcel('CZ', 'HU', 'B')] as any, credentials }, ctx),
     ).rejects.toThrow(/different sender countries/);
     expect(urls).toEqual([]);
   });

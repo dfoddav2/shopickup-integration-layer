@@ -127,6 +127,15 @@ Ready-made per-country parcels live in `examples/functions/fixtures/gls/create-p
 
 Run live tests per destination with `GLS_LIVE_DEST_COUNTRY=CZ pnpm --filter @shopickup/adapters-gls run test:live` (see `live.env.example`).
 
+## Matching `createParcels` results to input parcels
+
+Every result has `inputId`, the `id` of the parcel it belongs to, and `results` come back in **input order**, one per input parcel. GLS itself answers with all successes first and all errors after, so the adapter pairs them by `ClientReference` (= `parcel.id`):
+
+- an error that lists several client references applies to each of them
+- a parcel GLS returned neither a result nor an error for is a failed result with code `NO_RESULT`; the adapter never reports it as created
+- successes GLS returns without a known reference are appended after the ordered results with no `inputId`
+- parcel ids must be unique within a batch (duplicates are rejected before calling GLS)
+
 ## Status
 
 Published as `0.x.x` while the adapter API is still evolving.

@@ -655,6 +655,7 @@ export function mapGLSParcelInfoToCarrierResource(parcelInfo: any, index: number
   const clientReference = parcelInfo.clientReference ?? parcelInfo.ClientReference;
 
   return {
+    inputId: clientReference != null ? String(clientReference) : undefined,
     carrierId: parcelId != null ? String(parcelId) : undefined,
     status: 'created',
     raw: parcelInfo,

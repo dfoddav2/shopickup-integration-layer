@@ -69,6 +69,10 @@ const result = await executeCreateLabelFlow({
 
 Domestic only: `supportedCountries` and the exported `FOXPOST_SUPPORTED_COUNTRIES` constant are `['HU']`. `recipientCountry` defaults to `HU` when omitted.
 
+## Matching `createParcels` results to input parcels
+
+Results have `inputId` (the `id` of the parcel they belong to). Foxpost does not echo our parcel id, so it is taken from the response position, and only when the response has exactly one entry per input parcel. If the sizes differ, `inputId` is left unset and callers must not assume a pairing.
+
 ## Status
 
 Published as `0.x.x` while the adapter API is still evolving.

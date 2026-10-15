@@ -301,9 +301,17 @@ export async function createParcels(
       );
     }
 
+    // MPL echoes our `webshopId` (the canonical parcel id) on every result so
+    // responses can be paired with requests. Only accept ids that belong to
+    // this batch; anything else is treated as unknown.
+    const inputIds = new Set<string>(parsedReq.parcels.map((p: any) => p.id));
+    const inputIdOf = (result: ShipmentCreateResult): string | undefined =>
+      result.webshopId && inputIds.has(result.webshopId) ? result.webshopId : undefined;
+
     // Process each result
-    const results: CarrierResource[] = carrierRespBody.map(
+    const mappedResults: CarrierResource[] = carrierRespBody.map(
       (result: ShipmentCreateResult, idx: number) => {
+        const inputId = inputIdOf(result);
         // Validate result shape
         const resultValidation = safeValidateShipmentCreateResult(result);
         if (!resultValidation.success) {
@@ -332,6 +340,7 @@ export async function createParcels(
           });
 
           const failedResource: FailedCarrierResource = {
+            inputId,
             carrierId: undefined,
             status: 'failed',
             raw: serializeForLog(result) as any,
@@ -349,6 +358,7 @@ export async function createParcels(
           });
 
           const failedResource: FailedCarrierResource = {
+            inputId,
             carrierId: undefined,
             status: 'failed',
             raw: serializeForLog(result) as any,
@@ -366,6 +376,7 @@ export async function createParcels(
 
         // Success - shipment created with tracking number
         const successResource: CarrierResource = {
+          inputId,
           carrierId: result.trackingNumber,
           status: 'created',
           raw: serializeForLog(result) as any,
@@ -379,6 +390,14 @@ export async function createParcels(
 
         return successResource;
       },
+    );
+
+    // Return results in input order when every result can be tied to a
+    // distinct input parcel; otherwise keep MPL's order (inputId still set
+    // where known, callers fall back to position for the rest).
+    const results = alignToInputOrder(
+      parsedReq.parcels.map((p: any) => p.id),
+      mappedResults,
     );
 
     // Calculate summary statistics
@@ -429,4 +448,21 @@ export async function createParcels(
 
     throw translateMPLShipmentError(error);
   }
+}
+
+
+/**
+ * Reorders results to match the input parcel order using `inputId`.
+ * Applies only when there is exactly one result per input and every result
+ * carries a distinct inputId; otherwise the original order is returned.
+ */
+function alignToInputOrder(inputIds: string[], results: CarrierResource[]): CarrierResource[] {
+  if (results.length !== inputIds.length) return results;
+  const byInputId = new Map<string, CarrierResource>();
+  for (const r of results) {
+    if (!r.inputId || byInputId.has(r.inputId)) return results;
+    byInputId.set(r.inputId, r);
+  }
+  const ordered = inputIds.map((id) => byInputId.get(id));
+  return ordered.every((r): r is CarrierResource => !!r) ? ordered : results;
 }

@@ -217,8 +217,24 @@ export async function createParcels(
       );
     }
 
+    // Foxpost does not echo our parcel id (refCode is the optional customer
+    // reference, cut to 30 chars), so the only link is the response position.
+    // Only trust it when the response has exactly one entry per input parcel;
+    // otherwise leave inputId unset so callers do not mislink results.
+    const positionalInputIds = (response.parcels || []).length === req.parcels.length;
+    const inputIdAt = (idx: number): string | undefined =>
+      positionalInputIds ? req.parcels[idx].id : undefined;
+
+    if (!positionalInputIds) {
+      ctx.logger?.warn("Foxpost: response size differs from request; results carry no inputId", {
+        requested: req.parcels.length,
+        received: (response.parcels || []).length,
+      });
+    }
+
     // Map carrier response array -> CarrierResource[]
     const results: CarrierResource[] = (response.parcels || []).map((p: FoxPackage, idx: number) => {
+      const inputId = inputIdAt(idx);
       // Check for parcel-level validation errors
       if (p.errors && Array.isArray(p.errors) && p.errors.length > 0) {
         const errors: ParcelValidationError[] = p.errors.map((err: FoxFieldError): ParcelValidationError => ({
@@ -239,6 +255,7 @@ export async function createParcels(
         rawParcel.errors = errors;
 
         const failedResource: FailedCarrierResource = {
+          inputId,
           carrierId: undefined,
           status: "failed",
           raw: rawParcel,
@@ -258,6 +275,7 @@ export async function createParcels(
         });
 
         const failedResource: FailedCarrierResource = {
+          inputId,
           carrierId: undefined,
           status: "failed",
           raw: serializeForLog(p) as any,
@@ -273,6 +291,7 @@ export async function createParcels(
 
       // Success - parcel was created with barcode
       return {
+        inputId,
         carrierId,
         status: "created",
         raw: serializeForLog(p) as any,
