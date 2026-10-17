@@ -11,6 +11,8 @@ import type {
 } from '../types/generated.js';
 import type { FoxpostParcel, FoxpostPackageSize, FoxCreateParcelRequestItem } from '../validation.js';
 import { mapFoxpostStatusCode, getFoxpostStatusDescription } from './trackStatus.js';
+import { normalizeFoxpostMobilePhone, explainFoxpostPhoneFailure } from '../phone.js';
+import { FOXPOST_SUPPORTED_COUNTRIES } from '../constants.js';
 
 const FOXPOST_SIZES = ["xs", "s", "m", "l", "xl"] as const;
 type FoxpostSize = typeof FOXPOST_SIZES[number]; // "xs" | "s" | "m" | "l" | "xl"
@@ -55,6 +57,43 @@ function fitsDims(
     && parcelDimsSorted[1] <= maxDimsSorted[1]
     && parcelDimsSorted[2] <= maxDimsSorted[2]
   );
+}
+
+/**
+ * The recipient values Foxpost's API takes, as it takes them: the phone as a compact
+ * `+36...` mobile number and a home delivery's postal code as exactly four digits
+ * (checked against its test API, see phone.ts). Anything Foxpost would refuse for the
+ * whole batch is refused here, with the reason, and nothing is assumed: a missing
+ * country is an error, not Hungary, and so is a country Foxpost does not ship to
+ * (its server answers HTTP 500 for one).
+ */
+export function resolveFoxpostRecipient(parcel: Parcel): { phone: string; zip?: string; country?: string } {
+  const delivery = parcel.recipient.delivery;
+  const raw = parcel.recipient.contact.phone;
+
+  let phone = '';
+  if (raw) {
+    const result = normalizeFoxpostMobilePhone(raw);
+    if (!result.ok) throw new Error(explainFoxpostPhoneFailure(raw, result.reason));
+    phone = result.e164;
+  }
+
+  const country =
+    delivery.method === 'HOME' ? delivery.address.country : delivery.pickupPoint?.address?.country;
+  if (delivery.method === 'HOME' && !country?.trim()) {
+    throw new Error('Foxpost: the recipient country is missing');
+  }
+  const normalizedCountry = country?.trim().toUpperCase();
+  if (normalizedCountry && !(FOXPOST_SUPPORTED_COUNTRIES as readonly string[]).includes(normalizedCountry)) {
+    throw new Error(`Foxpost ships within Hungary only, not ${normalizedCountry}`);
+  }
+
+  if (delivery.method !== 'HOME') return { phone, country: normalizedCountry };
+  const zip = (delivery.address.postalCode ?? '').trim();
+  if (!/^\d{4}$/.test(zip)) {
+    throw new Error(`Foxpost needs a four-digit Hungarian postal code, got "${delivery.address.postalCode ?? ''}"`);
+  }
+  return { phone, zip, country: normalizedCountry };
 }
 
 /**
@@ -150,14 +189,15 @@ export function mapParcelToFoxpostRequest(
     ? delivery.address
     : undefined;
 
+  const resolved = resolveFoxpostRecipient(parcel);
   const recipient = {
     name: parcel.recipient.contact.name.substring(0, 150),
-    phone: parcel.recipient.contact.phone || "",
+    phone: resolved.phone,
     email: parcel.recipient.contact.email || "",
     city: recipientAddr?.city?.substring(0, 25),
-    zip: recipientAddr?.postalCode,
+    zip: resolved.zip,
     address: recipientAddr?.street?.substring(0, 150),
-    country: recipientAddr?.country || "HU",
+    country: resolved.country,
   };
 
   // COD amount from parcel if present, default to 0
@@ -241,14 +281,15 @@ export function mapParcelToFoxpost(
     ? delivery.address
     : undefined;
 
+  const resolved = resolveFoxpostRecipient(parcel);
   const recipient = {
     name: parcel.recipient.contact.name.substring(0, 150),
-    phone: parcel.recipient.contact.phone || "",
+    phone: resolved.phone,
     email: parcel.recipient.contact.email || "",
     city: recipientAddr?.city?.substring(0, 25),
-    zip: recipientAddr?.postalCode,
+    zip: resolved.zip,
     address: recipientAddr?.street?.substring(0, 150),
-    country: recipientAddr?.country || "HU",
+    country: resolved.country,
   };
 
   const foxpostRequest: FoxpostParcelRequest & { destination?: string } = {
@@ -376,6 +417,7 @@ export function mapParcelToFoxpostCarrierType(
 ): FoxpostParcel {
   const recipient = parcel.recipient;
   const delivery = recipient.delivery;
+  const resolved = resolveFoxpostRecipient(parcel);
 
   // Determine parcel size
   const size = (determineFoxpostSize(parcel) || 's').toUpperCase() as 'XS' | 'S' | 'M' | 'L' | 'XL' | '1' | '2' | '3' | '4' | '5';
@@ -395,7 +437,7 @@ export function mapParcelToFoxpostCarrierType(
       destination: delivery.pickupPoint.id,
       recipientEmail: recipient.contact.email || '',
       recipientName: recipient.contact.name.substring(0, 150),
-      recipientPhone: recipient.contact.phone || '',
+      recipientPhone: resolved.phone,
       refCode: parcel.references?.customerReference?.substring(0, 30),
       size,
     };
@@ -415,11 +457,11 @@ export function mapParcelToFoxpostCarrierType(
     label: false, // Default: Foxpost prints label for B2B, not for C2C
     recipientAddress: `${recipientAddr.street || ''}, ${recipientAddr.postalCode || ''} ${recipientAddr.city || ''}`.trim(),
     recipientCity: recipientAddr.city,
-    recipientCountry: recipientAddr.country,
+    recipientCountry: resolved.country,
     recipientEmail: recipient.contact.email || '',
     recipientName: recipient.contact.name.substring(0, 150),
-    recipientPhone: recipient.contact.phone || '',
-    recipientZip: recipientAddr.postalCode,
+    recipientPhone: resolved.phone,
+    recipientZip: resolved.zip as string, // always set for a home delivery
     refCode: parcel.references?.customerReference?.substring(0, 30),
     size,
   };

@@ -10,6 +10,8 @@
  */
 
 import type { Parcel, Contact as CoreContact, Address as CoreAddress, Delivery } from '@shopickup/core';
+import { normalizeMplPhone, MPL_PHONE_MAX_LENGTH } from '../phone.js';
+import { MPL_SUPPORTED_COUNTRIES } from '../constants.js';
 import type {
   ShipmentCreateRequest,
   Item,
@@ -115,9 +117,19 @@ export function mapDeliveryMode(
  * Maps canonical Contact to MPL Contact format
  */
 export function mapContact(contact: CoreContact): MPLContact {
+  // MPL only checks the length of the phone (14 characters), so separators are
+  // removed rather than the number refused or cut (see phone.ts).
+  let phone = contact.phone;
+  if (phone) {
+    const normalized = normalizeMplPhone(phone);
+    if (!normalized.ok) {
+      throw new Error(`MPL takes a phone number of at most ${MPL_PHONE_MAX_LENGTH} characters; "${phone}" is longer`);
+    }
+    phone = normalized.phone;
+  }
   return {
     name: contact.name,
-    phone: contact.phone,
+    phone,
     email: contact.email,
     organization: contact.company,
   };
@@ -132,8 +144,16 @@ export function mapContact(contact: CoreContact): MPLContact {
  * - address: 3-60 chars (street + house number)
  */
 export function mapAddress(address: CoreAddress): MPLAddress {
+  // MPL needs exactly four digits and validates that it is a real Hungarian postal
+  // code. This used to cut longer codes to four characters and pad shorter ones with
+  // zeros, which turned a foreign or mistyped code into a different, possibly valid
+  // Hungarian one; it is refused instead.
+  const postCode = (address.postalCode ?? '').trim();
+  if (!/^\d{4}$/.test(postCode)) {
+    throw new Error(`MPL needs a four-digit Hungarian postal code, got "${address.postalCode ?? ''}"`);
+  }
   return {
-    postCode: address.postalCode.slice(0, 4).padEnd(4, '0'), // Normalize to 4 digits
+    postCode,
     city: address.city.slice(0, 35),
     address: address.street.slice(0, 60),
     remark: (address as any).remark?.slice(0, 50),
@@ -145,6 +165,18 @@ export function mapAddress(address: CoreAddress): MPLAddress {
  * If PICKUP_POINT, includes pickup point information and parcelPickupSite
  */
 export function mapDeliveryAddress(delivery: Delivery): DeliveryAddress {
+  // MPL ships within Hungary through this integration. A missing country is an error,
+  // not Hungary, and a foreign one is refused (the address has no country field, so it
+  // would go out as a Hungarian address).
+  const country =
+    delivery.method === 'HOME' ? delivery.address.country : delivery.pickupPoint?.address?.country;
+  if (delivery.method === 'HOME' && !country?.trim()) {
+    throw new Error('MPL: the recipient country is missing');
+  }
+  const upper = country?.trim().toUpperCase();
+  if (upper && !(MPL_SUPPORTED_COUNTRIES as readonly string[]).includes(upper)) {
+    throw new Error(`MPL ships within Hungary only, not ${upper}`);
+  }
   if (delivery.method === 'HOME') {
     return mapAddress(delivery.address);
   } else {

@@ -80,6 +80,13 @@ const result = await adapter.exchangeAuthToken(
 
 Domestic only: `supportedCountries` and the exported `MPL_SUPPORTED_COUNTRIES` constant are `['HU']`. The adapter contains international service codes (`A_123_EUP`, `A_13_EMS`) and customs fields, but they are not exercised or verified, so international destinations are not declared as supported.
 
+The mapper enforces it: a home-delivery recipient without a country, or with one other than `HU`, throws instead of going out as a Hungarian address.
+
+### Phone numbers and postal codes (checked on the MPL sandbox, 2026-10-17)
+
+- **Phone**: the documentation says "Hungarian, E.164, at most 14 characters", but the API only enforces the length. `+36 20 123 4567` (separators count) and anything over 14 characters are refused (error 103); national forms, landlines, foreign numbers and a missing phone are accepted. The adapter removes spaces, dashes, dots and parentheses, writes `00`/`06` as `+`/`+36`, and throws when the result is still over 14 characters (`normalizeMplPhone`, exported).
+- **Postal code**: exactly four digits, and a real Hungarian code (`0000` is error 213; a city that does not match is accepted). The adapter used to cut longer codes to four characters and pad shorter ones with zeros; it now throws on anything that is not four digits.
+
 ## Matching `createParcels` results to input parcels
 
 Results have `inputId`, taken from the `webshopId` MPL echoes for every shipment (the parcel `id`), and are returned in input order when every result maps to a distinct input parcel. If `webshopId` is missing or unknown, MPL's order is kept and `inputId` is left unset.

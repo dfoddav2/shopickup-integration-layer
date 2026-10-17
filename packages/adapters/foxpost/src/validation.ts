@@ -152,10 +152,11 @@ const FoxpostPackageSizeSchema = z.enum(['XS', 'S', 'M', 'L', 'XL', '1', '2', '3
 export type FoxpostPackageSize = z.infer<typeof FoxpostPackageSizeSchema>;
 
 /**
- * Hungarian phone number schema (mobile only, +36 or 36 prefix)
+ * Hungarian phone number schema (mobile only, +36 or 36 prefix). Prefix 51 is not
+ * accepted: Foxpost's API refuses it (checked on its test API, 2026-10-17; see phone.ts).
  */
 const HungarianPhoneSchema = z.string().regex(
-  /^(\+36|36)(20|30|31|70|50|51)\d{7}$/,
+  /^(\+36|36)(20|30|31|50|70)\d{7}$/,
   'Phone must be Hungarian mobile'
 );
 

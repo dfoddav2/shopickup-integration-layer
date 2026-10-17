@@ -69,6 +69,12 @@ const result = await executeCreateLabelFlow({
 
 Domestic only: `supportedCountries` and the exported `FOXPOST_SUPPORTED_COUNTRIES` constant are `['HU']`. `recipientCountry` defaults to `HU` when omitted.
 
+### Phone numbers and postal codes (checked on the Foxpost test API, 2026-10-17)
+
+- **Phone** (home delivery and pickup points): compact `+36` or `36` plus `20`, `30`, `31`, `50` or `70` and seven digits. Prefix `51`, landlines, spaces, `06...` and foreign numbers are refused. The adapter accepts the usual spellings (spaces, dashes, `06`, `0036`) and writes them as `+36XXXXXXXXX` (`normalizeFoxpostMobilePhone`, exported); anything else throws.
+- **Postal code** (home delivery): exactly four digits.
+- **Country**: a foreign `recipientCountry` makes Foxpost answer HTTP 500, so a missing or non-`HU` country throws; there is no `HU` default.
+
 ## Matching `createParcels` results to input parcels
 
 Results have `inputId` (the `id` of the parcel they belong to). Foxpost does not echo our parcel id, so it is taken from the response position, and only when the response has exactly one entry per input parcel. If the sizes differ, `inputId` is left unset and callers must not assume a pairing.

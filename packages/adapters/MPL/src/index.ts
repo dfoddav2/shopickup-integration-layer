@@ -47,8 +47,9 @@ import type { CreateParcelMPLRequest, CreateParcelsMPLRequest, CreateLabelMPLReq
  * - Tracking available via barcode (FoxWeb barcode format: CLFOX...)
  * - createLabel does not support per-call test mode (no request object in interface)
  */
-/** Destination countries supported for shipment creation (ISO 3166-1 alpha-2). */
-export const MPL_SUPPORTED_COUNTRIES = ['HU'] as const;
+import { MPL_SUPPORTED_COUNTRIES } from './constants.js';
+export { MPL_SUPPORTED_COUNTRIES };
+export * from './phone.js';
 
 export class MPLAdapter implements CarrierAdapter {
     readonly id = "hu-mpl";
