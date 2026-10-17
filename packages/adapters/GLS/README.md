@@ -108,20 +108,47 @@ await adapter.createParcels(
 Rules enforced before calling GLS:
 
 - Destination must be in `GLS_SUPPORTED_COUNTRIES` (otherwise a clear error; for example AT and DE are pickup-point only).
-- `shopReturnServiceSRS` is only available for HU and SI destinations (GLS API doc, Appendix B).
-- Declared value (DPV) needs an explicit currency for non-HU destinations. HUF is only defaulted for HU.
+- `shopReturnServiceSRS` is only available for HU and SI destinations (GLS API doc, Appendix B). On the test API GLS accepted it for HU only; see [Service availability](#service-availability-by-destination-country).
+- Declared value (DPV) needs an explicit currency for non-HU destinations. HUF is only defaulted for HU. This is the adapter's own convention: GLS treats the DPV `StringValue` as free text (the documentation's example is `"APITEST"`) and accepted any non-empty value, including a currency code that does not match the country.
 - Serbian senders (shipper country `RS`) must supply `options.gls.senderIdentityCardNumber` (ID card number or PIB) and `content` (GLS errors 43/44).
-- SMS-based services validate the phone prefix against the destination country.
+- The recipient phone for a pickup-point (PSD) parcel, `SM2` and `FSS` must be a valid **mobile** number of the destination country, as GLS requires (see "Phone numbers" below). It may be written in any common way (`+420 602 123 456`, `00420602123456`, `0905 123 456`, ...); the adapter sends the E.164 form (`+420602123456`) and throws before the request when the number is a landline, another country's, or not a plausible mobile number. `CS1` and the plain contact phone are only normalised, never refused. The rules are in `src/phone.ts` (`normalizeGLSMobilePhone`, no dependencies) and are exported.
 
 ### Verification status
 
 | Route | Create + label | Tracking |
 |---|---|---|
 | HU → HU | Live verified | Live verified |
-| HU → CZ, SK, RO, HR, SI, RS | Live verified (test API) | Live verified: found about 30s after creation, `deliveryCountryCode` matches the destination |
+| HU → CZ, SK, RO, HR, SI, RS | Parcel creation live verified (test API), including pickup points (PSD). **Labels: GLS test API answered error 1000 for every non-HU destination on 2026-10-17**, also in this package's own live test, which had passed on 2026-10-14/15 | Verified 2026-10-14/15 (found about 30s after creation, `deliveryCountryCode` matches the destination); not re-verified because it needs the label's parcel number |
 | Sender in CZ/HR/RO/SI/SK/RS (local endpoint) | Routing unit/mock tested only | Not verified |
 
-Known documentation gaps (GLS API doc ver. 25.12.11): which endpoint a cross-border parcel must use is not stated, per-country service availability is only partly documented, COD currency rules per country are not documented, there are no customs input fields, and the tracking language list has no Serbian entry.
+Known documentation gaps (GLS API doc ver. 25.12.11): the document only describes the API per account country and never cross-border shipping, so which endpoint a cross-border parcel must use is not stated; per-country service availability is one sentence ("Not all services are available in each country or area") plus SRS; COD currency rules per country are not documented (only error 48, "Invalid COD currency ISO code"); there are no customs input fields; and the tracking language list has no Serbian entry. The next section records what was found by asking GLS's test API instead.
+
+### Service availability by destination country
+
+Verified on **2026-10-17** against the GLS **test** API (`api.test.mygls.hu`), HU account, HU sender: each service sent on its own with `PrepareLabels`. "yes" means GLS created the parcel; "no" is GLS's own `Service not available to country, Service 'X'` (error 13). Labels were not needed (and could not be generated abroad that day), so this is parcel-creation acceptance only.
+
+| Destination | FDS | FSS (with FDS) | SM2 | 24H | CS1 | SRS | PSD (pickup point) |
+|---|---|---|---|---|---|---|---|
+| HU | yes | yes | yes | yes | yes | yes | yes |
+| CZ | yes | yes | no | no | no | no | yes |
+| SK | yes | yes | yes | yes | yes | no | yes |
+| HR | yes | yes | no | no | no | no | yes |
+| RO | yes | yes | no | no | no | no | yes |
+| SI | yes | yes | no | no | no | no | yes |
+| RS | no | no | no | no | no | no | no pickup points in the feed |
+
+The same table is encoded in `GLS_SERVICE_CONSTRAINTS[...].countries` (`src/service-constraints.ts`) and read with `isServiceAvailableForCountry(code, country)` or `isServiceAllowedForDelivery(code, deliveryMethod, country)`. The mapper does not consult it (an explicitly requested service stays a caller decision, except SRS, which keeps the documented HU/SI rule); applications narrow their defaults with it.
+
+Findings from the same run, and how they compare with the documentation:
+
+- **SRS:** documented as "Available only in HU and SI"; GLS refused it for SI and every other country. The table follows the test.
+- **Home-only services:** FDS, FSS and CS1 together with PSD are refused by GLS itself (`Service matrix violated`, HU, CZ and SK checked). The documentation does not say this; it was previously only known from the MyGLS web UI.
+- **Phone numbers (checked in 6 destinations, ~130 requests):** GLS does not compare a prefix, it parses the number against the destination country and, for the SMS-based parameters (the pickup-point `PSD` contact phone, `SM2`, `FSS`), requires a valid **mobile** number of that country. Accepted: `+cc...` with spaces, dashes or parentheses, `00cc...`, `cc...` without the plus, and the national form with or without the trunk zero (`0905...` and `905...`). Refused: `+cc` followed by the trunk zero (`+4210905...`), implausible, too short or too long numbers, letters, an empty value, a landline (valid fixed-line numbers were refused in HU, CZ, HR, RO and SK), and a number of another country (`+43`, `+49`; the only exception seen is SK accepting a Hungarian mobile number). `CS1` and the plain home-delivery contact phone accept anything, even a landline or no phone. An agreement check with libphonenumber (`isValid()` and the destination as the number's country) matched GLS on 98 of the first 102 requests; the other four were `+cc0...` numbers, which the library silently repairs and GLS refuses, and the mobile/landline split matched in every country. None of this is in the documentation.
+- **DPV:** `StringValue` is free text; only an empty value is refused.
+- **COD:** HU accepts HUF. Abroad GLS only accepts the destination's own currency (HUF everywhere and EUR for non-euro countries answer `Invalid COD currency ISO code`), and with the right currency the test client answered `Cod not allowed for 'Client Id'` for every foreign destination, so COD abroad is a client-level permission that was not enabled and is unverified. Amounts above the limit answer `Cod amount exceeded`.
+- **Error 1000** (`Unexpected exception happened`, documented as a generic error) is what GLS returned for label generation abroad on 2026-10-17; the message was `Object reference not set to an instance of an object`.
+
+To re-check the table: `GLS_LIVE_SERVICE_MATRIX=true pnpm --filter @shopickup/adapters-gls run test:live service-matrix` (about 40 test parcels). It fails with a list of the rows where GLS and the table disagree.
 
 Ready-made per-country parcels live in `examples/functions/fixtures/gls/create-parcel-<cc>.json` (cz, sk, ro, hr, si, rs); from `examples/functions`, run one with `pnpm run cli -- --run gls.create-parcel --args fixtures/gls/create-parcel-sk.json --mock`.
 

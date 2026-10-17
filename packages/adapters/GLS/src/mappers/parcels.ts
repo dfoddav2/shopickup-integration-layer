@@ -5,6 +5,7 @@
  * Destinations are limited to GLS_SUPPORTED_COUNTRIES (HU, CZ, HR, RO, SI, SK, RS).
  */
 
+import { normalizeGLSMobilePhone, normalizeGLSPhoneLoosely, explainGLSPhoneFailure } from '../phone.js';
 import { GLS_SUPPORTED_COUNTRIES } from '../constants.js';
 import type { Parcel } from '@shopickup/core';
 import type { GLSParcel, GLSAddress, GLSParcelProperty, GLSService } from '../types/index.js';
@@ -93,60 +94,37 @@ function isValidEmail(email: string): boolean {
 }
 
 /**
- * Maps ISO 3166-1 alpha-2 country codes to international dialing prefixes.
- * Covers all countries supported by GLS.
+ * Checks and normalises a recipient phone number for a service GLS validates
+ * (PSD, SM2, FSS): it must be a valid MOBILE number of the destination country,
+ * written in any common way (see phone.ts). Returns the E.164 form to send, or
+ * throws with `label` in the message.
  */
-const COUNTRY_DIAL_PREFIXES: Record<string, string> = {
-  HU: '+36',
-  AT: '+43',
-  BE: '+32',
-  BG: '+359',
-  CZ: '+420',
-  DE: '+49',
-  DK: '+45',
-  ES: '+34',
-  FI: '+358',
-  FR: '+33',
-  GR: '+30',
-  HR: '+385',
-  IT: '+39',
-  LU: '+352',
-  NL: '+31',
-  PL: '+48',
-  PT: '+351',
-  RO: '+40',
-  SI: '+386',
-  SK: '+421',
-  RS: '+381',
-};
-
-/**
- * Returns the expected international dialing prefix for a given ISO country code.
- */
-function getCountryDialPrefix(country: string): string | undefined {
-  return COUNTRY_DIAL_PREFIXES[country.toUpperCase()];
+function mobilePhoneFor(label: string, phone: string, country: string): string {
+  const result = normalizeGLSMobilePhone(phone, country);
+  if (!result.ok) {
+    throw new Error(`${label}: ${explainGLSPhoneFailure(phone, country, result.reason)}`);
+  }
+  return result.e164;
 }
 
 /**
- * Validates phone number format (international format with +countrycode)
- * and checks that the country code matches the expected destination country.
- *
- * @param phone Phone number in international format (e.g., "+36301234567")
- * @param country ISO 3166-1 alpha-2 destination country code (e.g., "HU")
- * @returns Error message if invalid, empty string if valid
+ * The recipient phone as it goes into the delivery address and the services.
+ * Where GLS validates it (pickup-point parcel, SM2, FSS) it is the normalised
+ * mobile number (the service builder has already refused one that is not); for
+ * everything else GLS accepts any value, so a valid mobile number is normalised
+ * and anything else is sent unchanged.
  */
-function validatePhoneNumber(phone: string, country: string): string {
-  const phoneRegex = /^\+[1-9][\d\s]+$/;
-  if (!phoneRegex.test(phone)) {
-    return `Phone number must be in international format starting with +, got: "${phone}"`;
+export function resolveRecipientPhone(parcel: Parcel, options?: CreateParcelsGLSCarrierOptions): string | undefined {
+  const phone = parcel.recipient.contact.phone;
+  if (!phone) return undefined;
+  const country = resolveDestinationCountry(parcel);
+  const needsMobile =
+    parcel.recipient.delivery.method === 'PICKUP_POINT' || options?.smsPreadviceSM2 || options?.flexDeliveryServiceSmsFSS;
+  if (needsMobile) {
+    const result = normalizeGLSMobilePhone(phone, country);
+    return result.ok ? result.e164 : phone;
   }
-
-  const expectedPrefix = getCountryDialPrefix(country);
-  if (expectedPrefix && !phone.startsWith(expectedPrefix)) {
-    return `Phone number "${phone}" does not match destination country ${country.toUpperCase()}. Expected a ${country.toUpperCase()} phone number (${expectedPrefix}...).`;
-  }
-
-  return '';
+  return normalizeGLSPhoneLoosely(phone, country);
 }
 
 /**
@@ -217,10 +195,7 @@ export function buildGLSServiceList(
     if (!parcel.recipient.contact.phone) {
       throw new Error('PSD (Parcel Shop Delivery) requires recipient.contact.phone');
     }
-    const psdPhoneError = validatePhoneNumber(parcel.recipient.contact.phone, deliveryCountry);
-    if (psdPhoneError) {
-      throw new Error(`PSD (Parcel Shop Delivery) - delivery address ContactPhone: ${psdPhoneError}`);
-    }
+    mobilePhoneFor('PSD (Parcel Shop Delivery) - delivery address ContactPhone', parcel.recipient.contact.phone, deliveryCountry);
     const pickupPoint = parcel.recipient.delivery.pickupPoint;
     services.push({
       code: 'PSD',
@@ -302,15 +277,12 @@ export function buildGLSServiceList(
     } else if (options.flexDeliveryServiceEmailFDS && !isValidEmail(parcel.recipient.contact.email || '')) {
       throw new Error('FSS (flexDeliveryServiceSmsFSS) requires valid email in recipient.contact.email');
     }
-    const phoneError = validatePhoneNumber(parcel.recipient.contact.phone, deliveryCountry);
-    if (phoneError) {
-      throw new Error(`FSS (flexDeliveryServiceSmsFSS): ${phoneError}`);
-    }
+    const fssPhone = mobilePhoneFor('FSS (flexDeliveryServiceSmsFSS)', parcel.recipient.contact.phone, deliveryCountry);
     services.push({
       code: 'FSS',
-      fssParameter: { value: parcel.recipient.contact.phone },
+      fssParameter: { value: fssPhone },
     });
-    logger?.debug(`GLS: Added FSS service for phone: ${parcel.recipient.contact.phone}`);
+    logger?.debug(`GLS: Added FSS service for phone: ${fssPhone}`);
   }
 
   // Guaranteed 24H service
@@ -324,15 +296,13 @@ export function buildGLSServiceList(
     if (!parcel.recipient.contact.phone) {
       throw new Error('CS1 Contact Service requires recipient.contact.phone');
     }
-    const phoneError = validatePhoneNumber(parcel.recipient.contact.phone, deliveryCountry);
-    if (phoneError) {
-      throw new Error(`CS1 (contactServiceCS1): ${phoneError}`);
-    }
+    // GLS accepts any CS1 phone (even a landline), so it is only normalised, never refused.
+    const cs1Phone = normalizeGLSPhoneLoosely(parcel.recipient.contact.phone, deliveryCountry);
     services.push({
       code: 'CS1',
-      cs1Parameter: { value: parcel.recipient.contact.phone },
+      cs1Parameter: { value: cs1Phone },
     });
-    logger?.debug(`GLS: Added CS1 Contact Service for phone: ${parcel.recipient.contact.phone}`);
+    logger?.debug(`GLS: Added CS1 Contact Service for phone: ${cs1Phone}`);
   }
 
   // SM2 SMS Pre-advice
@@ -340,15 +310,12 @@ export function buildGLSServiceList(
     if (!parcel.recipient.contact.phone) {
       throw new Error('SM2 SMS Pre-advice requires recipient.contact.phone');
     }
-    const phoneError = validatePhoneNumber(parcel.recipient.contact.phone, deliveryCountry);
-    if (phoneError) {
-      throw new Error(`SM2 (smsPreadviceSM2): ${phoneError}`);
-    }
+    const sm2Phone = mobilePhoneFor('SM2 (smsPreadviceSM2)', parcel.recipient.contact.phone, deliveryCountry);
     services.push({
       code: 'SM2',
-      sm2Parameter: { value: parcel.recipient.contact.phone },
+      sm2Parameter: { value: sm2Phone },
     });
-    logger?.debug(`GLS: Added SM2 SMS Pre-advice for phone: ${parcel.recipient.contact.phone}`);
+    logger?.debug(`GLS: Added SM2 SMS Pre-advice for phone: ${sm2Phone}`);
   }
 
   // ShopReturn Service (SRS) - Available only in HU and SI (GLS API doc, Appendix B)
@@ -570,7 +537,7 @@ export function mapCanonicalParcelToGLS(
         parcel.recipient.contact.company ||
         parcel.recipient.contact.name,
       contactName: parcel.recipient.contact.name,
-      contactPhone: parcel.recipient.contact.phone,
+      contactPhone: resolveRecipientPhone(parcel, options),
       contactEmail: parcel.recipient.contact.email,
     };
   } else {
@@ -587,7 +554,7 @@ export function mapCanonicalParcelToGLS(
       postalCode: pickupPoint.address?.postalCode || '1011',
       country: pickupPoint.address?.country || 'HU',
       contactName: parcel.recipient.contact.name,
-      contactPhone: parcel.recipient.contact.phone,
+      contactPhone: resolveRecipientPhone(parcel, options),
       contactEmail: parcel.recipient.contact.email,
     };
   }

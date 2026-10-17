@@ -298,4 +298,5 @@ export * from './validation.js';
 // the same HD/APM rules in their own UI and settings validation rather
 // than restating them and drifting from the adapter.
 export * from './service-constraints.js';
+export * from './phone.js';
 export * from './constants.js';

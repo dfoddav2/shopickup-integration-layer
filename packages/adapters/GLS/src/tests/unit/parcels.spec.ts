@@ -47,7 +47,7 @@ describe('GLS Parcel Mapper', () => {
     recipient: {
       contact: {
         name: 'Buyer Person',
-        phone: '+36 1 222 2222',
+        phone: '+36 30 222 2222',
         email: 'buyer@example.com',
       },
       delivery: {
@@ -471,7 +471,7 @@ it('should include PSD for pickup point delivery', () => {
       const services = buildGLSServiceList(mockParcel as any, { flexDeliveryServiceEmailFDS: true, flexDeliveryServiceSmsFSS: true });
       const fss = services.find((s) => s.code === 'FSS');
       expect(fss).toBeDefined();
-      expect(fss!.fssParameter).toEqual({ value: '+36 1 222 2222' });
+      expect(fss!.fssParameter).toEqual({ value: '+36302222222' });
     });
 
     it('should merge explicit services', () => {

@@ -19,8 +19,10 @@ import {
 } from '../../mappers/parcels.js';
 
 const INTERNATIONAL = ['CZ', 'HR', 'RO', 'SI', 'SK', 'RS'] as const;
-const DIAL: Record<string, string> = {
-  HU: '+36', CZ: '+420', HR: '+385', RO: '+40', SI: '+386', SK: '+421', RS: '+381',
+// A valid mobile number per destination: GLS refuses anything else for PSD, SM2 and FSS (see phone.ts).
+const MOBILE: Record<string, string> = {
+  HU: '+36 30 123 4567', CZ: '+420 601 123 456', HR: '+385 92 123 4567', RO: '+40 712 034 567',
+  SI: '+386 31 234 567', SK: '+421 912 123 456', RS: '+381 60 1234567',
 };
 
 function parcelTo(country: string) {
@@ -31,7 +33,7 @@ function parcelTo(country: string) {
       address: { street: 'Seller Street', houseNumber: '1', city: 'Budapest', postalCode: '1012', country: 'HU' },
     },
     recipient: {
-      contact: { name: 'Buyer Person', phone: `${DIAL[country]} 123 456 789`, email: 'buyer@example.com' },
+      contact: { name: 'Buyer Person', phone: MOBILE[country], email: 'buyer@example.com' },
       delivery: {
         method: 'HOME',
         address: { street: 'Buyer Street', houseNumber: '5', city: 'Somewhere', postalCode: '1000', country },
